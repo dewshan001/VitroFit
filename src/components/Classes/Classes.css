@@ -1,0 +1,200 @@
+/* Classes Section */
+.classes {
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.classes-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.classes-outline {
+  -webkit-text-stroke: 2px rgba(255,255,255,0.3);
+  color: transparent;
+}
+
+.classes-carousel {
+  position: relative;
+}
+
+.classes-track-wrapper {
+  overflow: hidden;
+}
+
+.classes-track {
+  display: flex;
+  gap: 1.5rem;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.class-card {
+  min-width: calc(25% - 1.125rem);
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  group: true;
+  transition: var(--transition);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.class-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-accent);
+}
+
+.class-card-image {
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  object-position: center top;
+  filter: grayscale(80%) brightness(0.75);
+  transition: var(--transition);
+}
+
+.class-card:hover .class-card-image {
+  filter: grayscale(40%) brightness(0.9);
+  transform: scale(1.05);
+}
+
+.class-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 40%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  transition: var(--transition);
+}
+
+.class-card-view-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  background: rgba(17,17,17,0.9);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 10px 22px;
+  font-size: 0.8rem;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+  cursor: pointer;
+  opacity: 0;
+  transition: var(--transition);
+  backdrop-filter: blur(10px);
+}
+
+.class-card:hover .class-card-view-btn {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.class-card-accent {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 60px;
+  height: 60px;
+  background: var(--accent);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.class-card:hover .class-card-accent {
+  opacity: 1;
+}
+
+.class-card-category {
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.class-card-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+}
+
+.class-card:not(:first-child) .class-card-title {
+  text-decoration: none;
+}
+
+.class-card-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Carousel indicators */
+.classes-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+}
+
+.classes-indicator {
+  width: 40px;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+}
+
+.classes-indicator.active {
+  background: var(--accent);
+  width: 60px;
+}
+
+/* Carousel nav */
+.classes-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.classes-nav-btn {
+  width: 44px;
+  height: 44px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+}
+
+.classes-nav-btn:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+@media (max-width: 1024px) {
+  .class-card { min-width: calc(50% - 0.75rem); }
+}
+@media (max-width: 600px) {
+  .class-card { min-width: calc(100%); }
+}
