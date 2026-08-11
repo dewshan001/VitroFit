@@ -130,5 +130,6 @@
   }
   .navbar-nav.open { display: flex; }
   .navbar-hamburger { display: flex; }
-  .navbar-cta .btn-primary { display: none; }
+  .navbar-cta .btn-primary  { display: none; }
+  .navbar-cta .navbar-login { display: none; }
 }

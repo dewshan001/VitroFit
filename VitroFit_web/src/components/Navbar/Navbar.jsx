@@ -83,6 +83,7 @@ export default function Navbar() {
       </nav>
 
       <div className="navbar-cta">
+        <Link to="/login" className="btn-secondary navbar-login">Login</Link>
         <a href={location.pathname === '/' ? '#contact' : '/#contact'} className="btn-primary">Contact</a>
         <button
           className="navbar-hamburger"
