@@ -1,24 +1,19 @@
+import { Routes, Route } from 'react-router-dom';
 import './index.css';
 import Navbar from './components/Navbar/Navbar';
-import Hero from './components/Hero/Hero';
-import Classes from './components/Classes/Classes';
-import Testimonials from './components/Testimonials/Testimonials';
-import Pricing from './components/Pricing/Pricing';
-import WhyUs from './components/WhyUs/WhyUs';
 import Footer from './components/Footer/Footer';
+import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
 
 export default function App() {
   return (
     <>
       <div className="noise-overlay" />
       <Navbar />
-      <main>
-        <Hero />
-        <Classes />
-        <Testimonials />
-        <Pricing />
-        <WhyUs />
-      </main>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
+      </Routes>
       <Footer />
     </>
   );
