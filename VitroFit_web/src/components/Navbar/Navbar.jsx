@@ -7,7 +7,7 @@ const navLinks = [
   { label: 'About Us',  to: '/about',  hash: '' },
   { label: 'Classes',   to: '/classes',hash: '' },
   { label: 'Pricing',   to: '/',       hash: '#pricing' },
-  { label: 'Timetable', to: '/',       hash: '#timetable' },
+  { label: 'Timetable', to: '/timetable', hash: '' },
 ];
 
 export default function Navbar() {

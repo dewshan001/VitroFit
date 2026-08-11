@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import ClassesPage from './pages/ClassesPage';
 import ClassDetailPage from './pages/ClassDetailPage';
+import TimetablePage from './pages/TimetablePage';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/classes/detail" element={<ClassDetailPage />} />
+        <Route path="/timetable" element={<TimetablePage />} />
       </Routes>
       <Footer />
     </>
