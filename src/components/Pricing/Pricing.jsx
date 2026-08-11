@@ -4,7 +4,7 @@ import './Pricing.css';
 const plans = [
   {
     tier: 'Basic Plan',
-    price: 39,
+    price: 3900,
     frequency: '3 DAYS/WEEK',
     features: [
       'Access to all cardio classes',
@@ -14,7 +14,7 @@ const plans = [
   },
   {
     tier: 'Premium Plan',
-    price: 59,
+    price: 5900,
     frequency: '3 DAYS/WEEK',
     featured: true,
     features: [
@@ -25,7 +25,7 @@ const plans = [
   },
   {
     tier: 'Elite Plan',
-    price: 89,
+    price: 8900,
     frequency: '3 DAYS/WEEK',
     features: [
       'All Premium Plan features',
@@ -59,7 +59,7 @@ export default function Pricing() {
             >
               <div className="pricing-tier">{plan.tier}</div>
               <div className="pricing-price">
-                <span className="pricing-currency">$</span>
+                <span className="pricing-currency">Rs. </span>
                 <span className="pricing-amount">{plan.price}</span>
                 <span className="pricing-period">/month</span>
               </div>
