@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './AuthPages.css';
+import { register } from '../api/auth';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -9,6 +10,7 @@ export default function RegisterPage() {
   });
   const [showPw, setShowPw]     = useState({ pw: false, conf: false });
   const [errors, setErrors]     = useState({});
+  const [serverError, setServerError] = useState('');
   const [focused, setFocused]   = useState({});
   const [loading, setLoading]   = useState(false);
   const [step, setStep]         = useState(1); // 1 = personal info, 2 = plan & password
@@ -76,15 +78,37 @@ export default function RegisterPage() {
     const e = validateStep2();
     setErrors(e);
     if (Object.keys(e).length) return;
+
+    setServerError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1600));
-    setLoading(false);
-    navigate('/');
+
+    try {
+      const response = await register({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+      });
+
+      const authState = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        user: response.user,
+      };
+      localStorage.setItem('vitrofitAuth', JSON.stringify(authState));
+      navigate('/');
+    } catch (error) {
+      setServerError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field, val) => {
     setForm(f => ({ ...f, [field]: val }));
     if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
+    if (serverError) setServerError('');
   };
 
   const passwordStrength = () => {
@@ -299,6 +323,8 @@ export default function RegisterPage() {
                       }
                     </button>
                   </div>
+
+                  {serverError && <div className="auth-server-error">{serverError}</div>}
                 </form>
               </div>
             )}

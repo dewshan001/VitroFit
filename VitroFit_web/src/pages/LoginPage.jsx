@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './AuthPages.css';
+import { login } from '../api/auth';
 
 export default function LoginPage() {
   const [form, setForm]           = useState({ email: '', password: '' });
   const [showPw, setShowPw]       = useState(false);
   const [errors, setErrors]       = useState({});
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading]     = useState(false);
   const [focused, setFocused]     = useState({});
   const cardRef                   = useRef(null);
@@ -55,15 +57,30 @@ export default function LoginPage() {
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length) return;
+
+    setServerError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1400));
-    setLoading(false);
-    navigate('/');
+
+    try {
+      const response = await login({ email: form.email, password: form.password });
+      const authState = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        user: response.user,
+      };
+      localStorage.setItem('vitrofitAuth', JSON.stringify(authState));
+      navigate('/');
+    } catch (error) {
+      setServerError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field, val) => {
     setForm(f => ({ ...f, [field]: val }));
     if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
+    if (serverError) setServerError('');
   };
 
   return (
@@ -179,6 +196,8 @@ export default function LoginPage() {
                   : <>Sign In <span className="btn-arrow">→</span></>
                 }
               </button>
+
+              {serverError && <div className="auth-server-error">{serverError}</div>}
 
               <div className="auth-divider"><span>or continue with</span></div>
 
