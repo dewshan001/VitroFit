@@ -102,7 +102,8 @@ namespace VitroFit.API.Services
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Email = user.Email,
-                    Phone = user.Phone
+                    Phone = user.Phone,
+                    ProfileImageUrl = user.ProfileImageUrl
                 }
             };
         }
@@ -120,6 +121,15 @@ namespace VitroFit.API.Services
                 throw new InvalidOperationException("New password must be at least 6 characters.");
 
             user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task DeleteAccountAsync(int userId)
+        {
+            var user = await _dbContext.Users.FindAsync(userId)
+                ?? throw new InvalidOperationException("User not found.");
+
+            _dbContext.Users.Remove(user);
             await _dbContext.SaveChangesAsync();
         }
     }

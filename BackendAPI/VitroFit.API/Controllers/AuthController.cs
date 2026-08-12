@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VitroFit.API.Data;
 using VitroFit.API.Dtos.Auth;
 using VitroFit.API.Services;
 
@@ -12,10 +14,14 @@ namespace VitroFit.API.Controllers
     public sealed class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly AppDbContext _dbContext;
+        private readonly IImageService _imageService;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, AppDbContext dbContext, IImageService imageService)
         {
             _authService = authService;
+            _dbContext = dbContext;
+            _imageService = imageService;
         }
 
         [HttpPost("register")]
@@ -62,39 +68,94 @@ namespace VitroFit.API.Controllers
 
         [HttpGet("me")]
         [Authorize]
-        public IActionResult GetProfile()
+        public async Task<IActionResult> GetProfile()
         {
-            var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? string.Empty;
-            var email = User.FindFirstValue(JwtRegisteredClaimNames.Email) ?? string.Empty;
-            var firstName = User.FindFirstValue("firstName") ?? string.Empty;
-            var lastName = User.FindFirstValue("lastName") ?? string.Empty;
+            var userId = GetUserId();
+            if (!userId.HasValue)
+                return Unauthorized(new { error = "Invalid token." });
+
+            var user = await _dbContext.Users.FindAsync(userId.Value);
+            if (user == null)
+                return Unauthorized(new { error = "User not found." });
 
             return Ok(new
             {
-                Id = userId,
-                Email = email,
-                FirstName = firstName,
-                LastName = lastName
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone,
+                ProfileImageUrl = user.ProfileImageUrl
             });
+        }
+
+        [HttpPost("me/photo")]
+        [Authorize]
+        public async Task<IActionResult> UploadProfilePhoto(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "Please select an image file." });
+
+            var userId = GetUserId();
+            if (!userId.HasValue)
+                return Unauthorized(new { error = "Invalid token." });
+
+            var user = await _dbContext.Users.FindAsync(userId.Value);
+            if (user == null)
+                return Unauthorized(new { error = "User not found." });
+
+            var imageUrl = await _imageService.UploadProfileImageAsync(file.OpenReadStream(), file.FileName, file.ContentType);
+            user.ProfileImageUrl = imageUrl;
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { profileImageUrl = imageUrl });
         }
 
         [HttpPost("change-password")]
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            var userIdStr = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            if (!int.TryParse(userIdStr, out var userId))
+            var userId = GetUserId();
+            if (!userId.HasValue)
                 return Unauthorized(new { error = "Invalid token." });
 
             try
             {
-                await _authService.ChangePasswordAsync(userId, request);
+                await _authService.ChangePasswordAsync(userId.Value, request);
                 return Ok(new { message = "Password changed successfully." });
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { error = ex.Message });
             }
+        }
+
+        [HttpDelete("me")]
+        [Authorize]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+                return Unauthorized(new { error = "Invalid token." });
+
+            try
+            {
+                await _authService.DeleteAccountAsync(userId.Value);
+                return Ok(new { message = "Account deleted successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        private int? GetUserId()
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                         ?? User.FindFirst("sub")?.Value;
+
+            return int.TryParse(userIdStr, out var userId) ? userId : null;
         }
     }
 }

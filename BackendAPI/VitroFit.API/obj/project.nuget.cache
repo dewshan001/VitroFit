@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "AhVq2R/L95c=",
+  "dgSpecHash": "GwK5yHgJTKo=",
   "success": true,
   "projectFilePath": "E:\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\Dewshan Gunawardhane\\.nuget\\packages\\cloudinarydotnet\\1.29.2\\cloudinarydotnet.1.29.2.nupkg.sha512",
     "C:\\Users\\Dewshan Gunawardhane\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Dewshan Gunawardhane\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.10\\microsoft.aspnetcore.authentication.jwtbearer.10.0.10.nupkg.sha512",
     "C:\\Users\\Dewshan Gunawardhane\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.10\\microsoft.aspnetcore.openapi.10.0.10.nupkg.sha512",

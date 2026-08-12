@@ -65,6 +65,28 @@
   letter-spacing: 1px;
   box-shadow: 0 0 40px color-mix(in srgb, var(--av-color) 25%, transparent);
 }
+.pp-page-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.pp-file-input {
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+}
+.pp-upload-msg,
+.pp-upload-loading {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.pp-upload-msg {
+  color: var(--accent);
+}
 .pp-page-avatar-ring {
   position: absolute;
   inset: -8px;
@@ -633,3 +655,208 @@
   .pp-pw-form .pp-form-row { grid-template-columns: 1fr; }
 }
 
+/* ── Photo trigger button ── */
+.pp-photo-trigger {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(200,240,0,0.04);
+  border: 1.5px dashed rgba(200,240,0,0.25);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.22s;
+  text-align: left;
+}
+.pp-photo-trigger:hover {
+  background: rgba(200,240,0,0.08);
+  border-color: rgba(200,240,0,0.5);
+  box-shadow: 0 0 20px rgba(200,240,0,0.08);
+}
+.pp-photo-trigger-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(200,240,0,0.4);
+  flex-shrink: 0;
+}
+.pp-photo-trigger-initials {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid currentColor;
+  opacity: 0.9;
+}
+.pp-photo-trigger-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pp-photo-trigger-label {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.pp-photo-trigger-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.pp-photo-trigger-arrow {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.pp-photo-trigger:hover .pp-photo-trigger-arrow {
+  transform: translateY(-2px);
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════════
+   Delete Account Modal
+   ══════════════════════════════════════════════ */
+.pp-delete-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(12px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fade-in-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pp-delete-modal {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(145deg, #1f1414 0%, #141010 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 20px;
+  padding: 32px 28px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.8),
+    0 0 50px rgba(239, 68, 68, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: scale-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes scale-up {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.pp-delete-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pp-delete-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pp-delete-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.pp-delete-header h3 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ef4444;
+}
+
+.pp-delete-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.pp-delete-desc strong {
+  color: #f87171;
+}
+
+.pp-delete-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.pp-delete-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.pp-delete-cancel {
+  flex: 1;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pp-delete-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.pp-delete-confirm {
+  flex: 1.4;
+  padding: 12px;
+  background: #ef4444;
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+  transition: all 0.2s;
+}
+.pp-delete-confirm:hover:not(:disabled) {
+  background: #dc2626;
+  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.6);
+  transform: translateY(-1px);
+}
+.pp-delete-confirm:disabled,
+.pp-delete-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

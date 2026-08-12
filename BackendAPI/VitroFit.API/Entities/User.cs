@@ -21,6 +21,9 @@ namespace VitroFit.API.Entities
         [MaxLength(30)]
         public string? Phone { get; set; }
 
+        [MaxLength(500)]
+        public string? ProfileImageUrl { get; set; }
+
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 

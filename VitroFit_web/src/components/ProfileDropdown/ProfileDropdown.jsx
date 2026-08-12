@@ -37,6 +37,7 @@ export default function ProfileDropdown() {
   const user     = auth?.user ?? {};
   const fullName = getFullName();
   const email    = user.email || user.Email || '';
+  const imageUrl = user.profileImageUrl || user.ProfileImageUrl || '';
   const color    = avatarColor(fullName);
   const ini      = initials(fullName);
   const plan     = user.plan || 'Free Plan';
@@ -92,7 +93,11 @@ export default function ProfileDropdown() {
           className="profile-avatar"
           style={{ '--avatar-color': color, '--avatar-bg': color + '22' }}
         >
-          {ini}
+          {imageUrl ? (
+            <img src={imageUrl} alt={`${fullName || 'Profile'} photo`} className="profile-avatar-img" />
+          ) : (
+            ini
+          )}
         </span>
         <span className="profile-avatar-chevron" style={{ transform: open ? 'rotate(180deg)' : 'none' }}>
           <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -111,7 +116,11 @@ export default function ProfileDropdown() {
             className="pp-avatar-lg"
             style={{ '--avatar-color': color, '--avatar-bg': color + '22' }}
           >
-            {ini}
+            {imageUrl ? (
+              <img src={imageUrl} alt={`${fullName || 'Profile'} photo`} className="pp-avatar-img" />
+            ) : (
+              ini
+            )}
             <span className="pp-avatar-ring" />
           </div>
           <div className="pp-header-info">

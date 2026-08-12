@@ -7,5 +7,6 @@ namespace VitroFit.API.Dtos.Auth
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
+        public string? ProfileImageUrl { get; set; }
     }
 }

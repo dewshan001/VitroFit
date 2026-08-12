@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { changePassword } from '../api/auth';
+import { changePassword, uploadProfileImage, deleteAccount } from '../api/auth';
+import PhotoUploadModal from '../components/PhotoUploadModal/PhotoUploadModal';
 import './ProfilePage.css';
 
 /* ── Avatar helpers ── */
@@ -54,6 +55,7 @@ export default function ProfilePage() {
   const ini       = initials(fullName);
 
   /* ── Edit Profile form ── */
+  const imageUrl = user.profileImageUrl || user.ProfileImageUrl || '';
   const [form, setForm] = useState({
     firstName,
     lastName,
@@ -62,7 +64,10 @@ export default function ProfilePage() {
     goal:  user.goal  || 'Lose Weight',
     level: user.level || 'Intermediate',
   });
-  const [saveMsg, setSaveMsg] = useState('');
+  const [saveMsg, setSaveMsg]           = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadMsg, setUploadMsg]         = useState('');
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
   /* ── Change Password form ── */
   const [pwForm, setPwForm]     = useState({ current: '', newPw: '', confirm: '' });
@@ -108,6 +113,34 @@ export default function ProfilePage() {
     setTimeout(() => setSaveMsg(''), 3000);
   };
 
+  const handleUploadPhoto = async (file) => {
+    if (!file) return;
+
+    /* URL-only path (pasted URL, not a File object) */
+    if (file._isUrl) {
+      updateUser({ profileImageUrl: file.url });
+      setUploadMsg('✓ Profile photo updated successfully!');
+      setTimeout(() => { setUploadMsg(''); setPhotoModalOpen(false); }, 1800);
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setUploadMsg('');
+
+    try {
+      const data = await uploadProfileImage(file);
+      const url = data.profileImageUrl || '';
+      if (!url) throw new Error('Upload returned no image URL.');
+      updateUser({ profileImageUrl: url });
+      setUploadMsg('✓ Profile photo updated successfully!');
+      setTimeout(() => { setUploadMsg(''); setPhotoModalOpen(false); }, 1800);
+    } catch (err) {
+      setUploadMsg(err?.message || 'Failed to upload profile photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setPwMsg({ text: '', ok: false });
@@ -134,7 +167,25 @@ export default function ProfilePage() {
     }
   };
 
+  /* ── Delete Account state ── */
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting]             = useState(false);
+  const [deleteError, setDeleteError]       = useState('');
+
   const handleLogout = () => { logout(); navigate('/login'); };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteAccount();
+      logout();
+      navigate('/register');
+    } catch (err) {
+      setDeleteError(err?.message || 'Failed to delete account. Please try again.');
+      setDeleting(false);
+    }
+  };
 
   const toggleGoal = (i) =>
     setGoals((g) => g.map((item, idx) => idx === i ? { ...item, done: !item.done } : item));
@@ -149,7 +200,11 @@ export default function ProfilePage() {
             className="pp-page-avatar"
             style={{ '--av-color': color, '--av-bg': color + '22' }}
           >
-            {ini}
+            {imageUrl ? (
+              <img src={imageUrl} alt={`${fullName || 'Profile'} photo`} className="pp-page-avatar-img" />
+            ) : (
+              ini
+            )}
             <span className="pp-page-avatar-ring" />
           </div>
           <div className="pp-page-hero-info">
@@ -317,6 +372,30 @@ export default function ProfilePage() {
                 />
               </div>
 
+              <div className="pp-form-group">
+                <label>Profile Photo</label>
+                <button
+                  type="button"
+                  className="pp-photo-trigger"
+                  onClick={() => setPhotoModalOpen(true)}
+                >
+                  {imageUrl
+                    ? <img src={imageUrl} alt="Current avatar" className="pp-photo-trigger-thumb" />
+                    : <span className="pp-photo-trigger-initials" style={{ background: color + '22', color }}>{ini || '?'}</span>
+                  }
+                  <span className="pp-photo-trigger-text">
+                    <span className="pp-photo-trigger-label">Change Profile Photo</span>
+                    <span className="pp-photo-trigger-hint">Click to open photo uploader</span>
+                  </span>
+                  <svg className="pp-photo-trigger-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </button>
+                {uploadMsg && <p className="pp-upload-msg">{uploadMsg}</p>}
+              </div>
+
               <div className="pp-form-row">
                 <div className="pp-form-group">
                   <label htmlFor="pf-goal">Fitness Goal</label>
@@ -476,13 +555,60 @@ export default function ProfilePage() {
               </p>
               <div className="pp-danger-actions">
                 <button className="pp-btn-danger-outline" onClick={handleLogout}>Sign Out</button>
-                <button className="pp-btn-danger">Delete Account</button>
+                <button className="pp-btn-danger" onClick={() => setDeleteModalOpen(true)}>Delete Account</button>
               </div>
             </section>
           </div>
         )}
 
       </div>
+
+      {/* ── Photo Upload Modal ── */}
+      <PhotoUploadModal
+        isOpen={photoModalOpen}
+        onClose={() => { if (!uploadingPhoto) setPhotoModalOpen(false); }}
+        onUpload={handleUploadPhoto}
+        uploading={uploadingPhoto}
+        uploadMsg={uploadMsg}
+      />
+
+      {/* ── Delete Account Confirmation Modal ── */}
+      {deleteModalOpen && (
+        <div className="pp-delete-overlay" onClick={() => !deleting && setDeleteModalOpen(false)}>
+          <div className="pp-delete-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pp-delete-header">
+              <div className="pp-delete-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+                </svg>
+              </div>
+              <h3>Delete Account?</h3>
+            </div>
+            <p className="pp-delete-desc">
+              Are you sure you want to delete your account? This action is <strong>permanent</strong> and cannot be undone. All your workout records, bookings, and profile data will be permanently removed.
+            </p>
+            {deleteError && <div className="pp-delete-error">{deleteError}</div>}
+            <div className="pp-delete-actions">
+              <button
+                type="button"
+                className="pp-delete-cancel"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="pp-delete-confirm"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Yes, Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

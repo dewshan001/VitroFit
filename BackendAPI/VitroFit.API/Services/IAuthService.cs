@@ -8,5 +8,6 @@ namespace VitroFit.API.Services
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request);
         Task ChangePasswordAsync(int userId, ChangePasswordRequest request);
+        Task DeleteAccountAsync(int userId);
     }
 }
