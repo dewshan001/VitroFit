@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import ProfileDropdown from '../ProfileDropdown/ProfileDropdown';
 import './Navbar.css';
 
 const navLinks = [
@@ -15,6 +17,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen]   = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -83,7 +86,10 @@ export default function Navbar() {
       </nav>
 
       <div className="navbar-cta">
-        <Link to="/login" className="btn-secondary navbar-login">Login</Link>
+        {isLoggedIn
+          ? <ProfileDropdown />
+          : <Link to="/login" className="btn-secondary navbar-login">Login</Link>
+        }
         <a href={location.pathname === '/' ? '#contact' : '/#contact'} className="btn-primary">Contact</a>
         <button
           className="navbar-hamburger"

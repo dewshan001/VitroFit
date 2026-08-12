@@ -106,5 +106,21 @@ namespace VitroFit.API.Services
                 }
             };
         }
+
+        public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
+        {
+            var user = await _dbContext.Users.FindAsync(userId)
+                ?? throw new InvalidOperationException("User not found.");
+
+            var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword);
+            if (result == PasswordVerificationResult.Failed)
+                throw new InvalidOperationException("Current password is incorrect.");
+
+            if (request.NewPassword.Length < 6)
+                throw new InvalidOperationException("New password must be at least 6 characters.");
+
+            user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+            await _dbContext.SaveChangesAsync();
+        }
     }
 }

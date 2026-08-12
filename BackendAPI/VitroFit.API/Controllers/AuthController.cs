@@ -77,5 +77,24 @@ namespace VitroFit.API.Controllers
                 LastName = lastName
             });
         }
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var userIdStr = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (!int.TryParse(userIdStr, out var userId))
+                return Unauthorized(new { error = "Invalid token." });
+
+            try
+            {
+                await _authService.ChangePasswordAsync(userId, request);
+                return Ok(new { message = "Password changed successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
     }
 }

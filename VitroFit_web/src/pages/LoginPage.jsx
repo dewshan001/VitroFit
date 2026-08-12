@@ -69,6 +69,7 @@ export default function LoginPage() {
         user: response.user,
       };
       localStorage.setItem('vitrofitAuth', JSON.stringify(authState));
+      window.dispatchEvent(new Event('vitrofit-auth-change'));
       navigate('/');
     } catch (error) {
       setServerError(error.message);
