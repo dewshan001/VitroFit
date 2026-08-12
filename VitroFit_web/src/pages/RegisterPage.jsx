@@ -49,6 +49,7 @@ export default function RegisterPage() {
     if (!form.firstName.trim())                        e.firstName = 'First name required';
     if (!form.lastName.trim())                         e.lastName  = 'Last name required';
     if (!form.email)                                   e.email     = 'Email is required';
+    if (!form.phone)                                   e.phone     = 'Phone Number is required';
     else if (!/\S+@\S+\.\S+/.test(form.email))        e.email     = 'Enter a valid email';
     if (form.phone && !/^\+?[\d\s\-()]{7,15}$/.test(form.phone)) e.phone = 'Invalid phone number';
     return e;
@@ -186,11 +187,11 @@ export default function RegisterPage() {
 
                 <div className="auth-form">
                   <div className="auth-row">
-                    {field('firstName', 'First Name', 'text', 'John')}
-                    {field('lastName', 'Last Name', 'text', 'Doe')}
+                    {field('firstName', 'First Name', 'text', 'Sadeepa')}
+                    {field('lastName', 'Last Name', 'text', 'Godage')}
                   </div>
-                  {field('email', 'Email Address', 'email', 'you@example.com')}
-                  {field('phone', 'Phone (Optional)', 'tel', '+1 234 567 8900')}
+                  {field('email', 'Email Address', 'email', 'sadeepa.godage@gmail.com')}
+                  {field('phone', 'Phone', 'tel', '+94 77 123 4567')}
 
                   <button id="reg-next" type="button" className="btn-primary auth-submit" onClick={handleNext}>
                     Continue <span className="btn-arrow">→</span>

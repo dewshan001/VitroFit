@@ -124,3 +124,12 @@ E:\Project\VitroFit\BackendAPI\VitroFit.API\obj\Debug\net10.0\ref\VitroFit.API.d
 E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
 E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerGen.dll
 E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.Bcl.Cryptography.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.Abstractions.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.JsonWebTokens.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.Logging.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
