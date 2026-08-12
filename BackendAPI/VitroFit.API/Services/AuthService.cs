@@ -13,17 +13,20 @@ namespace VitroFit.API.Services
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly ITokenService _tokenService;
         private readonly JwtSettings _jwtSettings;
+        private readonly IImageService _imageService;
 
         public AuthService(
             AppDbContext dbContext,
             IPasswordHasher<User> passwordHasher,
             ITokenService tokenService,
-            Microsoft.Extensions.Options.IOptions<JwtSettings> jwtOptions)
+            Microsoft.Extensions.Options.IOptions<JwtSettings> jwtOptions,
+            IImageService imageService)
         {
             _dbContext = dbContext;
             _passwordHasher = passwordHasher;
             _tokenService = tokenService;
             _jwtSettings = jwtOptions.Value;
+            _imageService = imageService;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -128,6 +131,18 @@ namespace VitroFit.API.Services
         {
             var user = await _dbContext.Users.FindAsync(userId)
                 ?? throw new InvalidOperationException("User not found.");
+
+            if (!string.IsNullOrWhiteSpace(user.ProfileImageUrl))
+            {
+                try
+                {
+                    await _imageService.DeleteImageAsync(user.ProfileImageUrl);
+                }
+                catch
+                {
+                    // Ignore errors deleting external image to ensure user account is deleted
+                }
+            }
 
             _dbContext.Users.Remove(user);
             await _dbContext.SaveChangesAsync();

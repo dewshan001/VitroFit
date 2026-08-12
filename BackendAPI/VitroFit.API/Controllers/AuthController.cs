@@ -104,9 +104,23 @@ namespace VitroFit.API.Controllers
             if (user == null)
                 return Unauthorized(new { error = "User not found." });
 
+            var oldImageUrl = user.ProfileImageUrl;
+
             var imageUrl = await _imageService.UploadProfileImageAsync(file.OpenReadStream(), file.FileName, file.ContentType);
             user.ProfileImageUrl = imageUrl;
             await _dbContext.SaveChangesAsync();
+
+            if (!string.IsNullOrWhiteSpace(oldImageUrl))
+            {
+                try
+                {
+                    await _imageService.DeleteImageAsync(oldImageUrl);
+                }
+                catch
+                {
+                    // Non-critical cleanup error
+                }
+            }
 
             return Ok(new { profileImageUrl = imageUrl });
         }
