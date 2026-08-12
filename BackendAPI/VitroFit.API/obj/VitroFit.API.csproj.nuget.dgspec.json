@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Dewshan Gunawardhane\\OneDrive - Sri Lanka Institute of Information Technology\\Campus Work\\3.1\\SEF\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj": {}
+    "E:\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Dewshan Gunawardhane\\OneDrive - Sri Lanka Institute of Information Technology\\Campus Work\\3.1\\SEF\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj": {
+    "E:\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Dewshan Gunawardhane\\OneDrive - Sri Lanka Institute of Information Technology\\Campus Work\\3.1\\SEF\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj",
+        "projectUniqueName": "E:\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj",
         "projectName": "VitroFit.API",
-        "projectPath": "C:\\Users\\Dewshan Gunawardhane\\OneDrive - Sri Lanka Institute of Information Technology\\Campus Work\\3.1\\SEF\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj",
+        "projectPath": "E:\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\VitroFit.API.csproj",
         "packagesPath": "C:\\Users\\Dewshan Gunawardhane\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Dewshan Gunawardhane\\OneDrive - Sri Lanka Institute of Information Technology\\Campus Work\\3.1\\SEF\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\obj\\",
+        "outputPath": "E:\\Project\\VitroFit\\BackendAPI\\VitroFit.API\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Dewshan Gunawardhane\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -65,6 +65,10 @@
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
               "version": "[10.0.3, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[10.2.3, )"
             }
           },
           "imports": [
