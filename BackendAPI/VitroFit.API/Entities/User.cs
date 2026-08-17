@@ -27,6 +27,14 @@ namespace VitroFit.API.Entities
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
+        public UserRole Role { get; set; } = UserRole.User;
+
+        /// <summary>
+        /// True once the user has verified their email address via OTP.
+        /// Accounts with false cannot log in.
+        /// </summary>
+        public bool IsEmailVerified { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();

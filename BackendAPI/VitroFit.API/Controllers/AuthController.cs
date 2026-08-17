@@ -29,8 +29,8 @@ namespace VitroFit.API.Controllers
         {
             try
             {
-                var response = await _authService.RegisterAsync(request);
-                return Ok(response);
+                var (message, email) = await _authService.RegisterAsync(request);
+                return Ok(new { message, email });
             }
             catch (InvalidOperationException ex)
             {
@@ -85,7 +85,8 @@ namespace VitroFit.API.Controllers
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Phone = user.Phone,
-                ProfileImageUrl = user.ProfileImageUrl
+                ProfileImageUrl = user.ProfileImageUrl,
+                Role = user.Role.ToString()
             });
         }
 
@@ -170,6 +171,84 @@ namespace VitroFit.API.Controllers
                          ?? User.FindFirst("sub")?.Value;
 
             return int.TryParse(userIdStr, out var userId) ? userId : null;
+        }
+
+        /// <summary>
+        /// Step 1 of the forgot-password flow.
+        /// Accepts the user's email and sends a 6-digit OTP to that address.
+        /// Always returns 200 OK regardless of whether the email exists (prevents user enumeration).
+        /// </summary>
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                await _authService.ForgotPasswordAsync(request);
+
+                // Return a generic message so the caller doesn't know if the email is registered.
+                return Ok(new { message = "If that email is registered, an OTP has been sent." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // This can happen if the email service fails (SMTP error).
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Step 2 of the forgot-password flow.
+        /// Validates the OTP received by email and resets the account password.
+        /// All active sessions (refresh tokens) are invalidated after a successful reset.
+        /// </summary>
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                await _authService.ResetPasswordAsync(request);
+                return Ok(new { message = "Password reset successfully. Please log in with your new password." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Step 2 of the registration flow.
+        /// Validates the email-verification OTP and, if valid, activates the account
+        /// and returns a full AuthResponse (access + refresh tokens).
+        /// </summary>
+        [HttpPost("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+        {
+            try
+            {
+                var response = await _authService.VerifyEmailAsync(request);
+                return Ok(response);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Resends the email-verification OTP for an unverified account.
+        /// Always returns 200 OK regardless of whether the email exists or is already verified.
+        /// </summary>
+        [HttpPost("resend-verification")]
+        public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationRequest request)
+        {
+            try
+            {
+                await _authService.ResendVerificationAsync(request);
+                return Ok(new { message = "If that email has a pending verification, a new OTP has been sent." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
     }
 }

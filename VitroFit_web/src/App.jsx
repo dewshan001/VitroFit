@@ -9,7 +9,9 @@ import ClassDetailPage from './pages/ClassDetailPage';
 import TimetablePage from './pages/TimetablePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
@@ -29,7 +31,9 @@ export default function App() {
         <Route path="/timetable"      element={<TimetablePage />} />
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/register"       element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/profile"        element={<ProfilePage />} />
+        <Route path="/admin"          element={<AdminDashboardPage />} />
       </Routes>
       {!isAuthPage && <Footer />}
     </>

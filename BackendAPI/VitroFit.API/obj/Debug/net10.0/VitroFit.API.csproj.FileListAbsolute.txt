@@ -134,3 +134,6 @@ E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.Identity
 E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
 E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
 E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\CloudinaryDotNet.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\BouncyCastle.Cryptography.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\MailKit.dll
+E:\Project\VitroFit\BackendAPI\VitroFit.API\bin\Debug\net10.0\MimeKit.dll

@@ -100,7 +100,7 @@ export default function ProfilePage() {
   /* ── Handlers ── */
   const handleSaveProfile = (e) => {
     e.preventDefault();
-    // Persist to localStorage (merges firstName/lastName so getFullName keeps working)
+    // Persist to sessionStorage (merges firstName/lastName so getFullName keeps working)
     updateUser({
       firstName: form.firstName,
       lastName:  form.lastName,

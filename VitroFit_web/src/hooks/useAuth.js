@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 export function useAuth() {
   const [auth, setAuth] = useState(() => {
     try {
-      const stored = localStorage.getItem('vitrofitAuth');
+      const stored = sessionStorage.getItem('vitrofitAuth');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -13,7 +13,7 @@ export function useAuth() {
   useEffect(() => {
     const handleStorage = () => {
       try {
-        const stored = localStorage.getItem('vitrofitAuth');
+        const stored = sessionStorage.getItem('vitrofitAuth');
         setAuth(stored ? JSON.parse(stored) : null);
       } catch {
         setAuth(null);
@@ -29,14 +29,14 @@ export function useAuth() {
   }, []);
 
   const logout = () => {
-    localStorage.removeItem('vitrofitAuth');
+    sessionStorage.removeItem('vitrofitAuth');
     setAuth(null);
     window.dispatchEvent(new Event('vitrofit-auth-change'));
   };
 
   const updateUser = (updates) => {
     const newAuth = { ...auth, user: { ...auth.user, ...updates } };
-    localStorage.setItem('vitrofitAuth', JSON.stringify(newAuth));
+    sessionStorage.setItem('vitrofitAuth', JSON.stringify(newAuth));
     setAuth(newAuth);
     window.dispatchEvent(new Event('vitrofit-auth-change'));
   };
@@ -52,7 +52,7 @@ export function useAuth() {
     const first = u.firstName || u.FirstName || '';
     const last  = u.lastName  || u.LastName  || '';
     if (first || last) return `${first} ${last}`.trim();
-    // Legacy fallback for data already in localStorage before this fix
+    // Legacy fallback for data already in sessionStorage before this fix
     return u.fullName || u.name || u.email?.split('@')[0] || '';
   };
 

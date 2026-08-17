@@ -51,10 +51,17 @@ builder.Services.AddAuthorization();
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
+
+// Bind SMTP settings from appsettings.json → EmailSettings section
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
+// Transient is appropriate for MailKitEmailService: each call opens and closes its own SMTP connection
+builder.Services.AddTransient<IEmailService, MailKitEmailService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
@@ -83,7 +90,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         // Prevent ASP.NET Core from remapping 'sub' → ClaimTypes.NameIdentifier
         NameClaimType = JwtRegisteredClaimNames.Sub,
-        RoleClaimType = "roles"
+        RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
     };
 });
 
@@ -102,5 +109,26 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+    
+    if (!context.Users.Any(u => u.Email == "admin@gmail.com"))
+    {
+        var admin = new User
+        {
+            FirstName = "System",
+            LastName = "Admin",
+            Email = "admin@gmail.com",
+            Role = UserRole.Admin,
+            IsEmailVerified = true
+        };
+        admin.PasswordHash = hasher.HashPassword(admin, "admin1234");
+        context.Users.Add(admin);
+        context.SaveChanges();
+    }
+}
 
 app.Run();

@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './AuthPages.css';
-import { register } from '../api/auth';
+import { register, verifyEmail, resendVerification } from '../api/auth';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
-    password: '', confirm: '', terms: false,
+    password: '', confirm: '', terms: false, otp: ''
   });
   const [showPw, setShowPw]     = useState({ pw: false, conf: false });
   const [errors, setErrors]     = useState({});
   const [serverError, setServerError] = useState('');
   const [focused, setFocused]   = useState({});
   const [loading, setLoading]   = useState(false);
-  const [step, setStep]         = useState(1); // 1 = personal info, 2 = plan & password
+  const [step, setStep]         = useState(1); // 1 = personal info, 2 = plan & password, 3 = verify email
   const cardRef                 = useRef(null);
   const navigate                = useNavigate();
 
@@ -83,7 +83,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await register({
+      await register({
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
@@ -91,13 +91,48 @@ export default function RegisterPage() {
         password: form.password,
       });
 
+      // Move to email verification step
+      setStep(3);
+    } catch (error) {
+      setServerError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (ev) => {
+    ev.preventDefault();
+    if (!form.otp || form.otp.length < 6) {
+      setErrors({ otp: 'Please enter a valid 6-digit code' });
+      return;
+    }
+
+    setServerError('');
+    setLoading(true);
+
+    try {
+      const response = await verifyEmail({ email: form.email, otp: form.otp });
+      
       const authState = {
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
         user: response.user,
       };
-      localStorage.setItem('vitrofitAuth', JSON.stringify(authState));
+      sessionStorage.setItem('vitrofitAuth', JSON.stringify(authState));
       navigate('/');
+    } catch (error) {
+      setServerError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setServerError('');
+    setLoading(true);
+    try {
+      await resendVerification({ email: form.email });
+      setServerError('A new verification code has been sent to your email.');
     } catch (error) {
       setServerError(error.message);
     } finally {
@@ -108,7 +143,7 @@ export default function RegisterPage() {
   const handleChange = (field, val) => {
     setForm(f => ({ ...f, [field]: val }));
     if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
-    if (serverError) setServerError('');
+    if (serverError && serverError !== 'A new verification code has been sent to your email.') setServerError('');
   };
 
   const passwordStrength = () => {
@@ -125,7 +160,7 @@ export default function RegisterPage() {
   const strengthLabels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
   const strengthColors = ['', '#ff4d4d', '#ffa500', '#c8f000', '#00ff88'];
 
-  const field = (id, label, type = 'text', placeholder = '') => (
+  const field = (id, label, type = 'text', placeholder = '', maxLength) => (
     <div className={`auth-field ${focused[id] ? 'auth-field--focused' : ''} ${errors[id] ? 'auth-field--error' : ''} ${form[id] ? 'auth-field--filled' : ''}`}>
       <label htmlFor={`reg-${id}`} className="auth-label">{label}</label>
       <div className="auth-input-wrap">
@@ -138,6 +173,7 @@ export default function RegisterPage() {
           onFocus={() => setFocused(f => ({ ...f, [id]: true }))}
           onBlur={() => setFocused(f => ({ ...f, [id]: false }))}
           placeholder={placeholder}
+          maxLength={maxLength}
         />
       </div>
       {errors[id] && <span className="auth-error">{errors[id]}</span>}
@@ -193,12 +229,17 @@ export default function RegisterPage() {
             <div className="auth-steps">
               <div className={`auth-step ${step >= 1 ? 'active' : ''} ${step > 1 ? 'done' : ''}`}>
                 <div className="auth-step-dot">{step > 1 ? '✓' : '1'}</div>
-                <span>Personal Info</span>
+                <span>Personal</span>
               </div>
               <div className="auth-step-line" />
-              <div className={`auth-step ${step >= 2 ? 'active' : ''}`}>
-                <div className="auth-step-dot">2</div>
-                <span>Account Setup</span>
+              <div className={`auth-step ${step >= 2 ? 'active' : ''} ${step > 2 ? 'done' : ''}`}>
+                <div className="auth-step-dot">{step > 2 ? '✓' : '2'}</div>
+                <span>Security</span>
+              </div>
+              <div className="auth-step-line" />
+              <div className={`auth-step ${step >= 3 ? 'active' : ''}`}>
+                <div className="auth-step-dot">3</div>
+                <span>Verify</span>
               </div>
             </div>
 
@@ -325,6 +366,41 @@ export default function RegisterPage() {
                   </div>
 
                   {serverError && <div className="auth-server-error">{serverError}</div>}
+                </form>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="auth-step-panel">
+                <div className="auth-card-header">
+                  <h2 className="auth-card-title">Verify Email</h2>
+                  <p className="auth-card-sub">
+                    We sent a 6-digit code to <strong>{form.email}</strong>. 
+                    Please enter it below to activate your account.
+                  </p>
+                </div>
+
+                <form className="auth-form" onSubmit={handleVerifyOTP} noValidate>
+                  {field('otp', 'Verification Code', 'text', '123456', 6)}
+
+                  <button type="submit" className={`btn-primary auth-submit auth-submit--flex ${loading ? 'loading' : ''}`} disabled={loading || !form.otp}>
+                    {loading
+                      ? <span className="auth-spinner" />
+                      : <>Verify & Login <span className="btn-arrow">→</span></>
+                    }
+                  </button>
+
+                  <div className="auth-resend-wrap" style={{ marginTop: '20px', textAlign: 'center' }}>
+                    <p style={{ color: '#9ca3af', fontSize: '14px' }}>
+                      Didn't receive the email? <button type="button" onClick={handleResendOTP} className="auth-link" disabled={loading} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}>Resend Code</button>
+                    </p>
+                  </div>
+
+                  {serverError && (
+                    <div className="auth-server-error" style={serverError.includes('sent') ? { backgroundColor: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', border: '1px solid rgba(0, 255, 136, 0.2)' } : {}}>
+                      {serverError}
+                    </div>
+                  )}
                 </form>
               </div>
             )}

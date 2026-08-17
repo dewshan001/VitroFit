@@ -1,3 +1,5 @@
+using VitroFit.API.Entities;
+
 namespace VitroFit.API.Dtos.Auth
 {
     public sealed class RegisterRequest

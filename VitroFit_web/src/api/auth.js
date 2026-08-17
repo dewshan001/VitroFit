@@ -19,11 +19,11 @@ async function apiPost(path, body) {
   return data;
 }
 
-/** Authenticated POST — attaches the Bearer token from localStorage */
+/** Authenticated POST — attaches the Bearer token from sessionStorage */
 async function apiAuthPost(path, body) {
   let token = '';
   try {
-    const stored = localStorage.getItem('vitrofitAuth');
+    const stored = sessionStorage.getItem('vitrofitAuth');
     token = stored ? JSON.parse(stored).accessToken : '';
   } catch { /* ignore */ }
 
@@ -49,7 +49,7 @@ async function apiAuthPost(path, body) {
 async function apiAuthUpload(path, formData) {
   let token = '';
   try {
-    const stored = localStorage.getItem('vitrofitAuth');
+    const stored = sessionStorage.getItem('vitrofitAuth');
     token = stored ? JSON.parse(stored).accessToken : '';
   } catch { /* ignore */ }
 
@@ -79,6 +79,14 @@ export function register({ firstName, lastName, email, phone, password }) {
   return apiPost('/auth/register', { firstName, lastName, email, phone, password });
 }
 
+export function verifyEmail({ email, otp }) {
+  return apiPost('/auth/verify-email', { email, otp });
+}
+
+export function resendVerification({ email }) {
+  return apiPost('/auth/resend-verification', { email });
+}
+
 export function uploadProfileImage(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -86,8 +94,23 @@ export function uploadProfileImage(file) {
 }
 
 /**
+ * Step 1: Request a password reset.
+ * Sends an OTP to the given email if registered.
+ */
+export function forgotPassword(email) {
+  return apiPost('/auth/forgot-password', { email });
+}
+
+/**
+ * Step 2: Reset the password using the OTP.
+ */
+export function resetPassword(email, otp, newPassword) {
+  return apiPost('/auth/reset-password', { email, otp, newPassword });
+}
+
+/**
  * Change the current user's password.
- * Requires a valid access token in localStorage.
+ * Requires a valid access token in sessionStorage.
  */
 export function changePassword({ currentPassword, newPassword }) {
   return apiAuthPost('/auth/change-password', {
@@ -96,11 +119,11 @@ export function changePassword({ currentPassword, newPassword }) {
   });
 }
 
-/** Authenticated DELETE — attaches the Bearer token from localStorage */
+/** Authenticated DELETE — attaches the Bearer token from sessionStorage */
 async function apiAuthDelete(path) {
   let token = '';
   try {
-    const stored = localStorage.getItem('vitrofitAuth');
+    const stored = sessionStorage.getItem('vitrofitAuth');
     token = stored ? JSON.parse(stored).accessToken : '';
   } catch { /* ignore */ }
 
