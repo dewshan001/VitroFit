@@ -100,10 +100,10 @@ function StatCounter({ end, suffix = '', duration = 2000 }) {
 }
 
 const stats = [
-  { number: 500, suffix: '+', label: 'Happy Members', desc: 'Our community is growing fast!' },
-  { number: 30, suffix: '+', label: 'Weekly Classes', desc: 'Pick from various workouts' },
-  { number: 10, suffix: '', label: 'Certified Trainers', desc: 'Guidance at every step.' },
-  { number: 99, suffix: '%', label: 'Customer Satisfaction', desc: 'We ensure your progress satisfaction' },
+  { number: 10000, suffix: '+', label: 'Active Users', desc: 'Athletes managing workouts on the go' },
+  { number: 5000, suffix: '+', label: 'Partner Gyms', desc: 'Find a gym wherever you travel' },
+  { number: 500, suffix: '+', label: 'Workout Plans', desc: 'Curated plans for every fitness level' },
+  { number: 99, suffix: '%', label: 'User Satisfaction', desc: 'Keep your routine, no matter where you are' },
 ];
 
 export default function Hero() {
@@ -156,7 +156,7 @@ export default function Hero() {
           ref={(el) => { if (el) setTimeout(() => { el.style.opacity = 1; el.style.transform = 'translateY(0)'; }, 50); }}
         >
           <div className="hero-eyebrow-line" />
-          <span className="hero-eyebrow-text">Elite Fitness Studio</span>
+          <span className="hero-eyebrow-text">Your Fitness. Anywhere. Anytime.</span>
         </div>
 
         <h1
@@ -164,8 +164,8 @@ export default function Hero() {
           ref={titleRef}
           style={{ opacity: 0, transform: 'translateY(40px)', transition: 'all 0.8s ease' }}
         >
-          <span className="outline-text">ACHIEVE</span> MORE<br />
-          THAN JUST FITNESS
+          <span className="outline-text">TRAIN</span> WITHOUT<br />
+          BOUNDARIES
         </h1>
 
         <p
@@ -173,7 +173,7 @@ export default function Hero() {
           ref={subtitleRef}
           style={{ opacity: 0, transform: 'translateY(30px)', transition: 'all 0.8s ease' }}
         >
-          Combine strength, flexibility, and endurance in a community that values well-rounded health and supportive growth.
+          Manage your workouts, discover partner gyms, and stick to your fitness plan whether you're at home or halfway across the world.
         </p>
 
         <div
@@ -181,8 +181,8 @@ export default function Hero() {
           ref={buttonsRef}
           style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease' }}
         >
-          <a href="#classes" className="btn-primary">START NOW</a>
-          <a href="#pricing" className="btn-secondary">JOIN FREE TRIAL</a>
+          <a href="#classes" className="btn-primary">EXPLORE FEATURES</a>
+          <a href="#pricing" className="btn-secondary">GET STARTED FREE</a>
         </div>
       </div>
 

@@ -64,33 +64,33 @@ const UsersIcon = () => (
 
 
 const benefits = [
-  { icon: <FireIcon />, title: "Calorie Torch", desc: "Burn a maximum number of calories in a short amount of time." },
-  { icon: <MuscleIcon />, title: "Full-Body Conditioning", desc: "Target multiple muscle groups for a comprehensive workout." },
-  { icon: <HeartIcon />, title: "Increased Endurance", desc: "Increased Endurance: Boost cardiovascular stamina." },
-  { icon: <DropIcon />, title: "Metabolic Boost", desc: "Experience the afterburn effect for continued calorie burn post-workout." },
-  { icon: <ClockIcon />, title: "Time Efficiency", desc: "Achieve results with a time-efficient, intense workout." },
-  { icon: <BrainIcon />, title: "Mental Focus", desc: "Enhance mental resilience and focus through challenging intervals." },
-  { icon: <LayoutIcon />, title: "Adaptability", desc: "Suitable for various fitness levels with adaptable exercises." },
-  { icon: <UsersIcon />, title: "Community Engagement", desc: "Join a supportive community for motivation and camaraderie." },
+  { icon: <FireIcon />, title: "Calorie Burn", desc: "Maximize calories burned with high-efficiency workout sessions." },
+  { icon: <MuscleIcon />, title: "Full-Body Strength", desc: "Target every major muscle group for balanced, functional fitness." },
+  { icon: <HeartIcon />, title: "Cardiovascular Health", desc: "Boost your heart health and stamina with structured cardio plans." },
+  { icon: <DropIcon />, title: "Metabolic Boost", desc: "Keep your metabolism elevated long after your workout ends." },
+  { icon: <ClockIcon />, title: "Time Efficient", desc: "Achieve great results in as little as 45 minutes per session." },
+  { icon: <BrainIcon />, title: "Mental Clarity", desc: "Improve focus, reduce stress, and enhance mental well-being through consistent training." },
+  { icon: <LayoutIcon />, title: "Travel Adaptable", desc: "Plans scale to available equipment — from full gym to hotel room." },
+  { icon: <UsersIcon />, title: "Community Support", desc: "Share your progress and get motivated by fellow VitroFit members." },
 ];
 
-const relatedClasses = [
+const relatedPlans = [
   {
     img: "https://images.unsplash.com/photo-1594381898411-846e7d193883?auto=format&fit=crop&w=800&q=80",
-    title: "CARDIO KICK",
-    type: "Kickboxing Cardio",
-    level: "INTERMEDIATE"
+    title: "CARDIO BURN",
+    type: "Cardio & Endurance",
+    level: "ALL LEVELS"
   },
   {
     img: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80",
-    title: "MINDFUL PILATES",
-    type: "Pilates",
-    level: "INTERMEDIATE"
+    title: "HOTEL GYM READY",
+    type: "Minimal Equipment",
+    level: "ALL LEVELS"
   },
   {
     img: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-    title: "CYCLE FUSION",
-    type: "Indoor Cycling",
+    title: "OUTDOOR ATHLETE",
+    type: "Bodyweight & Outdoor",
     level: "INTERMEDIATE"
   }
 ];
@@ -148,20 +148,20 @@ export default function ClassDetail() {
           </div>
           <div className="cd-info-text fade-left">
             <div className="cd-info-item">
-              <h4>Type</h4>
+              <h4>Workout Type</h4>
               <p>High-Intensity Interval Training (HIIT)</p>
             </div>
             <div className="cd-info-item">
-              <h4>Level</h4>
+              <h4>Difficulty Level</h4>
               <p>Intermediate</p>
             </div>
             <div className="cd-info-item">
-              <h4>Duration</h4>
-              <p>60 minutes</p>
+              <h4>Session Duration</h4>
+              <p>45–60 minutes</p>
             </div>
             <div className="cd-info-item">
-              <h4>Description</h4>
-              <p>Immerse yourself in a dynamic 60-minute session that seamlessly blends cardiovascular exercises with strength training intervals. FitFusion is designed to push your limits, ignite your metabolism, and leave you feeling invigorated.</p>
+              <h4>About This Plan</h4>
+              <p>A dynamic workout plan combining cardiovascular intervals with strength training. Designed to be adaptable for any gym environment — whether you're at your regular gym, a hotel fitness centre, or training outdoors. Follow this plan on VitroFit and stay consistent wherever you are.</p>
             </div>
           </div>
         </div>
@@ -205,12 +205,12 @@ export default function ClassDetail() {
         <div className="cd-related-header fade-up">
           <h2 className="cd-section-title">
             <span className="outline-text">YOU MAY ALSO</span><br/>
-            INTERESTED IN
+            LIKE THESE PLANS
           </h2>
-          <button className="btn-primary">VIEW MORE</button>
+          <button className="btn-primary">VIEW ALL PLANS</button>
         </div>
         <div className="cd-related-grid">
-          {relatedClasses.map((rc, idx) => (
+          {relatedPlans.map((rc, idx) => (
             <div key={idx} className={`cd-related-card fade-up delay-${idx + 1}`}>
               <div className="cd-related-img-container">
                 <img src={rc.img} alt={rc.title} className="cd-related-img" />
@@ -220,7 +220,7 @@ export default function ClassDetail() {
                   <p>{rc.type}</p>
                 </div>
                 <div className="cd-book-now-tag">
-                  BOOK NOW
+                  ADD TO MY PLAN
                 </div>
               </div>
             </div>
@@ -239,12 +239,12 @@ export default function ClassDetail() {
         <div className="cd-cta-accent-shape"></div>
         <div className="container cd-cta-content">
           <h2 className="cd-cta-title fade-up">
-            READY TO EXPERIENCE THE<br/>
-            <span className="outline-text">INTENSITY AND VERSATILITY</span><br/>
-            OF FITFUSION?
+            READY TO FOLLOW THIS PLAN<br/>
+            <span className="outline-text">AT YOUR NEXT GYM,</span><br/>
+            WHEREVER THAT MAY BE?
           </h2>
           <div className="fade-up delay-1 mt-4">
-             <button className="btn-primary">SIGN UP FOR THE CLASS</button>
+             <button className="btn-primary">ADD TO MY WORKOUT PLANS</button>
           </div>
         </div>
       </section>

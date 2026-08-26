@@ -5,38 +5,38 @@ const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 const timeSlots = ["6:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "12:00 PM", "1:00 PM", "6:00 PM", "7:00 PM"];
 
 const events = [
-  { day: "Monday", time: "6:00 AM", title: "FITFUSION", trainer: "Alexandra Rodriguez" },
-  { day: "Monday", time: "12:00 PM", title: "CARDIO KICK", trainer: "Emily Turner" },
-  { day: "Monday", time: "7:00 PM", title: "YOGA HARMONY", trainer: "David Chen" },
+  { day: "Monday", time: "6:00 AM", title: "HIIT BLAST", trainer: "Personal Plan" },
+  { day: "Monday", time: "12:00 PM", title: "CARDIO BURN", trainer: "Personal Plan" },
+  { day: "Monday", time: "7:00 PM", title: "YOGA FLOW", trainer: "Personal Plan" },
 
-  { day: "Tuesday", time: "8:00 AM", title: "YOGA HARMONY", trainer: "David Chen" },
-  { day: "Tuesday", time: "9:00 AM", title: "FUNCTIONAL FITNESS", trainer: "Dr. Maya Patel" },
-  { day: "Tuesday", time: "12:00 PM", title: "CYCLE FUSION", trainer: "Mark Johnson" },
-  { day: "Tuesday", time: "7:00 PM", title: "STRENGTH SCULPT", trainer: "Mark Johnson" },
+  { day: "Tuesday", time: "8:00 AM", title: "YOGA FLOW", trainer: "Personal Plan" },
+  { day: "Tuesday", time: "9:00 AM", title: "FUNCTIONAL MOVE", trainer: "Personal Plan" },
+  { day: "Tuesday", time: "12:00 PM", title: "OUTDOOR ATHLETE", trainer: "Personal Plan" },
+  { day: "Tuesday", time: "7:00 PM", title: "STRENGTH SCULPT", trainer: "Personal Plan" },
 
-  { day: "Wednesday", time: "8:00 AM", title: "DANCE CARDIO GROOVE", trainer: "Sophie Nguyen" },
-  { day: "Wednesday", time: "10:00 AM", title: "STRENGTH SCULPT", trainer: "Mark Johnson" },
+  { day: "Wednesday", time: "8:00 AM", title: "CARDIO BURN", trainer: "Personal Plan" },
+  { day: "Wednesday", time: "10:00 AM", title: "STRENGTH SCULPT", trainer: "Personal Plan" },
 
-  { day: "Thursday", time: "9:00 AM", title: "MINDFUL PILATES", trainer: "Sophie Nguyen", highlight: true },
-  { day: "Thursday", time: "12:00 PM", title: "CARDIO KICK", trainer: "Emily Turner" },
+  { day: "Thursday", time: "9:00 AM", title: "HOTEL GYM READY", trainer: "Travel Plan", highlight: true },
+  { day: "Thursday", time: "12:00 PM", title: "ZEN & RECOVER", trainer: "Personal Plan" },
 
-  { day: "Friday", time: "6:00 AM", title: "FITFUSION", trainer: "Alexandra Rodriguez" },
-  { day: "Friday", time: "10:00 AM", title: "YOGA HARMONY", trainer: "David Chen" },
-  { day: "Friday", time: "12:00 PM", title: "CYCLE FUSION", trainer: "Mark Johnson" },
-  { day: "Friday", time: "1:00 PM", title: "FITFUSION", trainer: "Mark Johnson" },
+  { day: "Friday", time: "6:00 AM", title: "HIIT BLAST", trainer: "Personal Plan" },
+  { day: "Friday", time: "10:00 AM", title: "YOGA FLOW", trainer: "Personal Plan" },
+  { day: "Friday", time: "12:00 PM", title: "OUTDOOR ATHLETE", trainer: "Personal Plan" },
+  { day: "Friday", time: "1:00 PM", title: "POWER ATHLETE", trainer: "Personal Plan" },
 
-  { day: "Saturday", time: "8:00 AM", title: "YOGA HARMONY", trainer: "David Chen" },
-  { day: "Saturday", time: "10:00 AM", title: "STRENGTH SCULPT", trainer: "Mark Johnson" },
+  { day: "Saturday", time: "8:00 AM", title: "YOGA FLOW", trainer: "Personal Plan" },
+  { day: "Saturday", time: "10:00 AM", title: "STRENGTH SCULPT", trainer: "Personal Plan" },
 
-  { day: "Sunday", time: "6:00 AM", title: "FITFUSION", trainer: "Alexandra Rodriguez" },
-  { day: "Sunday", time: "10:00 AM", title: "DANCE CARDIO GROOVE", trainer: "Sophie Nguyen" },
-  { day: "Sunday", time: "12:00 PM", title: "CARDIO KICK", trainer: "Emily Turner" },
-  { day: "Sunday", time: "1:00 PM", title: "CYCLE FUSION", trainer: "Mark Johnson" },
-  { day: "Sunday", time: "6:00 PM", title: "ZEN STRETCH", trainer: "Alexandra Rodriguez" },
-  { day: "Sunday", time: "7:00 PM", title: "STRENGTH SCULPT", trainer: "Mark Johnson" },
+  { day: "Sunday", time: "6:00 AM", title: "HIIT BLAST", trainer: "Personal Plan" },
+  { day: "Sunday", time: "10:00 AM", title: "CARDIO BURN", trainer: "Personal Plan" },
+  { day: "Sunday", time: "12:00 PM", title: "ZEN & RECOVER", trainer: "Personal Plan" },
+  { day: "Sunday", time: "1:00 PM", title: "OUTDOOR ATHLETE", trainer: "Personal Plan" },
+  { day: "Sunday", time: "6:00 PM", title: "FUNCTIONAL MOVE", trainer: "Personal Plan" },
+  { day: "Sunday", time: "7:00 PM", title: "STRENGTH SCULPT", trainer: "Personal Plan" },
 ];
 
-const categories = ["ALL EVENTS", "FITFUSION", "CYCLE FUSION", "CARDIO KICK", "FUNCTIONAL FITNESS"];
+const categories = ["ALL WORKOUTS", "HIIT BLAST", "OUTDOOR ATHLETE", "CARDIO BURN", "STRENGTH SCULPT"];
 
 const DumbbellIcon = () => (
   <svg width="24" height="12" viewBox="0 0 24 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -85,8 +85,8 @@ export default function Timetable() {
             Home &gt; <span>Timetable</span>
           </div>
           <h1 className="tt-hero-title fade-up delay-1">
-            YOUR DAILY <span className="outline-text">FITNESS</span><br/>
-            <span className="outline-text">JOURNEY</span> STARTS HERE
+            YOUR WEEKLY <span className="outline-text">WORKOUT</span><br/>
+            <span className="outline-text">SCHEDULE</span> AT A GLANCE
           </h1>
         </div>
       </section>
@@ -123,7 +123,7 @@ export default function Timetable() {
                 <div className="tt-time-cell">{time}</div>
                 {days.map(day => {
                   const event = events.find(e => e.day === day && e.time === time);
-                  const isVisible = event && (activeCategory === "ALL EVENTS" || event.title === activeCategory);
+                  const isVisible = event && (activeCategory === "ALL WORKOUTS" || event.title === activeCategory);
                   
                   return (
                     <div key={`${day}-${time}`} className="tt-cell">
@@ -166,11 +166,11 @@ export default function Timetable() {
         <div className="tt-cta-accent-shape"></div>
         <div className="container tt-cta-content fade-up">
           <h2 className="tt-cta-title">
-            <span className="outline-text">EXPLORE</span> OUR DIVERSE<br/>
-            CLASS SCHEDULE
+            <span className="outline-text">PLAN</span> YOUR WEEK,<br/>
+            TRAIN WITHOUT LIMITS
           </h2>
           <p className="tt-cta-desc">
-            Join VitroFit today and enjoy a variety of classes throughout the day!
+            Build and manage your personal workout schedule on VitroFit — at home, in a hotel, or at any partner gym worldwide.
           </p>
           <div className="mt-4">
              <button className="btn-primary">VIEW FULL SCHEDULE</button>

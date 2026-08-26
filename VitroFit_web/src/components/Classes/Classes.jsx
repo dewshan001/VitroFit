@@ -7,29 +7,29 @@ const classes = [
     id: 1,
     title: 'Strength Training',
     category: 'Power',
-    desc: 'Build muscle, increase stamina.',
+    desc: 'Build muscle and increase stamina with guided strength plans.',
     image: '/strength_training.png',
     active: true,
   },
   {
     id: 2,
-    title: 'Cardio Blast',
+    title: 'Cardio & Endurance',
     category: 'Endurance',
-    desc: 'Maximize heart health and weight loss.',
+    desc: 'Maximize heart health and burn calories anywhere.',
     image: '/cardio_blast.png',
   },
   {
     id: 3,
     title: 'Yoga & Flexibility',
     category: 'Wellness',
-    desc: 'Achieve mental clarity and flexibility.',
+    desc: 'Achieve mental clarity and body flexibility on the go.',
     image: '/yoga_flexibility.png',
   },
   {
     id: 4,
-    title: 'Nutrition & Diet',
-    category: 'Health',
-    desc: 'Eat right, fuel your performance.',
+    title: 'Hotel Gym Ready',
+    category: 'Travel',
+    desc: 'Compact, equipment-light plans perfect for hotel gyms.',
     image: '/battle_ropes.png',
   },
 ];
@@ -55,7 +55,7 @@ export default function Classes() {
       <div className="container">
         <div className={`classes-header fade-up ${isVisible ? 'visible' : ''}`}>
           <h2 className="section-title">
-            <span className="classes-outline">CHOOSE</span> YOUR PATH TO FITNESS
+            <span className="classes-outline">EXPLORE</span> WORKOUT CATEGORIES
           </h2>
         </div>
 

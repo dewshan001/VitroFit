@@ -4,16 +4,16 @@ import './Testimonials.css';
 const testimonials = [
   {
     name: 'Joanne',
-    role: 'Member since 2023',
+    role: 'VitroFit Pro Member',
     image: '/testimonial_woman.png',
-    quote: '"Before joining VitroFit, I was stuck in a fitness rut. But the trainers here are amazing, and the community is so supportive! It\'s like a second home to me now."',
+    quote: '"I travel for work almost every week. Before VitroFit, my workouts would fall apart the moment I left home. Now I just open the app, find a gym nearby, and follow my plan as if I never left."',
     stars: 5,
   },
   {
     name: 'Caleb',
-    role: 'Member since 2022',
+    role: 'VitroFit Elite Member',
     image: '/testimonial_man.png',
-    quote: '"I used to dread going to the gym, but VitroFit changed that for me. The variety of classes ensures I never get bored, and I genuinely look forward to each workout session!"',
+    quote: '"The timetable feature is a game changer. I plan my workouts for the whole week, and when my schedule shifts while traveling, I just drag and reschedule. My consistency has never been better!"',
     stars: 5,
   },
 ];

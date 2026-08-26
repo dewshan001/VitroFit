@@ -3,24 +3,24 @@ import './WhyUs.css';
 
 const features = [
   {
-    icon: '🎯',
-    title: 'Personalized Training',
-    desc: 'We create personalized workout plans designed specifically for your needs and goals, ensuring that every aspect of your fitness journey is customized to help you achieve success.',
+    icon: '🗺️',
+    title: 'Find Gyms Anywhere',
+    desc: 'Instantly locate verified partner gyms near your location, whether you are at home or on the other side of the world. Filter by equipment, price, and opening hours.',
+  },
+  {
+    icon: '📋',
+    title: 'Sync Your Workout Plan',
+    desc: 'Your custom workout plans travel with you. Access them from any device, edit on the fly, and always know exactly what your next session looks like.',
   },
   {
     icon: '📅',
-    title: 'Flexible Schedules',
-    desc: 'Enjoy the flexibility of our fitness programs, offering early morning to late night classes, so you can choose the time that suits your schedule best.',
+    title: 'Smart Timetable',
+    desc: 'Organize your weekly workout schedule and get reminders. Reschedule sessions with a tap when travel plans change — your consistency stays intact.',
   },
   {
-    icon: '⚡',
-    title: 'Latest Equipment',
-    desc: 'Stay ahead in your fitness journey with cutting-edge technology that not only enhances your workouts but also provides real-time data and analysis to help you track your progress.',
-  },
-  {
-    icon: '🥗',
-    title: 'Expert Nutritionists',
-    desc: 'Our comprehensive fitness program goes beyond exercise; we also provide tailored meal plans to fuel your fitness journey. These nutritionally balanced meal plans are designed to support your specific fitness goals.',
+    icon: '📊',
+    title: 'Progress Tracking',
+    desc: 'Log your workouts across different gyms and track your progress over time. See how far you have come, no matter where you trained.',
   },
 ];
 
@@ -35,7 +35,7 @@ export default function WhyUs() {
           <div>
             <h2 className={`why-us-title fade-left ${isVisible ? 'visible' : ''}`}>
               WHY <span className="accent">VITROFIT</span> IS YOUR<br />
-              IDEAL FITNESS PARTNER
+              IDEAL FITNESS COMPANION
             </h2>
 
             <div className="features-list">
@@ -60,10 +60,10 @@ export default function WhyUs() {
             <div className="why-us-image-accent" />
             <div className="why-us-image-accent-2" />
             <div className="why-us-badge">
-              <div className="why-us-badge-icon">🏆</div>
+              <div className="why-us-badge-icon">🌍</div>
               <div className="why-us-badge-text">
-                <strong>10+ Years</strong>
-                <span>of Excellence</span>
+                <strong>5,000+</strong>
+                <span>Partner Gyms</span>
               </div>
             </div>
           </div>

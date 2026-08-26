@@ -14,8 +14,8 @@ const coreValues = [
         <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
     ),
-    title: 'Community',
-    desc: 'Fostering a sense of belonging and support.',
+    title: 'Freedom to Train',
+    desc: 'Your workout routine belongs to you — not to any single gym. We let you carry it everywhere.',
   },
   {
     icon: (
@@ -24,8 +24,8 @@ const coreValues = [
         <path d="M12 8v4l3 3"/>
       </svg>
     ),
-    title: 'Inclusivity',
-    desc: 'Embracing diversity in fitness for all body types and abilities.',
+    title: 'Consistency',
+    desc: 'Maintain your momentum whether you are on a business trip, vacation, or back home.',
   },
   {
     icon: (
@@ -33,8 +33,8 @@ const coreValues = [
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
       </svg>
     ),
-    title: 'Innovation',
-    desc: 'Offering cutting-edge workouts and technology.',
+    title: 'Smart Planning',
+    desc: 'Create intelligent workout plans that adapt to your available equipment and gym facilities.',
   },
   {
     icon: (
@@ -48,40 +48,40 @@ const coreValues = [
       </svg>
     ),
     title: 'Personalization',
-    desc: 'Tailoring fitness plans to individual needs.',
+    desc: 'Every plan is tailored to your specific fitness goals, no matter where you train.',
   },
 ];
 
-// Trainers data
-const trainers = [
+// Platform features / team
+const teamFeatures = [
   {
-    name: 'Alexandra Rodriguez',
-    role: 'Strength & Conditioning Specialist',
+    name: 'Smart Gym Finder',
+    role: 'Locate nearby partner gyms worldwide in seconds',
     img: '/about_trainer_1.png',
   },
   {
-    name: 'David Chen',
-    role: 'Certified Yoga Instructor',
+    name: 'Workout Plan Builder',
+    role: 'Create and save custom workout plans for any location',
     img: '/about_trainer_2.png',
   },
   {
-    name: 'Emily Turner',
-    role: 'Nutrition and Wellness Coach',
+    name: 'Progress Tracker',
+    role: 'Monitor your fitness progress across different gyms',
     img: '/about_trainer_3.png',
   },
   {
-    name: 'Mark Johnson',
-    role: 'High-Intensity Interval Training (HIIT) Expert',
+    name: 'Timetable Manager',
+    role: 'Organize your weekly workout schedule effortlessly',
     img: '/about_trainer_4.png',
   },
   {
-    name: 'Dr. Maya Patel',
-    role: 'Injury Prevention Specialist',
+    name: 'Travel Mode',
+    role: 'Get gym recommendations and plans at your travel destination',
     img: '/about_trainer_5.png',
   },
   {
-    name: 'Sophie Nguyen',
-    role: 'Pilates and Flexibility Trainer',
+    name: 'Community Hub',
+    role: 'Connect with fellow fitness enthusiasts around the globe',
     img: '/about_trainer_6.png',
   },
 ];
@@ -181,23 +181,19 @@ export default function About() {
           >
             <h2 className="about-intro-title">
               EMPOWERING <span className="accent">YOUR</span>
-              <br />FITNESS JOURNEY
+              <br />FITNESS ANYWHERE
             </h2>
             <div className="accent-line" />
             <p className="about-intro-desc">
-              Welcome to VitroFit, where we believe that a healthier, happier you begins
-              with personalized fitness and a supportive community. Our state-of-the-art
-              studio is not just a gym; it's a space for transformation, where individuals
-              of all fitness levels come together to achieve their goals. With a commitment
-              to innovation and inclusivity, VitroFit is more than a workout — it's a lifestyle.
+              Welcome to VitroFit — the all-in-one fitness management platform built for people who refuse to let travel disrupt their training. Whether you are at your home gym, a hotel gym, or exploring a new city, VitroFit helps you find the right gym, follow your workout plan, and stay on top of your schedule. Your fitness goals don't pause. Neither do we.
             </p>
 
             {/* Stats inline */}
             <div className="about-stats-row">
               {[
-                { num: 500, suf: '+', label: 'Members' },
-                { num: 30, suf: '+', label: 'Classes' },
-                { num: 10, suf: '', label: 'Trainers' },
+                { num: 10000, suf: '+', label: 'Active Users' },
+                { num: 5000, suf: '+', label: 'Partner Gyms' },
+                { num: 500, suf: '+', label: 'Workout Plans' },
               ].map((s, i) => (
                 <div className="about-stat" key={i}>
                   <div className="about-stat-num">
@@ -261,7 +257,7 @@ export default function About() {
             <h2 className="about-video-title">
               EXPERIENCE <span className="accent">VITROFIT</span>
             </h2>
-            <p className="about-video-sub">Where Your Fitness Journey Thrives</p>
+            <p className="about-video-sub">Train Anywhere. Achieve Everything.</p>
           </div>
         </div>
       </section>
@@ -276,10 +272,10 @@ export default function About() {
             <div className="about-team-header-row">
               <div>
                 <h2 className="section-title">
-                  MEET <span className="accent">THE EXPERT</span>
+                  PLATFORM <span className="accent">FEATURES</span>
                 </h2>
                 <p className="about-team-sub">
-                  Each member of our team brings unique expertise to ensure a well-rounded and holistic fitness experience.
+                  Everything you need to keep your fitness on track — at home, abroad, or anywhere in between.
                 </p>
               </div>
               <Link to="/#classes" className="btn-primary">SEE MORE</Link>
@@ -290,7 +286,7 @@ export default function About() {
             className={`about-team-grid fade-up delay-2 ${teamGrid.isVisible ? 'visible' : ''}`}
             ref={teamGrid.ref}
           >
-            {trainers.map((t, i) => (
+            {teamFeatures.map((t, i) => (
               <div
                 className={`trainer-card fade-up delay-${(i % 3) + 1} ${teamGrid.isVisible ? 'visible' : ''}`}
                 key={t.name}
@@ -298,7 +294,7 @@ export default function About() {
                 <div className="trainer-img-wrap">
                   <img src={t.img} alt={t.name} className="trainer-img" />
                   <div className="trainer-book-overlay">
-                    <Link to="/#classes" className="trainer-book-btn btn-primary">BOOK NOW</Link>
+                    <Link to="/#classes" className="trainer-book-btn btn-primary">LEARN MORE</Link>
                   </div>
                 </div>
                 <div className="trainer-info">

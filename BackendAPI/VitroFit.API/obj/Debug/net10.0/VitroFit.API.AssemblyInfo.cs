@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VitroFit.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+661feca032d81e3205136eb56e5d16ad1241842b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4d61dd50f6500545c7ce9447047174a242a21035")]
 [assembly: System.Reflection.AssemblyProductAttribute("VitroFit.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VitroFit.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

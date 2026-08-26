@@ -3,34 +3,36 @@ import './Pricing.css';
 
 const plans = [
   {
-    tier: 'Basic Plan',
-    price: 3900,
-    frequency: '3 DAYS/WEEK',
+    tier: 'Free Plan',
+    price: 0,
+    frequency: 'FOREVER FREE',
     features: [
-      'Access to all cardio classes',
-      'Monthly body assessment',
-      'Nutritional guidance',
+      'Find up to 5 nearby gyms',
+      'Access 3 pre-built workout plans',
+      'Basic timetable management',
     ],
   },
   {
-    tier: 'Premium Plan',
-    price: 5900,
-    frequency: '3 DAYS/WEEK',
+    tier: 'Pro Plan',
+    price: 1490,
+    frequency: 'PER MONTH',
     featured: true,
     features: [
-      'All Basic Plan features',
-      'Strength training sessions',
-      'Nutritional guidance',
+      'Unlimited gym discovery worldwide',
+      'Create & sync custom workout plans',
+      'Full timetable with reminders',
+      'Progress tracking & analytics',
     ],
   },
   {
     tier: 'Elite Plan',
-    price: 8900,
-    frequency: '3 DAYS/WEEK',
+    price: 2990,
+    frequency: 'PER MONTH',
     features: [
-      'All Premium Plan features',
-      'Personal training session once a month',
-      'Priority booking for all classes',
+      'All Pro Plan features',
+      'Priority gym check-in access',
+      'AI-powered workout recommendations',
+      'Dedicated travel fitness coach',
     ],
   },
 ];
@@ -44,11 +46,11 @@ export default function Pricing() {
         <div className={`pricing-header fade-up ${isVisible ? 'visible' : ''}`}>
           <h2 className="section-title">
             FLEXIBLE <span className="accent">PLANS FOR</span><br />
-            EVERY BUDGET
+            EVERY FITNESS JOURNEY
           </h2>
         </div>
         <p className={`pricing-subtitle fade-up delay-1 ${isVisible ? 'visible' : ''}`}>
-          Choose a plan that suits you. No long-term commitments required.
+          Start free, upgrade when you're ready. No long-term commitments, cancel anytime.
         </p>
 
         <div className="pricing-grid">
@@ -59,9 +61,9 @@ export default function Pricing() {
             >
               <div className="pricing-tier">{plan.tier}</div>
               <div className="pricing-price">
-                <span className="pricing-currency">Rs. </span>
-                <span className="pricing-amount">{plan.price}</span>
-                <span className="pricing-period">/month</span>
+                <span className="pricing-currency">{plan.price === 0 ? '' : 'Rs. '}</span>
+                <span className="pricing-amount">{plan.price === 0 ? 'Free' : plan.price}</span>
+                <span className="pricing-period">{plan.price === 0 ? '' : '/month'}</span>
               </div>
               <div className="pricing-frequency">{plan.frequency}</div>
 

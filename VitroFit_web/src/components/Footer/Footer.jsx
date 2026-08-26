@@ -7,10 +7,10 @@ export default function Footer() {
         <div className="footer-grid">
           {/* About */}
           <div className="footer-col">
-            <h4 className="footer-heading">About</h4>
+            <h4 className="footer-heading">Platform</h4>
             <ul className="footer-links">
-              <li><a href="#about">Our Story</a></li>
-              <li><a href="#about">Mission & Vision</a></li>
+              <li><a href="#about">How It Works</a></li>
+              <li><a href="#about">Our Mission</a></li>
               <li><a href="#about">Meet the Team</a></li>
               <li><a href="#about">Careers</a></li>
               <li><a href="#about">FAQs</a></li>
@@ -22,20 +22,20 @@ export default function Footer() {
             <h4 className="footer-heading">Contact</h4>
             <ul className="footer-links">
               <li><a href="#contact">Contact Us</a></li>
-              <li><a href="#contact">Location & Hours</a></li>
               <li><a href="#contact">Support</a></li>
-              <li><a href="#contact">Partnership Inquiries</a></li>
+              <li><a href="#contact">Partner with Us</a></li>
+              <li><a href="#contact">Gym Partnerships</a></li>
             </ul>
           </div>
 
-          {/* Classes */}
+          {/* Features */}
           <div className="footer-col">
-            <h4 className="footer-heading">Classes</h4>
+            <h4 className="footer-heading">Features</h4>
             <ul className="footer-links">
-              <li><a href="#classes">Class Schedule</a></li>
-              <li><a href="#classes">Types of Workouts</a></li>
-              <li><a href="#classes">Trainers</a></li>
-              <li><a href="#classes">Virtual Classes</a></li>
+              <li><a href="#classes">Find Gyms</a></li>
+              <li><a href="#classes">Workout Plans</a></li>
+              <li><a href="#timetable">Timetable</a></li>
+              <li><a href="#classes">Progress Tracker</a></li>
             </ul>
           </div>
 
@@ -44,9 +44,9 @@ export default function Footer() {
             <h4 className="footer-heading">Resources</h4>
             <ul className="footer-links">
               <li><a href="#resources">Blog</a></li>
-              <li><a href="#resources">Exercise Tips</a></li>
-              <li><a href="#resources">Nutrition Guides</a></li>
-              <li><a href="#resources">Equipment Reviews</a></li>
+              <li><a href="#resources">Travel Fitness Tips</a></li>
+              <li><a href="#resources">Workout Guides</a></li>
+              <li><a href="#resources">App Download</a></li>
             </ul>
           </div>
 

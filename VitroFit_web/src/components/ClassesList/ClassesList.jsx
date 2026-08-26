@@ -4,56 +4,56 @@ import './ClassesList.css';
 
 const allClasses = [
   {
-    title: "FITFUSION",
-    type: "High-Intensity Interval Training (HIIT)",
-    level: "INTERMEDIATE",
-    img: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    title: "YOGA HARMONY",
-    type: "Vinyasa Flow",
-    level: "ALL LEVELS",
-    img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80"
-  },
-  {
     title: "STRENGTH SCULPT",
     type: "Strength Training",
     level: "BEGINNER",
     img: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80"
   },
   {
-    title: "CARDIO KICK",
-    type: "Kickboxing Cardio",
-    level: "ALL LEVELS",
-    img: "https://images.unsplash.com/photo-1594381898411-846e7d193883?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    title: "MINDFUL PILATES",
-    type: "Pilates",
-    level: "BEGINNER",
-    img: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    title: "CYCLE FUSION",
-    type: "Indoor Cycling",
-    level: "ALL LEVELS",
-    img: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    title: "ZEN STRETCH",
-    type: "Stretch and Relaxation",
-    level: "INTERMEDIATE",
-    img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    title: "DANCE CARDIO GROOVE",
-    type: "Dance Fitness",
+    title: "CARDIO BURN",
+    type: "Cardio & Endurance",
     level: "ALL LEVELS",
     img: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80"
   },
   {
-    title: "FUNCTIONAL FITNESS",
-    type: "CrossFit-inspired",
+    title: "YOGA FLOW",
+    type: "Yoga & Flexibility",
+    level: "ALL LEVELS",
+    img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    title: "HOTEL GYM READY",
+    type: "Minimal Equipment",
+    level: "ALL LEVELS",
+    img: "https://images.unsplash.com/photo-1594381898411-846e7d193883?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    title: "HIIT BLAST",
+    type: "High-Intensity Interval Training",
+    level: "INTERMEDIATE",
+    img: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    title: "OUTDOOR ATHLETE",
+    type: "Bodyweight & Outdoor",
+    level: "INTERMEDIATE",
+    img: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    title: "ZEN & RECOVER",
+    type: "Stretch & Relaxation",
+    level: "ALL LEVELS",
+    img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    title: "POWER ATHLETE",
+    type: "Advanced Strength",
+    level: "ADVANCED",
+    img: "https://images.unsplash.com/photo-1599058945522-28d584b6f4ff?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    title: "FUNCTIONAL MOVE",
+    type: "Functional Fitness",
     level: "ADVANCED",
     img: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80"
   }
@@ -94,8 +94,8 @@ export default function ClassesList() {
             Home &gt; <span>Classes</span>
           </div>
           <h1 className="cl-hero-title fade-up delay-1">
-            <span className="outline-text">ELEVATE YOUR</span><br/>
-            WORKOUT EXPERIENCE
+            <span className="outline-text">YOUR WORKOUT PLANS,</span><br/>
+            WHEREVER YOU GO
           </h1>
         </div>
       </section>
@@ -134,12 +134,12 @@ export default function ClassesList() {
         <div className="cl-cta-accent-shape"></div>
         <div className="container cl-cta-content fade-up">
           <h2 className="cl-cta-title">
-            READY TO EXPERIENCE <span className="outline-text">THE<br/>
-            VARIETY AND EFFECTIVENESS</span><br/>
-            OF OUR CLASSES?
+            READY TO TRAIN <span className="outline-text">WITHOUT<br/>
+            LIMITS?</span><br/>
+            JOIN VITROFIT TODAY.
           </h2>
           <div className="cl-cta-btn-wrapper mt-4">
-             <button className="btn-primary">SIGN UP FOR A CLASS</button>
+             <button className="btn-primary">START FOR FREE</button>
           </div>
         </div>
       </section>
