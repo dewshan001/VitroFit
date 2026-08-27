@@ -1,0 +1,29 @@
+# -- Generic / cross-platform build artifact ignore rules --
+
+# .NET build output
+bin/
+obj/
+
+# Node.js dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.user
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
