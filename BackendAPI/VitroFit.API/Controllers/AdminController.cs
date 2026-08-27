@@ -86,8 +86,7 @@ namespace VitroFit.API.Controllers
                 return NotFound(new { error = "User not found." });
             }
 
-            // Optional: prevent deleting the last admin or the current admin
-            // Wait, we can let them delete anything for now, maybe protect current user
+            // Prevent deleting the currently logged-in admin.
             var currentUserIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(currentUserIdStr, out int currentUserId) && currentUserId == id)
             {

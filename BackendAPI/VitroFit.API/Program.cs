@@ -113,6 +113,10 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Apply any pending EF Core migrations automatically (creates the DB on first run).
+    context.Database.Migrate();
+
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     
     if (!context.Users.Any(u => u.Email == "admin@gmail.com"))
