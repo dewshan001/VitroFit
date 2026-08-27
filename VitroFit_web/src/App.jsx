@@ -13,6 +13,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import FindGymsPage from './pages/FindGymsPage';
+import DietPlansPage from './pages/DietPlansPage';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/classes/detail" element={<ClassDetailPage />} />
         <Route path="/timetable"      element={<TimetablePage />} />
         <Route path="/find-gyms"      element={<FindGymsPage />} />
+        <Route path="/diet-plans"     element={<DietPlansPage />} />
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/register"       element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
