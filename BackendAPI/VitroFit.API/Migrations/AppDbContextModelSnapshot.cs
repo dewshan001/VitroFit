@@ -60,7 +60,7 @@ namespace VitroFit.API.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("PasswordResetOtps");
+                    b.ToTable("PasswordResetOtps", (string)null);
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.RefreshToken", b =>
@@ -94,7 +94,7 @@ namespace VitroFit.API.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.User", b =>
@@ -152,7 +152,7 @@ namespace VitroFit.API.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.RefreshToken", b =>
