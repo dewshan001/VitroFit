@@ -2,13 +2,17 @@
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from rag_engine import generate_rag_response
 
 load_dotenv()
 
-app = FastAPI(title="VitroFit RAG Chatbot")
+app = FastAPI(
+    title="VitroFit RAG Chatbot API",
+    description="RAG-powered fitness assistant backed by OpenRouter",
+    version="1.0.0"
+)
 
 # Allow React app (port 5173) to connect
 app.add_middleware(
@@ -20,10 +24,14 @@ app.add_middleware(
 )
 
 class QueryRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=1000, description="User question or prompt")
 
 class QueryResponse(BaseModel):
     reply: str
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "VitroFit Chatbot (OpenRouter RAG)"}
 
 @app.post("/api/chat", response_model=QueryResponse)
 async def chat_endpoint(request: QueryRequest):

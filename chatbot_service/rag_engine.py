@@ -1,55 +1,75 @@
 # chatbot_service/rag_engine.py
 import os
 import chromadb
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Connect to the persistent ChromaDB collection
+# 1. Connect to persistent ChromaDB collection
 CHROMA_DATA_PATH = os.path.join(os.path.dirname(__file__), "chroma_db")
 chroma_client = chromadb.PersistentClient(path=CHROMA_DATA_PATH)
 collection = chroma_client.get_or_create_collection(name="vitrofit_knowledge")
 
-# Initialize Gemini Client
-gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# 2. Initialize OpenRouter Client (OpenAI compatible)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+MODEL_ID = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3.5-lightning:free")
+
+if not OPENROUTER_API_KEY:
+    print("WARNING: OPENROUTER_API_KEY is missing! Set it in your .env file.")
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
+    default_headers={
+        "HTTP-Referer": "http://localhost:5173",
+        "X-Title": "VitroFit AI Chatbot",
+    }
+)
 
 def retrieve_context(query: str, n_results: int = 3) -> str:
-    """Finds the most semantically relevant text chunks from ChromaDB."""
-    results = collection.query(
-        query_texts=[query],
-        n_results=n_results
-    )
-    documents = results.get("documents", [[]])[0]
-    return "\n\n".join(documents) if documents else "No specific context found."
+    """Finds the most relevant knowledge chunks from ChromaDB."""
+    try:
+        results = collection.query(
+            query_texts=[query],
+            n_results=n_results
+        )
+        documents = results.get("documents", [[]])[0]
+        return "\n\n".join(documents) if documents else "No specific context available."
+    except Exception as e:
+        print(f"ChromaDB retrieval warning: {e}")
+        return "No specific context available."
 
 def generate_rag_response(user_query: str) -> str:
-    """Combines retrieved VitroFit context with Gemini LLM generation."""
-    # 1. Retrieve relevant facts from vector store
+    """Retrieves context from ChromaDB and calls the OpenRouter API."""
     context = retrieve_context(user_query)
 
-    # 2. Build the augmented prompt
-    rag_prompt = f"""
-You are the official VitroFit AI Fitness Assistant.
-Answer the user's question accurately using ONLY the following verified context from VitroFit.
-If the answer is not in the context, politely state that you do not have that specific information, but offer general fitness advice if appropriate.
+    system_instruction = (
+        "You are the VitroFit AI Fitness Coach. "
+        "Answer the user's question accurately using the provided VitroFit context below. "
+        "Keep your response concise, energetic, friendly, and helpful. "
+        "If the answer is not in the context, answer using general fitness knowledge but mention "
+        "that it may vary for specific VitroFit locations."
+    )
 
-[CONTEXT FROM VITROFIT KNOWLEDGE BASE]
+    user_prompt = f"""[CONTEXT FROM VITROFIT KNOWLEDGE BASE]
 {context}
 
 [USER QUESTION]
 {user_query}
 """
 
-    # 3. Call Gemini
-    response = gemini_client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=rag_prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.3, # Lower temperature = higher factual accuracy
-            max_output_tokens=500
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_ID,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=400,
+            temperature=0.4
         )
-    )
+        return response.choices[0].message.content.strip()
 
-    return response.text or "I apologize, but I couldn't process your request."
+    except Exception as e:
+        return f"OpenRouter API Error: {str(e)}"
