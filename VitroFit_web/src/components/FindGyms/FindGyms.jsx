@@ -314,14 +314,6 @@ export default function FindGyms() {
       {/* ── INTERACTIVE MAP ── */}
       <GymMap />
 
-      {/* ── GYMS GRID (placeholder until API connected) ── */}
-      <div className="fg-grid-section">
-        <div className="fg-empty">
-          <div className="fg-empty-icon">🏋️</div>
-          <h3>Gym listings coming soon</h3>
-          <p>Connect the API to display nearby gyms here.</p>
-        </div>
-      </div>
 
 
       {/* ── CTA BANNER ── */}

@@ -49,7 +49,7 @@
 
 .fg-hero-content {
   width: 100%;
-  padding-top: 90px;
+  padding-top: 2.5rem;
 }
 
 .fg-breadcrumb {
@@ -102,8 +102,8 @@
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   position: sticky;
-  top: 72px;
-  z-index: 50;
+  top: 75px;
+  z-index: 800;
   box-shadow: 0 4px 30px rgba(0,0,0,0.5);
 }
 

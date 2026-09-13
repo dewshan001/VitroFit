@@ -9,6 +9,7 @@
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   padding: 5rem 0;
+  isolation: isolate;
 }
 
 /* ── INNER CONTAINER ── */
@@ -186,7 +187,7 @@
   border: 1px solid rgba(200, 240, 0, 0.2) !important;
   border-radius: 0 !important;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(200, 240, 0, 0.08) !important;
-  margin: 1.25rem 0 0 1.25rem !important;
+  margin: 0 0 1.25rem 1.25rem !important;
   overflow: hidden;
 }
 

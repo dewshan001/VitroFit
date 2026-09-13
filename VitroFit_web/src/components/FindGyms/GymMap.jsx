@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './GymMap.css';
@@ -227,7 +227,7 @@ export default function GymMap() {
               maxZoom={19}
               scrollWheelZoom={true}
               style={{ height: '100%', width: '100%' }}
-              zoomControl={true}
+              zoomControl={false}
               attributionControl={true}
             >
               <TileLayer
@@ -238,6 +238,7 @@ export default function GymMap() {
               />
 
               <MapController coords={userCoords} onCenterChange={fetchPlaces} />
+              <ZoomControl position="bottomleft" />
 
               {/* User location marker */}
               {userCoords && (
