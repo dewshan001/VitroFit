@@ -1,0 +1,553 @@
+/* ================================================
+   GYM MAP — VITROFIT
+   Accent: #c8f000  |  BG: #111111 / #1a1a1a
+   ================================================ */
+
+/* ── SECTION WRAPPER ── */
+.gym-map-section {
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 5rem 0;
+}
+
+/* ── INNER CONTAINER ── */
+.gym-map-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* ── HEADER ── */
+.gym-map-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.gym-map-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.gym-map-eyebrow-line {
+  width: 40px;
+  height: 2px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.gym-map-eyebrow-text {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.gym-map-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+}
+
+.gym-map-title .outline-text {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--text-primary);
+}
+
+/* ── LOCATION STATUS BADGE ── */
+.gym-map-location-status {
+  flex-shrink: 0;
+}
+
+.gym-map-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(6px);
+}
+
+.gym-map-status--locating { color: var(--text-muted); }
+.gym-map-status--found    { color: #4ade80; border-color: rgba(74, 222, 128, 0.25); background: rgba(74, 222, 128, 0.04); }
+.gym-map-status--error    { color: #f87171; border-color: rgba(248, 113, 113, 0.25); background: rgba(248, 113, 113, 0.04); }
+.gym-map-status--loading  { color: var(--accent); border-color: rgba(200, 240, 0, 0.2); background: rgba(200, 240, 0, 0.03); }
+
+.gym-map-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.gym-map-status-dot--pulse {
+  background: var(--accent);
+  animation: gymMapDotPulse 1.2s ease-in-out infinite;
+}
+
+.gym-map-status-dot--active { background: #4ade80; }
+.gym-map-status-dot--error  { background: #f87171; }
+
+@keyframes gymMapDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.6); }
+}
+
+/* ── MAP OUTER FRAME ── */
+.gym-map-frame {
+  position: relative;
+  border: 1px solid rgba(200, 240, 0, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 24px 80px rgba(0, 0, 0, 0.7),
+    0 0 60px rgba(200, 240, 0, 0.06);
+}
+
+/* Corner accent brackets */
+.gym-map-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.gym-map-corner--tl {
+  top: -1px; left: -1px;
+  border-top: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
+}
+.gym-map-corner--tr {
+  top: -1px; right: -1px;
+  border-top: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+}
+.gym-map-corner--bl {
+  bottom: -1px; left: -1px;
+  border-bottom: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
+}
+.gym-map-corner--br {
+  bottom: -1px; right: -1px;
+  border-bottom: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+}
+
+/* ── MAP CONTAINER ── */
+.gym-map-container {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  overflow: hidden;
+}
+
+/* ── LEAFLET MAP ── */
+.gym-map-container .leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #0e0e0e !important;
+  outline: none;
+}
+
+/* Override Leaflet controls */
+.gym-map-container .leaflet-control-attribution {
+  background: rgba(14, 14, 14, 0.9) !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-body) !important;
+  font-size: 0.68rem !important;
+  border-top: 1px solid rgba(200, 240, 0, 0.12) !important;
+  border-left: 1px solid rgba(200, 240, 0, 0.12) !important;
+  border-radius: 0 !important;
+  backdrop-filter: blur(8px);
+  padding: 3px 8px !important;
+}
+
+.gym-map-container .leaflet-control-attribution a {
+  color: var(--accent) !important;
+}
+
+.gym-map-container .leaflet-bar {
+  border: 1px solid rgba(200, 240, 0, 0.2) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(200, 240, 0, 0.08) !important;
+  margin: 1.25rem 0 0 1.25rem !important;
+  overflow: hidden;
+}
+
+.gym-map-container .leaflet-bar a {
+  background: rgba(17, 17, 17, 0.96) !important;
+  border-bottom: 1px solid rgba(200, 240, 0, 0.12) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-display) !important;
+  font-size: 1.15rem !important;
+  line-height: 34px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 0 !important;
+  transition: var(--transition) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.gym-map-container .leaflet-bar a:hover {
+  background: rgba(200, 240, 0, 0.15) !important;
+  color: var(--accent) !important;
+}
+
+/* ── STATS OVERLAY BAR ── */
+.gym-map-stats-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 450;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  background: linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.85) 70%, transparent 100%);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.gym-map-stats-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.gym-map-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.gym-map-stat-chip strong {
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.gym-map-stat-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255,255,255,0.1);
+}
+
+.gym-map-scroll-hint {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* ── BOTTOM FADE ── */
+.gym-map-fade-bottom {
+  display: none; /* replaced by stats bar */
+}
+
+/* ── USER LOCATION MARKER ── */
+.gym-map-user-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.gym-map-user-pulse {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(200, 240, 0, 0.15);
+  border: 2px solid rgba(200, 240, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: gymMapUserPulse 2s ease-in-out infinite;
+}
+
+.gym-map-user-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(200, 240, 0, 0.8), 0 0 24px rgba(200, 240, 0, 0.4);
+}
+
+@keyframes gymMapUserPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200, 240, 0, 0.35); }
+  50%       { box-shadow: 0 0 0 16px rgba(200, 240, 0, 0); }
+}
+
+/* ── POPUP — USER ── */
+.leaflet-popup-content-wrapper.gym-map-popup,
+.gym-map-popup .leaflet-popup-content-wrapper {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-accent) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(200, 240, 0, 0.15) !important;
+  color: var(--text-primary) !important;
+  padding: 0 !important;
+}
+
+.gym-map-popup .leaflet-popup-tip {
+  background: var(--bg-secondary) !important;
+}
+
+.gym-map-popup-content {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+}
+
+.gym-map-popup-icon {
+  font-size: 1.1rem;
+}
+
+.gym-map-popup-label {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Leaflet popup close button */
+.leaflet-popup-close-button {
+  color: var(--text-muted) !important;
+  top: 6px !important;
+  right: 8px !important;
+  font-size: 1.1rem !important;
+}
+.leaflet-popup-close-button:hover {
+  color: var(--accent) !important;
+}
+
+/* ── GYM MARKER PIN ── */
+.gym-map-place-icon,
+.gym-map-user-icon {
+  background: none !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+.gym-marker-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50% 50% 50% 0;
+  background: #1a1a1a;
+  border: 2px solid var(--accent);
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7), 0 0 10px rgba(200, 240, 0, 0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+}
+
+.gym-marker-pin svg {
+  transform: rotate(45deg);
+  color: var(--accent);
+}
+
+.gym-marker-pin:hover {
+  transform: rotate(-45deg) scale(1.18);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.85), 0 0 18px rgba(200, 240, 0, 0.7);
+  background: #252525;
+}
+
+/* ── GYM / PLACE POPUP CARD ── */
+.leaflet-popup-content-wrapper.gym-map-place-popup,
+.gym-map-place-popup .leaflet-popup-content-wrapper {
+  background: #1a1a1a !important;
+  border: 1px solid rgba(200, 240, 0, 0.3) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(200, 240, 0, 0.15) !important;
+  color: var(--text-primary) !important;
+  padding: 0 !important;
+}
+
+.gym-map-place-popup .leaflet-popup-tip {
+  background: #1a1a1a !important;
+}
+
+.gym-place-popup-card {
+  padding: 1.1rem 1.25rem;
+  min-width: 230px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.gym-place-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.gym-place-popup-badge {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: rgba(200, 240, 0, 0.12);
+  border: 1px solid rgba(200, 240, 0, 0.35);
+  color: var(--accent);
+  padding: 2px 8px;
+}
+
+.gym-place-popup-dist {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.gym-place-popup-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.gym-place-popup-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.gym-place-popup-address svg {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.gym-place-popup-actions {
+  margin-top: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gym-place-popup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 7px 12px;
+  background: var(--accent);
+  color: #111111 !important;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+  clip-path: polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.gym-place-popup-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ── LEGEND ── */
+.gym-map-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+  padding: 0.7rem 1.1rem;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+
+.gym-map-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.gym-map-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.gym-map-legend-dot--user {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(200, 240, 0, 0.7);
+}
+
+.gym-map-legend-pin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 0;
+  background: #1a1a1a;
+  border: 1.5px solid var(--accent);
+  transform: rotate(-45deg);
+  flex-shrink: 0;
+}
+
+.gym-map-legend-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .gym-map-section { padding: 3.5rem 0; }
+  .gym-map-inner { padding: 0 1.25rem; }
+  .gym-map-container { height: 480px; }
+  .gym-map-header { margin-bottom: 1.75rem; }
+}
+
+@media (max-width: 600px) {
+  .gym-map-section { padding: 2.5rem 0; }
+  .gym-map-inner { padding: 0 1rem; }
+  .gym-map-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .gym-map-container { height: 360px; }
+  .gym-map-stats-bar { padding: 0.7rem 1rem; }
+  .gym-map-scroll-hint { display: none; }
+  .gym-map-legend { flex-wrap: wrap; gap: 0.85rem; }
+}
