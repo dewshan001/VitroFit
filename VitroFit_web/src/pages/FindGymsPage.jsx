@@ -2,7 +2,7 @@ import FindGyms from '../components/FindGyms/FindGyms';
 
 export default function FindGymsPage() {
   return (
-    <main>
+    <main style={{ paddingTop: '75px' }}>
       <FindGyms />
     </main>
   );

@@ -49,7 +49,7 @@
 
 .fg-hero-content {
   width: 100%;
-  padding-top: 90px;
+  padding-top: 2.5rem;
 }
 
 .fg-breadcrumb {
@@ -102,8 +102,8 @@
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   position: sticky;
-  top: 72px;
-  z-index: 50;
+  top: 75px;
+  z-index: 800;
   box-shadow: 0 4px 30px rgba(0,0,0,0.5);
 }
 
@@ -249,6 +249,37 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 1.75rem;
 }
+
+/* ── EMPTY STATE ── */
+.fg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  text-align: center;
+  gap: 1rem;
+}
+.fg-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
+}
+.fg-empty h3 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.fg-empty p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  max-width: 320px;
+}
+
+
 
 /* ── GYM CARD ── */
 .fg-gym-card {
