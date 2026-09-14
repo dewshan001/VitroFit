@@ -40,6 +40,7 @@ def _load_knowledge_chunks():
         except Exception:
             pass
 
+    # 2. Fallback to raw text file if index isn't created yet
     if os.path.exists(RAW_DATA_PATH):
         with open(RAW_DATA_PATH, "r", encoding="utf-8") as f:
             text = f.read()
@@ -87,16 +88,16 @@ def retrieve_context(query: str, n_results: int = 2) -> str:
     if not chunks:
         return "No specific context available."
 
-    # 3. If query is a simple greeting, skip context retrieval
+    # If query is a simple greeting, skip context retrieval
     COMMON_GREETINGS = {"hi", "hello", "hey", "hola", "yo", "sup", "greetings", "good morning", "good afternoon", "good evening"}
     cleaned_simple = re.sub(r'[^\w\s]', '', query.strip().lower())
     if cleaned_simple in COMMON_GREETINGS:
         return ""
 
-    # 4. Tokenize query (with domain synonyms) and rank chunks by relevance
+    # Tokenize query (with domain synonyms) and rank chunks by relevance
     query_tokens = _expand_query_tokens(set(re.findall(r'\w+', query.lower())))
     if not query_tokens:
-        return ""
+        return "\n\n".join(c["text"] for c in chunks[:n_results])
 
     scores = []
     for chunk in chunks:
@@ -109,10 +110,12 @@ def retrieve_context(query: str, n_results: int = 2) -> str:
     scores.sort(key=lambda x: x[0], reverse=True)
     top_chunks = [text for score, text in scores[:n_results] if score > 0]
 
+    # If no specific keyword matched, include the first chunks as baseline context
     if not top_chunks:
-        return ""
+        top_chunks = [c["text"] for c in chunks[:n_results]]
 
     return "\n\n".join(top_chunks)
+
 
 _THINKING_PREAMBLE_RE = re.compile(
     r"Here['’]s a thinking process|Thinking Process:"
@@ -157,6 +160,7 @@ def clean_llm_response(text: str) -> str:
                     return p.strip('"\n\r ')
 
     return text.strip()
+
 
 def _build_messages(user_query: str):
     context = retrieve_context(user_query)
