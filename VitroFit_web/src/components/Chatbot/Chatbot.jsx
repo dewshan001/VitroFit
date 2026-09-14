@@ -213,8 +213,51 @@ export default function Chatbot() {
         throw new Error(err.detail || `Server error ${res.status}`);
       }
 
-      const data = await res.json();
-      addMessage('bot', data.reply || 'Sorry, I got an empty response.');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+      let botText = '';
+      let botMsgId = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const events = sseBuffer.split('\n\n');
+        sseBuffer = events.pop() || '';
+
+        for (const event of events) {
+          const line = event.split('\n').find(l => l.startsWith('data: '));
+          if (!line) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') continue;
+
+          let parsed;
+          try {
+            parsed = JSON.parse(payload);
+          } catch {
+            continue;
+          }
+
+          if (parsed.error) throw new Error(parsed.error);
+
+          if (parsed.content) {
+            botText += parsed.content;
+            if (botMsgId === null) {
+              setLoading(false);
+              botMsgId = addMessage('bot', botText);
+            } else {
+              const id = botMsgId;
+              setMessages(prev => prev.map(m => (m.id === id ? { ...m, text: botText } : m)));
+            }
+          }
+        }
+      }
+
+      if (botMsgId === null) {
+        addMessage('bot', 'Sorry, I got an empty response.');
+      }
     } catch (err) {
       if (err.name === 'AbortError') return;
       setError(err.message || 'Connection failed. Make sure the chatbot service is running.');
