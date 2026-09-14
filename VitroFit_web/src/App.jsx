@@ -2,6 +2,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import './index.css';
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
+import Chatbot from './components/Chatbot/Chatbot';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import ClassesPage from './pages/ClassesPage';
@@ -13,6 +14,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import FindGymsPage from './pages/FindGymsPage';
+import DietPlansPage from './pages/DietPlansPage';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
@@ -31,12 +33,14 @@ export default function App() {
         <Route path="/classes/detail" element={<ClassDetailPage />} />
         <Route path="/timetable"      element={<TimetablePage />} />
         <Route path="/find-gyms"      element={<FindGymsPage />} />
+        <Route path="/diet-plans"     element={<DietPlansPage />} />
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/register"       element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/profile"        element={<ProfilePage />} />
         <Route path="/admin"          element={<AdminDashboardPage />} />
       </Routes>
+      {!isAuthPage && <Chatbot />}
       {!isAuthPage && <Footer />}
     </>
   );
