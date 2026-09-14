@@ -2,6 +2,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import './index.css';
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
+import Chatbot from './components/Chatbot/Chatbot';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import ClassesPage from './pages/ClassesPage';
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/profile"        element={<ProfilePage />} />
         <Route path="/admin"          element={<AdminDashboardPage />} />
       </Routes>
+      {!isAuthPage && <Chatbot />}
       {!isAuthPage && <Footer />}
     </>
   );
