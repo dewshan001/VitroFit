@@ -28,7 +28,6 @@ client = AsyncOpenAI(
     timeout=30.0,
 )
 
-
 def _load_knowledge_chunks():
     """Loads knowledge chunks from disk once at startup (was re-read on every request)."""
     if os.path.exists(INDEX_PATH):
@@ -115,7 +114,6 @@ def retrieve_context(query: str, n_results: int = 2) -> str:
         top_chunks = [c["text"] for c in chunks[:n_results]]
 
     return "\n\n".join(top_chunks)
-
 
 _THINKING_PREAMBLE_RE = re.compile(
     r"Here['’]s a thinking process|Thinking Process:"
