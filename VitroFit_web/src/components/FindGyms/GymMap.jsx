@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { fetchGymDetails } from '../../api/gyms';
 import './GymMap.css';
 
 /* ─────────────────────────────────────────
@@ -97,12 +98,70 @@ function MapController({ coords, onCenterChange }) {
   return null;
 }
 
+/* ─────────────────────────────────────────
+   GYM EQUIPMENT / CLASSES (fetched on demand
+   when a marker's popup is opened)
+───────────────────────────────────────── */
+const SOURCE_LABELS = {
+  verified: 'Verified by gym',
+  'ai-scraped': "AI summary of the gym's website",
+  'ai-generic': 'AI best guess (no site data)',
+};
+
+function GymDetailsSection({ status }) {
+  if (!status || status.loading) {
+    return <div className="gym-place-popup-details gym-place-popup-details--loading">Loading equipment & classes…</div>;
+  }
+  if (status.error) {
+    return <div className="gym-place-popup-details gym-place-popup-details--error">Couldn&apos;t load gym details.</div>;
+  }
+
+  const { equipment = [], classes = [], source } = status.data || {};
+  if (equipment.length === 0 && classes.length === 0) {
+    return <div className="gym-place-popup-details gym-place-popup-details--empty">No equipment/class info available yet.</div>;
+  }
+
+  return (
+    <div className="gym-place-popup-details">
+      {equipment.length > 0 && (
+        <div className="gym-place-popup-details-group">
+          <span className="gym-place-popup-details-label">Equipment</span>
+          <div className="gym-place-popup-tags">
+            {equipment.map((item) => <span className="gym-place-popup-tag" key={item}>{item}</span>)}
+          </div>
+        </div>
+      )}
+      {classes.length > 0 && (
+        <div className="gym-place-popup-details-group">
+          <span className="gym-place-popup-details-label">Classes</span>
+          <div className="gym-place-popup-tags">
+            {classes.map((item) => <span className="gym-place-popup-tag" key={item}>{item}</span>)}
+          </div>
+        </div>
+      )}
+      {source && <div className="gym-place-popup-details-source">{SOURCE_LABELS[source] || source}</div>}
+    </div>
+  );
+}
+
 export default function GymMap() {
   const [userCoords, setUserCoords] = useState(null);
   const [places, setPlaces] = useState([]);
   const [loadingPlaces, setLoadingPlaces] = useState(false);
   const [locationError, setLocationError] = useState(false);
   const [locating, setLocating] = useState(true);
+  const [gymDetails, setGymDetails] = useState({});
+
+  const loadGymDetails = useCallback((placeId, place) => {
+    setGymDetails((prev) => {
+      if (prev[placeId] && (prev[placeId].loading || prev[placeId].data)) return prev;
+      return { ...prev, [placeId]: { loading: true } };
+    });
+
+    fetchGymDetails(place)
+      .then((data) => setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, data } })))
+      .catch(() => setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, error: true } })));
+  }, []);
 
   const apiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY || '').trim();
   const isKeyValid = Boolean(apiKey && apiKey !== 'your_geoapify_api_key_here');
@@ -262,12 +321,19 @@ export default function GymMap() {
                 const placeName = props.name || props.address_line1 || 'Gym & Fitness Center';
                 const placeAddress = props.formatted || props.address_line2 || '';
                 const distance = props.distance ? (props.distance / 1000).toFixed(1) : null;
+                const placeId = props.place_id || `${lat}-${lng}-${idx}`;
+                const website = props.website || props.datasource?.raw?.website;
 
                 return (
                   <Marker
-                    key={props.place_id || `${lat}-${lng}-${idx}`}
+                    key={placeId}
                     position={[lat, lng]}
                     icon={gymIcon}
+                    eventHandlers={{
+                      popupopen: () => loadGymDetails(placeId, {
+                        placeId, name: placeName, lat, lng, address: placeAddress, website,
+                      }),
+                    }}
                   >
                     <Popup className="gym-map-place-popup">
                       <div className="gym-place-popup-card">
@@ -284,6 +350,7 @@ export default function GymMap() {
                             {placeAddress}
                           </div>
                         )}
+                        <GymDetailsSection status={gymDetails[placeId]} />
                         <div className="gym-place-popup-actions">
                           <a
                             href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
