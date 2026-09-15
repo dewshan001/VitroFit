@@ -6,13 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from rag_engine import generate_rag_response_stream
+from chat_engine import generate_chat_response_stream
 
 load_dotenv()
 
 app = FastAPI(
-    title="VitroFit RAG Chatbot API",
-    description="RAG-powered fitness assistant backed by OpenRouter",
+    title="VitroFit AI Chatbot API",
+    description="Fitness assistant backed by Google AI Studio",
     version="1.0.0"
 )
 
@@ -38,7 +38,7 @@ class QueryRequest(BaseModel):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "VitroFit Chatbot (OpenRouter RAG)"}
+    return {"status": "ok", "service": "VitroFit Chatbot (Google AI Studio)"}
 
 @app.post("/api/chat")
 async def chat_endpoint(request: QueryRequest):
@@ -47,7 +47,7 @@ async def chat_endpoint(request: QueryRequest):
 
     async def event_stream():
         try:
-            async for chunk in generate_rag_response_stream(request.query):
+            async for chunk in generate_chat_response_stream(request.query):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
