@@ -1,6 +1,6 @@
 # VitroFit
 
-VitroFit is a fitness platform with a **.NET Web API backend**, a **React (Vite) web frontend**, and a **Flutter mobile app**. This guide covers how to run the **backend** and the **web frontend** on your local machine. (The mobile app is not covered here.)
+VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (FastAPI) microservices** for gym enrichment and chatbot features, a **React (Vite) web frontend**, and a **Flutter mobile app**. This guide covers how to run the **backend**, **microservices**, and the **web frontend** on your local machine. (The mobile app is not covered here.)
 
 ---
 
@@ -11,6 +11,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, a **React (Vite)
 - [Prerequisites](#prerequisites)
 - [1. Running the Backend API](#1-running-the-backend-api)
 - [2. Running the Web Frontend](#2-running-the-web-frontend)
+- [3. Running the Python Microservices](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)
 - [Both Apps at a Glance](#both-apps-at-a-glance)
 - [API Endpoints](#api-endpoints)
 - [Configuration Reference](#configuration-reference)
@@ -25,6 +26,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, a **React (Vite)
 | ----- | ---------- |
 | **Backend** | ASP.NET Core (.NET 10), Entity Framework Core, PostgreSQL (Npgsql), JWT Bearer auth, Swagger/OpenAPI, MailKit (SMTP), Cloudinary (image hosting) |
 | **Web** | React 19, Vite 8, React Router 7, Three.js (react-three-fiber / drei), GSAP, Framer Motion |
+| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService), OpenRouter (OpenAI-compatible client) for LLM enrichment/chat |
 
 ---
 
@@ -33,16 +35,18 @@ VitroFit is a fitness platform with a **.NET Web API backend**, a **React (Vite)
 ```
 VitroFit/
 ├── BackendAPI/
-│   └── VitroFit.API/            # ASP.NET Core Web API (backend)
-│       ├── Controllers/         # AuthController, AdminController
-│       ├── Data/                # EF Core DbContext
-│       ├── Dtos/                # Auth + Admin request/response models
-│       ├── Entities/            # User, RefreshToken, PasswordResetOtp, enums
-│       ├── Migrations/          # EF Core SQL migrations
-│       ├── Services/            # Auth, Token, Email (MailKit), Cloudinary image
-│       ├── Settings/            # Jwt, Cloudinary, Email strongly-typed config
-│       ├── Program.cs           # App startup, DI, pipeline, JWT, CORS
-│       └── appsettings.json     # Config: DB, JWT, SMTP, Cloudinary
+│   ├── VitroFit.API/            # ASP.NET Core Web API (backend)
+│   │   ├── Controllers/         # AuthController, AdminController
+│   │   ├── Data/                # EF Core DbContext
+│   │   ├── Dtos/                # Auth + Admin request/response models
+│   │   ├── Entities/            # User, RefreshToken, PasswordResetOtp, enums
+│   │   ├── Migrations/          # EF Core SQL migrations
+│   │   ├── Services/            # Auth, Token, Email (MailKit), Cloudinary image
+│   │   ├── Settings/            # Jwt, Cloudinary, Email strongly-typed config
+│   │   ├── Program.cs           # App startup, DI, pipeline, JWT, CORS, Python sidecar auto-start
+│   │   └── appsettings.json     # Config: DB, JWT, SMTP, Cloudinary
+│   ├── GymAgentService/         # FastAPI: nearby-gym equipment/classes enrichment (port 8001)
+│   └── chatbot_service/         # FastAPI: RAG fitness chatbot, streamed responses (port 8000)
 ├── VitroFit_web/                # React (Vite) web frontend
 │   ├── src/
 │   │   ├── api/                 # auth.js, admin.js API client
@@ -68,6 +72,7 @@ Make sure the following are installed on your machine:
 | **Node.js** | 20+ (LTS) | `node --version` |
 | **npm** | 9+ | `npm --version` |
 | **PostgreSQL** | 13+ | running locally on **port 5432** |
+| **Python** | 3.12+ | `python --version` (only needed for the Find Gyms / Chatbot microservices) |
 ---
 
 ## Optional: One-command dependency install
@@ -219,6 +224,73 @@ You can also run `npm run build` to create a production bundle, then
 
 ---
 
+## 3. Running the Python Microservices (optional but required for Find Gyms / Chatbot)
+
+Two small FastAPI services live under `BackendAPI/` and power specific web
+features by being called **directly from the browser** (not proxied through
+`VitroFit.API`):
+
+| Service | Port | Powers | Frontend call site |
+| ------- | ---- | ------ | ------------------- |
+| `GymAgentService` | `8001` | "Find Gyms" equipment/classes enrichment | `VitroFit_web/src/api/gyms.js` |
+| `chatbot_service` | `8000` | The RAG fitness chatbot widget | `VitroFit_web/src/components/Chatbot/Chatbot.jsx` |
+
+### 3.1 Auto-start with the backend
+
+`VitroFit.API` tries to launch both services automatically on `dotnet run`
+(see `Program.cs`): if a service's `venv` exists and its port is free, the API
+starts it with `python -m uvicorn main:app --port <port>` and stops it when
+the API shuts down. If the `venv` isn't set up yet, this is skipped with a
+warning in the API logs — it does **not** fail backend startup. So once you've
+done the one-time setup below, `dotnet run` in `VitroFit.API` is enough for
+day-to-day use.
+
+### 3.2 One-time setup
+
+**GymAgentService:**
+
+```bash
+cd BackendAPI/GymAgentService
+python -m venv venv
+venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
+copy .env.example .env                          # cp on macOS/Linux, then fill in values
+```
+
+Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the
+backend), `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `PORT` (`8001`),
+`CACHE_STALE_DAYS` (how long a cached enrichment result is reused).
+
+**chatbot_service:**
+
+```bash
+cd BackendAPI/chatbot_service
+python -m venv venv
+venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
+```
+
+This service has no `.env.example` — create a `.env` yourself with:
+`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `PORT` (`8000`). Both services use
+[OpenRouter](https://openrouter.ai/) (via an OpenAI-compatible client) as
+their LLM provider — get an API key there.
+
+### 3.3 Running manually
+
+Auto-start covers normal use; to run a service standalone (e.g. before its
+`venv` exists, or to see its logs directly):
+
+```bash
+# from BackendAPI/GymAgentService
+venv/Scripts/python -m uvicorn main:app --port 8001
+
+# from BackendAPI/chatbot_service
+venv/Scripts/python -m uvicorn main:app --port 8000
+```
+
+Check either is up with `GET http://localhost:8001/health` or
+`GET http://localhost:8000/health`.
+
+---
+
 ## Both Apps at a Glance
 
 | App | Command | URL |
@@ -226,9 +298,12 @@ You can also run `npm run build` to create a production bundle, then
 | Backend API | `dotnet run` (in `BackendAPI/VitroFit.API`) | `http://localhost:5284` |
 | API Swagger | — | `http://localhost:5284/swagger` |
 | Web frontend | `npm run dev` (in `VitroFit_web`) | `http://localhost:5173` |
+| Gym Agent service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8001` |
+| Chatbot service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8000` |
 
 The web app must be running while the backend is running in order to see real
-data (login, register, admin dashboard, profile).
+data (login, register, admin dashboard, profile). The two Python services are
+only needed for the Find Gyms and Chatbot features.
 
 ---
 ## API Endpoints
@@ -262,15 +337,33 @@ folder.
 | POST | `/admin/users` | Create a user (auto-verified) |
 | DELETE | `/admin/users/{id}` | Delete a user (cannot delete yourself) |
 
+### Gym Agent — `http://localhost:8001` (separate service, called directly by the web app)
+
+| Method | Route | Description |
+| ------ | ----- | ----------- |
+| GET | `/health` | Health check |
+| POST | `/api/gyms/details` | Get (and cache) enriched equipment/classes for a gym |
+
+### Chatbot — `http://localhost:8000` (separate service, called directly by the web app)
+
+| Method | Route | Description |
+| ------ | ----- | ----------- |
+| GET | `/health` | Health check |
+| POST | `/api/chat` | Ask the RAG fitness chatbot; streams a `text/event-stream` response |
+
 ---
 
 ## Configuration Reference
 
-The web's `.env` defines the API base URL. The backend's `appsettings.json`
-defines the database connection, JWT, SMTP and Cloudinary settings. For basic
-local development you only need to set the database connection string and a JWT
-secret; SMTP and Cloudinary are only used by specific features (email OTPs and
-profile photo uploads).
+The web's `.env` defines the API base URLs: `VITE_API_BASE_URL` (the .NET
+backend), and `VITE_GYM_AGENT_API_URL` / `VITE_CHATBOT_API_URL` (the Python
+services, defaulting to `http://localhost:8001/api` and
+`http://localhost:8000/api/chat` respectively if unset). The backend's
+`appsettings.json` defines the database connection, JWT, SMTP and Cloudinary
+settings. For basic local development you only need to set the database
+connection string and a JWT secret; SMTP, Cloudinary, and the Python services'
+`OPENROUTER_API_KEY` are only used by specific features (email OTPs, profile
+photo uploads, and Find Gyms / Chatbot).
 
 ---
 
@@ -312,6 +405,16 @@ Confirm PostgreSQL is running on port 5432 and that the credentials in
 updated automatically when the API starts, so just run `dotnet run` again.
 
 **Port already in use.**
-The API uses `5284` (and `7176` for HTTPS) and Vite uses `5173`. If any of
-these are taken, adjust the `applicationUrl` in `launchSettings.json` and the
-`.env`, respectively.
+The API uses `5284` (and `7176` for HTTPS), Vite uses `5173`, the Gym Agent
+service uses `8001`, and the chatbot service uses `8000`. If any of these are
+taken, adjust the `applicationUrl` in `launchSettings.json`, the web `.env`,
+or the relevant service's `.env`/`PORT`, respectively.
+
+**Find Gyms or the chatbot doesn't respond.**
+Check the `VitroFit.API` startup logs for a "venv not found — skipping
+auto-start" warning — if you see it, follow the one-time setup in
+[§3.2](#32-one-time-setup) for that service. If the `venv` exists but the
+feature still fails, confirm the service's `.env` has a valid
+`OPENROUTER_API_KEY`, or start it manually (see [§3.3](#33-running-manually))
+to see its logs directly. You can also hit its `/health` endpoint to confirm
+it's up.
