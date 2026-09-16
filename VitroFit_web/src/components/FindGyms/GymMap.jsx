@@ -65,7 +65,6 @@ function MapController({ coords, onCenterChange }) {
     map.invalidateSize();
     const t1 = setTimeout(() => {
       map.invalidateSize();
-      reportCenter();
     }, 250);
 
     const handleResize = () => map.invalidateSize();
@@ -152,6 +151,8 @@ export default function GymMap() {
   const [locating, setLocating] = useState(true);
   const [gymDetails, setGymDetails] = useState({});
 
+  const requestIdRef = useRef(0);
+
   const loadGymDetails = useCallback((placeId, place) => {
     setGymDetails((prev) => {
       if (prev[placeId] && (prev[placeId].loading || prev[placeId].data)) return prev;
@@ -179,6 +180,7 @@ export default function GymMap() {
 
   const fetchPlaces = useCallback(async (params) => {
     if (!isKeyValid) return;
+    const requestId = ++requestIdRef.current;
     setLoadingPlaces(true);
 
     try {
@@ -191,13 +193,16 @@ export default function GymMap() {
       if (!res.ok) throw new Error('Places API error');
 
       const data = await res.json();
+      if (requestId !== requestIdRef.current) return;
       if (data && data.features) {
         setPlaces(data.features);
       }
     } catch (err) {
       console.error('Failed to fetch places:', err);
     } finally {
-      setLoadingPlaces(false);
+      if (requestId === requestIdRef.current) {
+        setLoadingPlaces(false);
+      }
     }
   }, [apiKey, isKeyValid]);
 
