@@ -26,7 +26,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (Fa
 | ----- | ---------- |
 | **Backend** | ASP.NET Core (.NET 10), Entity Framework Core, PostgreSQL (Npgsql), JWT Bearer auth, Swagger/OpenAPI, MailKit (SMTP), Cloudinary (image hosting) |
 | **Web** | React 19, Vite 8, React Router 7, Three.js (react-three-fiber / drei), GSAP, Framer Motion |
-| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService), OpenRouter (OpenAI-compatible client) for LLM enrichment/chat |
+| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService), OpenRouter (OpenAI-compatible client) for gym enrichment, Google AI Studio (Gemini/Gemma via `google-genai`) for the chatbot |
 
 ---
 
@@ -266,12 +266,22 @@ backend), `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `PORT` (`8001`),
 cd BackendAPI/chatbot_service
 python -m venv venv
 venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
+copy .env.example .env                          # cp on macOS/Linux, then fill in values
 ```
 
-This service has no `.env.example` — create a `.env` yourself with:
-`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `PORT` (`8000`). Both services use
-[OpenRouter](https://openrouter.ai/) (via an OpenAI-compatible client) as
-their LLM provider — get an API key there.
+Required `.env` values: `GOOGLE_API_KEY` (get one at
+[Google AI Studio](https://aistudio.google.com/apikey)), and optionally
+`GEMINI_MODEL_PRIMARY` / `GEMINI_MODEL_FALLBACK` if you want to override the
+default Gemma models. This service uses
+[Google AI Studio](https://ai.google.dev/) (via the `google-genai` SDK) as its
+LLM provider, while `GymAgentService` uses [OpenRouter](https://openrouter.ai/)
+(via an OpenAI-compatible client) — get an API key from whichever provider(s)
+you need.
+
+> If you see `ValueError: No API key was provided` when starting
+> `chatbot_service`, it means `GOOGLE_API_KEY` is missing or empty in its
+> `.env` file — copy `.env.example` to `.env` (if you haven't already) and
+> set a valid key.
 
 ### 3.3 Running manually
 
@@ -355,14 +365,17 @@ folder.
 
 ## Configuration Reference
 
-The web's `.env` defines the API base URLs: `VITE_API_BASE_URL` (the .NET
-backend), and `VITE_GYM_AGENT_API_URL` / `VITE_CHATBOT_API_URL` (the Python
-services, defaulting to `http://localhost:8001/api` and
-`http://localhost:8000/api/chat` respectively if unset). The backend's
-`appsettings.json` defines the database connection, JWT, SMTP and Cloudinary
-settings. For basic local development you only need to set the database
-connection string and a JWT secret; SMTP, Cloudinary, and the Python services'
-`OPENROUTER_API_KEY` are only used by specific features (email OTPs, profile
+The web's `.env` (copy from `VitroFit_web/.env.example`) defines the API base
+URLs: `VITE_API_BASE_URL` (the .NET backend), and `VITE_GYM_AGENT_API_URL` /
+`VITE_CHATBOT_API_URL` (the Python services, defaulting to
+`http://localhost:8001/api` and `http://localhost:8000/api/chat` respectively
+if unset). The backend's `appsettings.json` defines the database connection,
+JWT, SMTP and Cloudinary settings. Each Python microservice has its own
+`.env` (copy from the `.env.example` in its folder): `GymAgentService` needs
+`DATABASE_URL` and `OPENROUTER_API_KEY`; `chatbot_service` needs
+`GOOGLE_API_KEY`. For basic local development you only need to set the
+database connection string and a JWT secret; SMTP, Cloudinary, and the Python
+services' API keys are only used by specific features (email OTPs, profile
 photo uploads, and Find Gyms / Chatbot).
 
 ---
@@ -414,7 +427,15 @@ or the relevant service's `.env`/`PORT`, respectively.
 Check the `VitroFit.API` startup logs for a "venv not found — skipping
 auto-start" warning — if you see it, follow the one-time setup in
 [§3.2](#32-one-time-setup) for that service. If the `venv` exists but the
-feature still fails, confirm the service's `.env` has a valid
-`OPENROUTER_API_KEY`, or start it manually (see [§3.3](#33-running-manually))
-to see its logs directly. You can also hit its `/health` endpoint to confirm
-it's up.
+feature still fails, confirm the service's `.env` (copied from its
+`.env.example`) has a valid API key — `OPENROUTER_API_KEY` for
+`GymAgentService`, `GOOGLE_API_KEY` for `chatbot_service` — or start it
+manually (see [§3.3](#33-running-manually)) to see its logs directly. You can
+also hit its `/health` endpoint to confirm it's up.
+
+**`chatbot_service` crashes with `ValueError: No API key was provided`.**
+`GOOGLE_API_KEY` is missing or empty. Run
+`copy .env.example .env` (or `cp` on macOS/Linux) inside
+`BackendAPI/chatbot_service` if you haven't yet, then set `GOOGLE_API_KEY` to
+a key from [Google AI Studio](https://aistudio.google.com/apikey) and restart
+the service.
