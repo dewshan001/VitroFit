@@ -8,6 +8,7 @@ const navLinks = [
   { label: 'Home',        to: '/',           hash: '' },
   { label: 'About Us',   to: '/about',       hash: '' },
   { label: 'Workouts',   to: '/classes',     hash: '' },
+  { label: 'AI Schedule', to: '/ai-schedule', hash: '' },
   { label: 'Find Gyms',  to: '/find-gyms',   hash: '' },
   { label: 'Diet Plans', to: '/diet-plans',  hash: '' },
   { label: 'Timetable',  to: '/timetable',   hash: '' },

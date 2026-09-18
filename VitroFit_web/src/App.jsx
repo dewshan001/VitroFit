@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import FindGymsPage from './pages/FindGymsPage';
 import DietPlansPage from './pages/DietPlansPage';
+import FitnessAgentPage from './pages/FitnessAgentPage';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
@@ -32,6 +33,8 @@ export default function App() {
         <Route path="/classes"        element={<ClassesPage />} />
         <Route path="/classes/detail" element={<ClassDetailPage />} />
         <Route path="/timetable"      element={<TimetablePage />} />
+        <Route path="/ai-schedule"    element={<FitnessAgentPage />} />
+        <Route path="/fitness-agent"  element={<FitnessAgentPage />} />
         <Route path="/find-gyms"      element={<FindGymsPage />} />
         <Route path="/diet-plans"     element={<DietPlansPage />} />
         <Route path="/login"          element={<LoginPage />} />
