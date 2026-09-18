@@ -11,18 +11,25 @@ from dotenv import load_dotenv
 from db import Base, engine, get_session
 from models import GymDetails
 from enrichment_agent import enrich_gym
+import fitness_agent.models_fitness  # registers all fitness tables
+from fitness_agent.api.fitness_routes import router as fitness_router
 
 load_dotenv()
 
 CACHE_STALE_DAYS = int(os.getenv("CACHE_STALE_DAYS", "30"))
 
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Database table check warning: {e}")
 
 app = FastAPI(
-    title="VitroFit Gym Agent API",
-    description="Nearby-gym equipment/classes enrichment, backed by a free OSM-derived map search on the frontend and an LLM enrichment agent here.",
+    title="VitroFit Gym Agent & Fitness AI API",
+    description="Nearby-gym equipment/classes enrichment and AI-powered adaptive fitness planning agent.",
     version="1.0.0",
 )
+
+app.include_router(fitness_router)
 
 app.add_middleware(
     CORSMiddleware,
