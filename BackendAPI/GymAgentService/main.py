@@ -1,4 +1,5 @@
 # GymAgentService/main.py
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +15,8 @@ from enrichment_agent import enrich_gym
 from vectorstore import store_gym_enrichment
 
 load_dotenv()
+
+logger = logging.getLogger("gym_agent")
 
 CACHE_STALE_DAYS = int(os.getenv("CACHE_STALE_DAYS", "30"))
 
@@ -105,7 +108,7 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
             classes=result["classes"],
         )
     except Exception:
-        pass  # Vector store failure shouldn't break the API
+        logger.exception("Failed to store gym enrichment in vector store for place_id=%s", req.place_id)
 
     return _to_response(row)
 

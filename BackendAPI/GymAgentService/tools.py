@@ -71,14 +71,15 @@ async def search_gym_info(query: str) -> str:
     Use this when the gym's website is unavailable or doesn't have enough info.
     Formulate a specific search query including the gym name and city."""
     try:
-        from langchain_community.tools.tavily_search import TavilySearchResults
+        from langchain_tavily import TavilySearch
 
-        tavily = TavilySearchResults(max_results=3, search_depth="advanced")
+        tavily = TavilySearch(max_results=3, search_depth="advanced")
         results = await tavily.ainvoke({"query": query})
-        if isinstance(results, list):
+        result_list = results.get("results", []) if isinstance(results, dict) else results
+        if isinstance(result_list, list):
             return "\n\n".join(
                 f"Source: {r.get('url', 'unknown')}\n{r.get('content', '')}"
-                for r in results
+                for r in result_list
             )
         return str(results)
     except Exception as e:

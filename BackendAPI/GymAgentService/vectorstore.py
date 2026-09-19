@@ -2,7 +2,7 @@
 
 import os
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from dotenv import load_dotenv
 
@@ -11,13 +11,9 @@ load_dotenv()
 _CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_gym_data")
 
 
-def _get_embeddings() -> OpenAIEmbeddings:
-    """Get embedding model via OpenRouter or OpenAI."""
-    return OpenAIEmbeddings(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        model="openai/text-embedding-3-small",
-    )
+def _get_embeddings() -> HuggingFaceEmbeddings:
+    """Get a local embedding model — avoids relying on OpenRouter's embeddings support."""
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 def get_vectorstore() -> Chroma:
