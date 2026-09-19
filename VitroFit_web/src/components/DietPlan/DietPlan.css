@@ -365,6 +365,11 @@
   font-weight: 600;
 }
 
+.dp-chip-stacked { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; text-transform: none; }
+.dp-chip-main { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; }
+.dp-chip-sub { font-size: 0.76rem; color: var(--text-muted); }
+.dp-chip-stacked.active .dp-chip-sub { color: var(--bg-primary); opacity: 0.75; }
+
 .dp-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -427,6 +432,26 @@
 .dp-meal-item-macros { color: var(--text-muted); font-size: 0.75rem; }
 
 .dp-result-actions { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+
+.dp-disclaimer {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  padding: 0.9rem 1.1rem;
+}
+.dp-disclaimer-strong {
+  border-color: #f87171;
+  color: var(--text-secondary);
+}
+
+.dp-warning-banner {
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  padding: 0.9rem 1.1rem;
+}
 
 /* ================================================
    CTA SECTION

@@ -142,6 +142,7 @@ foreach (var (serviceName, relativeDir, port) in new[]
 {
     ("GymAgentService", "GymAgentService", 8001),
     ("chatbot_service", "chatbot_service", 8000),
+    ("DietPlanService", "DietPlanService", 8002),
 })
 {
     var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port);

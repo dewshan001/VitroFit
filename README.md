@@ -1,6 +1,6 @@
 # VitroFit
 
-VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (FastAPI) microservices** for gym enrichment and chatbot features, a **React (Vite) web frontend**, and a **Flutter mobile app**. This guide covers how to run the **backend**, **microservices**, and the **web frontend** on your local machine. (The mobile app is not covered here.)
+VitroFit is a fitness platform with a **.NET Web API backend**, three **Python (FastAPI) microservices** for gym enrichment, chatbot, and diet plan features, a **React (Vite) web frontend**, and a **Flutter mobile app**. This guide covers how to run the **backend**, **microservices**, and the **web frontend** on your local machine. (The mobile app is not covered here.)
 
 ---
 
@@ -11,7 +11,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (Fa
 - [Prerequisites](#prerequisites)
 - [1. Running the Backend API](#1-running-the-backend-api)
 - [2. Running the Web Frontend](#2-running-the-web-frontend)
-- [3. Running the Python Microservices](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)
+- [3. Running the Python Microservices](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot--diet-plans)
 - [Both Apps at a Glance](#both-apps-at-a-glance)
 - [API Endpoints](#api-endpoints)
 - [Configuration Reference](#configuration-reference)
@@ -26,7 +26,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (Fa
 | ----- | ---------- |
 | **Backend** | ASP.NET Core (.NET 10), Entity Framework Core, PostgreSQL (Npgsql), JWT Bearer auth, Swagger/OpenAPI, MailKit (SMTP), Cloudinary (image hosting) |
 | **Web** | React 19, Vite 8, React Router 7, Three.js (react-three-fiber / drei), GSAP, Framer Motion |
-| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService), OpenRouter (OpenAI-compatible client) for gym enrichment, Google AI Studio (Gemini/Gemma via `google-genai`) for the chatbot |
+| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService, DietPlanService), OpenRouter (OpenAI-compatible client) for gym enrichment, Google AI Studio (Gemini/Gemma via `google-genai`) for the chatbot and diet plan agent |
 
 ---
 
@@ -46,7 +46,8 @@ VitroFit/
 │   │   ├── Program.cs           # App startup, DI, pipeline, JWT, CORS, Python sidecar auto-start
 │   │   └── appsettings.json     # Config: DB, JWT, SMTP, Cloudinary
 │   ├── GymAgentService/         # FastAPI: nearby-gym equipment/classes enrichment (port 8001)
-│   └── chatbot_service/         # FastAPI: RAG fitness chatbot, streamed responses (port 8000)
+│   ├── chatbot_service/         # FastAPI: RAG fitness chatbot, streamed responses (port 8000)
+│   └── DietPlanService/         # FastAPI: AI nutrition/diet plan agent (port 8002)
 ├── VitroFit_web/                # React (Vite) web frontend
 │   ├── src/
 │   │   ├── api/                 # auth.js, admin.js API client
@@ -224,9 +225,9 @@ You can also run `npm run build` to create a production bundle, then
 
 ---
 
-## 3. Running the Python Microservices (optional but required for Find Gyms / Chatbot)
+## 3. Running the Python Microservices (optional but required for Find Gyms / Chatbot / Diet Plans)
 
-Two small FastAPI services live under `BackendAPI/` and power specific web
+Three small FastAPI services live under `BackendAPI/` and power specific web
 features by being called **directly from the browser** (not proxied through
 `VitroFit.API`):
 
@@ -234,10 +235,11 @@ features by being called **directly from the browser** (not proxied through
 | ------- | ---- | ------ | ------------------- |
 | `GymAgentService` | `8001` | "Find Gyms" equipment/classes enrichment | `VitroFit_web/src/api/gyms.js` |
 | `chatbot_service` | `8000` | The RAG fitness chatbot widget | `VitroFit_web/src/components/Chatbot/Chatbot.jsx` |
+| `DietPlanService` | `8002` | The AI diet/nutrition plan agent | `VitroFit_web/src/api/dietPlan.js` |
 
 ### 3.1 Auto-start with the backend
 
-`VitroFit.API` tries to launch both services automatically on `dotnet run`
+`VitroFit.API` tries to launch all three services automatically on `dotnet run`
 (see `Program.cs`): if a service's `venv` exists and its port is free, the API
 starts it with `python -m uvicorn main:app --port <port>` and stops it when
 the API shuts down. If the `venv` isn't set up yet, this is skipped with a
@@ -283,6 +285,25 @@ you need.
 > `.env` file — copy `.env.example` to `.env` (if you haven't already) and
 > set a valid key.
 
+**DietPlanService:**
+
+```bash
+cd BackendAPI/DietPlanService
+python -m venv venv
+venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
+copy .env.example .env                          # cp on macOS/Linux, then fill in values
+```
+
+Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the
+backend), `DIET_GOOGLE_API_KEY` (a **separate** Google AI Studio key from
+`chatbot_service`'s — get one at
+[Google AI Studio](https://aistudio.google.com/apikey) — so the two services
+don't share/exhaust the same quota), optionally `GEMINI_MODEL_PRIMARY` /
+`GEMINI_MODEL_FALLBACK`, and `JWT_SIGNING_KEY` / `JWT_ISSUER` / `JWT_AUDIENCE`
+which must match `VitroFit.API`'s `appsettings.json` → `JwtSettings` exactly
+(this service verifies the same access tokens the .NET backend issues, since
+it writes user-linked data).
+
 ### 3.3 Running manually
 
 Auto-start covers normal use; to run a service standalone (e.g. before its
@@ -294,10 +315,12 @@ venv/Scripts/python -m uvicorn main:app --port 8001
 
 # from BackendAPI/chatbot_service
 venv/Scripts/python -m uvicorn main:app --port 8000
+
+# from BackendAPI/DietPlanService
+venv/Scripts/python -m uvicorn main:app --port 8002
 ```
 
-Check either is up with `GET http://localhost:8001/health` or
-`GET http://localhost:8000/health`.
+Check any of them is up with `GET http://localhost:<port>/health`.
 
 ---
 
@@ -308,12 +331,14 @@ Check either is up with `GET http://localhost:8001/health` or
 | Backend API | `dotnet run` (in `BackendAPI/VitroFit.API`) | `http://localhost:5284` |
 | API Swagger | — | `http://localhost:5284/swagger` |
 | Web frontend | `npm run dev` (in `VitroFit_web`) | `http://localhost:5173` |
-| Gym Agent service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8001` |
-| Chatbot service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8000` |
+| Gym Agent service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot--diet-plans)) | `http://localhost:8001` |
+| Chatbot service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot--diet-plans)) | `http://localhost:8000` |
+| Diet Plan service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot--diet-plans)) | `http://localhost:8002` |
 
 The web app must be running while the backend is running in order to see real
-data (login, register, admin dashboard, profile). The two Python services are
-only needed for the Find Gyms and Chatbot features.
+data (login, register, admin dashboard, profile). The three Python services
+are only needed for the Find Gyms, Chatbot, and Diet Plan features
+respectively.
 
 ---
 ## API Endpoints
@@ -361,22 +386,35 @@ folder.
 | GET | `/health` | Health check |
 | POST | `/api/chat` | Ask the RAG fitness chatbot; streams a `text/event-stream` response |
 
+### Diet Plan Agent — `http://localhost:8002` (separate service, called directly by the web app)
+
+| Method | Route | Auth | Description |
+| ------ | ----- | ---- | ----------- |
+| GET | `/health` | — | Health check |
+| POST | `/api/diet/generate` | 🔒 | Compute calorie/macro targets and generate a meal plan from the given preferences (not saved) |
+| POST | `/api/diet/confirm` | 🔒 | Save a (possibly user-edited) generated plan, plus the inputs that produced it |
+
+> 🔒 = requires the same `Authorization: Bearer <access token>` header issued by `VitroFit.API`; this service verifies it independently (see [§3.2](#32-one-time-setup)).
+
 ---
 
 ## Configuration Reference
 
 The web's `.env` (copy from `VitroFit_web/.env.example`) defines the API base
 URLs: `VITE_API_BASE_URL` (the .NET backend), and `VITE_GYM_AGENT_API_URL` /
-`VITE_CHATBOT_API_URL` (the Python services, defaulting to
-`http://localhost:8001/api` and `http://localhost:8000/api/chat` respectively
-if unset). The backend's `appsettings.json` defines the database connection,
-JWT, SMTP and Cloudinary settings. Each Python microservice has its own
-`.env` (copy from the `.env.example` in its folder): `GymAgentService` needs
-`DATABASE_URL` and `OPENROUTER_API_KEY`; `chatbot_service` needs
-`GOOGLE_API_KEY`. For basic local development you only need to set the
-database connection string and a JWT secret; SMTP, Cloudinary, and the Python
+`VITE_CHATBOT_API_URL` / `VITE_DIET_AGENT_API_URL` (the Python services,
+defaulting to `http://localhost:8001/api`, `http://localhost:8000/api/chat`,
+and `http://localhost:8002/api/diet` respectively if unset). The backend's
+`appsettings.json` defines the database connection, JWT, SMTP and Cloudinary
+settings. Each Python microservice has its own `.env` (copy from the
+`.env.example` in its folder): `GymAgentService` needs `DATABASE_URL` and
+`OPENROUTER_API_KEY`; `chatbot_service` needs `GOOGLE_API_KEY`;
+`DietPlanService` needs `DATABASE_URL`, `DIET_GOOGLE_API_KEY`, and
+`JWT_SIGNING_KEY`/`JWT_ISSUER`/`JWT_AUDIENCE` matching the backend's
+`JwtSettings`. For basic local development you only need to set the database
+connection string and a JWT secret; SMTP, Cloudinary, and the Python
 services' API keys are only used by specific features (email OTPs, profile
-photo uploads, and Find Gyms / Chatbot).
+photo uploads, and Find Gyms / Chatbot / Diet Plans).
 
 ---
 
