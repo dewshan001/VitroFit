@@ -1,20 +1,19 @@
 # chatbot_service/chat_engine.py
 import os
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# 1. Initialize Google AI Studio client
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-PRIMARY_MODEL = os.getenv("GEMINI_MODEL_PRIMARY", "gemma-4-31b-it")
-FALLBACK_MODEL = os.getenv("GEMINI_MODEL_FALLBACK", "gemma-4-26b-a4b-it")
+# 1. Initialize NVIDIA NIM client (OpenAI-compatible API)
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+PRIMARY_MODEL = os.getenv("NVIDIA_MODEL_PRIMARY", "mistralai/mistral-nemotron")
+FALLBACK_MODEL = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/llama-3.1-8b-instruct")
 
-if not GOOGLE_API_KEY:
-    print("WARNING: GOOGLE_API_KEY is missing! Set it in your .env file.")
+if not NVIDIA_API_KEY:
+    print("WARNING: NVIDIA_API_KEY is missing! Set it in your .env file.")
 
-client = genai.Client(api_key=GOOGLE_API_KEY)
+client = AsyncOpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=NVIDIA_API_KEY)
 
 _SYSTEM_INSTRUCTION = (
     "You are the VitroFit AI Fitness Coach. Your tone is energetic, friendly, motivating, and helpful. "
@@ -55,27 +54,28 @@ _SYSTEM_INSTRUCTION = (
 )
 
 _MAX_OUTPUT_TOKENS = 500
-
-_GENERATE_CONFIG = types.GenerateContentConfig(
-    system_instruction=_SYSTEM_INSTRUCTION,
-    max_output_tokens=_MAX_OUTPUT_TOKENS,
-    temperature=0.5,
-)
+_TEMPERATURE = 0.5
 
 
 async def _stream_model(model_id: str, user_query: str):
-    stream = await client.aio.models.generate_content_stream(
+    stream = await client.chat.completions.create(
         model=model_id,
-        contents=user_query,
-        config=_GENERATE_CONFIG,
+        messages=[
+            {"role": "system", "content": _SYSTEM_INSTRUCTION},
+            {"role": "user", "content": user_query},
+        ],
+        max_tokens=_MAX_OUTPUT_TOKENS,
+        temperature=_TEMPERATURE,
+        stream=True,
     )
     async for chunk in stream:
-        if chunk.text:
-            yield chunk.text
+        delta = chunk.choices[0].delta.content
+        if delta:
+            yield delta
 
 
 async def generate_chat_response_stream(user_query: str):
-    """Streams a Gemini/Gemma completion for a user query, falling back to a
+    """Streams an NVIDIA NIM completion for a user query, falling back to a
     secondary model if the primary one fails before producing any output
     (e.g. temporarily unavailable or rate-limited).
     """
@@ -94,4 +94,4 @@ async def generate_chat_response_stream(user_query: str):
         async for text in _stream_model(FALLBACK_MODEL, user_query):
             yield text
     except Exception as e:
-        yield f"Gemini API Error: {str(e)}"
+        yield f"NVIDIA API Error: {str(e)}"
