@@ -1,4 +1,5 @@
 # GymAgentService/main.py
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -11,8 +12,11 @@ from dotenv import load_dotenv
 from db import Base, engine, get_session
 from models import GymDetails
 from enrichment_agent import enrich_gym
+from vectorstore import store_gym_enrichment
 
 load_dotenv()
+
+logger = logging.getLogger("gym_agent")
 
 CACHE_STALE_DAYS = int(os.getenv("CACHE_STALE_DAYS", "30"))
 
@@ -93,6 +97,19 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
 
     session.commit()
     session.refresh(row)
+
+    # Store in vector store for RAG (non-blocking, best-effort)
+    try:
+        store_gym_enrichment(
+            place_id=req.place_id,
+            name=req.name,
+            address=req.address,
+            equipment=result["equipment"],
+            classes=result["classes"],
+        )
+    except Exception:
+        logger.exception("Failed to store gym enrichment in vector store for place_id=%s", req.place_id)
+
     return _to_response(row)
 
 
