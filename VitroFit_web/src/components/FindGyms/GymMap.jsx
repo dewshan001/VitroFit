@@ -104,6 +104,7 @@ function MapController({ coords, onCenterChange }) {
 const SOURCE_LABELS = {
   verified: 'Verified by gym',
   'ai-scraped': "AI summary of the gym's website",
+  'ai-inferred': 'AI best guess (partial site data)',
   'ai-generic': 'AI best guess (no site data)',
 };
 
