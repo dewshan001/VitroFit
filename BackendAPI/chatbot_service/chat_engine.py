@@ -7,13 +7,21 @@ load_dotenv()
 
 # 1. Initialize NVIDIA NIM client (OpenAI-compatible API)
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
-PRIMARY_MODEL = os.getenv("NVIDIA_MODEL_PRIMARY", "mistralai/mistral-nemotron")
-FALLBACK_MODEL = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/llama-3.1-8b-instruct")
+PRIMARY_MODEL = os.getenv("NVIDIA_MODEL_PRIMARY", "nvidia/nemotron-3.5-lightning-30b-a3b")
+FALLBACK_MODEL = os.getenv("NVIDIA_MODEL_FALLBACK", "openai/gpt-oss-20b")
 
 if not NVIDIA_API_KEY:
     print("WARNING: NVIDIA_API_KEY is missing! Set it in your .env file.")
 
-client = AsyncOpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=NVIDIA_API_KEY)
+# Short timeout + no retries so a stalled/slow request fails over to the
+# fallback model quickly instead of hanging (NVIDIA NIM can occasionally
+# stall for minutes with zero bytes on an overloaded model).
+client = AsyncOpenAI(
+    base_url="https://integrate.api.nvidia.com/v1",
+    api_key=NVIDIA_API_KEY,
+    timeout=15.0,
+    max_retries=0,
+)
 
 _SYSTEM_INSTRUCTION = (
     "You are the VitroFit AI Fitness Coach. Your tone is energetic, friendly, motivating, and helpful. "
@@ -69,6 +77,8 @@ async def _stream_model(model_id: str, user_query: str):
         stream=True,
     )
     async for chunk in stream:
+        if not chunk.choices:
+            continue
         delta = chunk.choices[0].delta.content
         if delta:
             yield delta
