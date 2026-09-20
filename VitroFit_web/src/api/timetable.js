@@ -35,12 +35,12 @@ export function getTimetable() {
   return apiAuthRequest('/timetable', 'GET');
 }
 
-export function createSlot({ day, startTime, endTime, title }) {
-  return apiAuthRequest('/timetable', 'POST', { day, startTime, endTime, title });
+export function createSlot({ day, startTime, endTime, title, workoutId }) {
+  return apiAuthRequest('/timetable', 'POST', { day, startTime, endTime, title, workoutId });
 }
 
-export function updateSlot(id, { day, startTime, endTime, title }) {
-  return apiAuthRequest(`/timetable/${id}`, 'PUT', { day, startTime, endTime, title });
+export function updateSlot(id, { day, startTime, endTime, title, workoutId }) {
+  return apiAuthRequest(`/timetable/${id}`, 'PUT', { day, startTime, endTime, title, workoutId });
 }
 
 export function deleteSlot(id) {

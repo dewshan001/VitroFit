@@ -39,6 +39,11 @@ function timeToHourFraction(timeStr) {
   return h + m / 60;
 }
 
+// 6 -> "06:00", 14 -> "14:00"
+function hourToInputTime(hour) {
+  return `${String(hour).padStart(2, '0')}:00`;
+}
+
 function emptyForm(workouts) {
   return {
     day: 1,
@@ -86,15 +91,35 @@ export default function Timetable() {
     };
   }, [isLoggedIn]);
 
-  function openAddForm(day) {
-    setEditingId(null);
-    setForm({ ...emptyForm(workouts), day: day ?? 1 });
-    setShowForm(true);
-    setError('');
+  // Re-fetch the workout catalog whenever the form opens, since it can change
+  // server-side (e.g. an admin editing it) between page load and form submission.
+  async function refreshWorkouts() {
+    try {
+      const freshWorkouts = await getWorkouts();
+      setWorkouts(freshWorkouts);
+      return freshWorkouts;
+    } catch (err) {
+      setError(err.message);
+      return workouts;
+    }
   }
 
-  function openEditForm(slot) {
+  async function openAddForm(day, hour) {
+    setEditingId(null);
+    setError('');
+    const freshWorkouts = await refreshWorkouts();
+    setForm({
+      ...emptyForm(freshWorkouts),
+      day: day ?? 1,
+      ...(hour !== undefined ? { startTime: hourToInputTime(hour), endTime: hourToInputTime(hour + 1) } : {}),
+    });
+    setShowForm(true);
+  }
+
+  async function openEditForm(slot) {
     setEditingId(slot.id);
+    setError('');
+    await refreshWorkouts();
     setForm({
       day: slot.day,
       startTime: toInputTime(slot.startTime),
@@ -103,7 +128,6 @@ export default function Timetable() {
       workoutId: slot.workoutId,
     });
     setShowForm(true);
-    setError('');
   }
 
   function handleWorkoutChange(workoutId) {
@@ -160,6 +184,9 @@ export default function Timetable() {
       closeForm();
     } catch (err) {
       setError(err.message);
+      // The catalog may have changed server-side since the form opened; refresh it so the
+      // dropdown reflects valid options and the user can pick again.
+      await refreshWorkouts();
     } finally {
       setSaving(false);
     }
@@ -233,11 +260,13 @@ export default function Timetable() {
 
         {loading ? (
           <p className="tt-loading">Loading your timetable...</p>
-        ) : slots.length === 0 ? (
-          <p className="tt-empty">No workouts scheduled yet — add your first slot.</p>
         ) : (
-          <div className="tt-grid-wrapper">
-            <div className="tt-grid">
+          <>
+            {slots.length === 0 && (
+              <p className="tt-empty">No workouts scheduled yet — click a cell below to add your first slot.</p>
+            )}
+            <div className="tt-grid-wrapper">
+              <div className="tt-grid">
               <div className="tt-header-cell"></div>
               {days.map((d) => (
                 <div key={d.value} className="tt-header-cell">{d.label}</div>
@@ -254,7 +283,7 @@ export default function Timetable() {
                       <div
                         key={`${d.value}-${hour}`}
                         className="tt-cell"
-                        onClick={() => !slot && openAddForm(d.value)}
+                        onClick={() => !slot && openAddForm(d.value, hour)}
                       >
                         {slot && (
                           <div className="tt-event" onClick={(e) => { e.stopPropagation(); openEditForm(slot); }}>
@@ -280,7 +309,8 @@ export default function Timetable() {
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          </>
         )}
       </section>
 
