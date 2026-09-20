@@ -12,7 +12,7 @@ load_dotenv()
 
 app = FastAPI(
     title="VitroFit AI Chatbot API",
-    description="Fitness assistant backed by Google AI Studio",
+    description="Fitness assistant backed by NVIDIA NIM",
     version="1.0.0"
 )
 
@@ -38,7 +38,7 @@ class QueryRequest(BaseModel):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "VitroFit Chatbot (Google AI Studio)"}
+    return {"status": "ok", "service": "VitroFit Chatbot (NVIDIA NIM)"}
 
 @app.post("/api/chat")
 async def chat_endpoint(request: QueryRequest):
