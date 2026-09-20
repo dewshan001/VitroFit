@@ -11,11 +11,15 @@ DB lookup) and then extracts structured equipment/class data with guaranteed
 Pydantic output.
 """
 
+import asyncio
 import json
+import logging
 import os
 import re
 import uuid
 from typing import Annotated, Literal
+
+import openai
 
 from typing_extensions import TypedDict
 
@@ -34,6 +38,9 @@ load_dotenv()
 
 CONFIDENCE_THRESHOLD = float(os.getenv("AGENT_CONFIDENCE_THRESHOLD", "0.6"))
 MAX_AGENT_STEPS = int(os.getenv("AGENT_MAX_STEPS", "6"))
+MAX_RETRIES = int(os.getenv("AGENT_MAX_RETRIES", "2"))
+
+logger = logging.getLogger("gym_agent")
 
 
 # ── 1. State Definition ─────────────────────────────────────────────────
@@ -306,20 +313,36 @@ async def enrich_gym(
         "step_count": 0,
     }
 
-    config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+    last_error: Exception | None = None
+    for attempt in range(MAX_RETRIES + 1):
+        config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+        try:
+            final_state = await _compiled_graph.ainvoke(initial_state, config=config)
+            result = final_state.get("result", {})
+            return {
+                "source": result.get("source", "ai-generic"),
+                "equipment": result.get("equipment", []),
+                "classes": result.get("classes", []),
+            }
+        except openai.APIConnectionError as e:
+            last_error = e
+            logger.warning(
+                "Transient connection error enriching %r (attempt %d/%d): %s",
+                name, attempt + 1, MAX_RETRIES + 1, e,
+            )
+            if attempt < MAX_RETRIES:
+                await asyncio.sleep(1.5 * (attempt + 1))
+        except Exception as e:
+            return {
+                "source": "ai-generic",
+                "equipment": [],
+                "classes": [],
+                "error": str(e),
+            }
 
-    try:
-        final_state = await _compiled_graph.ainvoke(initial_state, config=config)
-        result = final_state.get("result", {})
-        return {
-            "source": result.get("source", "ai-generic"),
-            "equipment": result.get("equipment", []),
-            "classes": result.get("classes", []),
-        }
-    except Exception as e:
-        return {
-            "source": "ai-generic",
-            "equipment": [],
-            "classes": [],
-            "error": str(e),
-        }
+    return {
+        "source": "ai-generic",
+        "equipment": [],
+        "classes": [],
+        "error": str(last_error),
+    }
