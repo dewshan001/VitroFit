@@ -1,0 +1,29 @@
+.adaptive-fitness { max-width: 1050px; margin: 110px auto 50px; padding: 24px; color: #eee; }
+.adaptive-fitness h1,.adaptive-fitness h2,.adaptive-fitness h3 { margin: 16px 0; }
+.adaptive-fitness section,.adaptive-fitness form { background: #15191f; border: 1px solid #39414c; border-radius: 12px; padding: 20px; margin: 20px 0; }
+.adaptive-fitness label { display: block; margin: 10px 0; }
+.adaptive-fitness input,.adaptive-fitness select,.adaptive-fitness textarea { display: block; background: #252b34; color: white; border: 1px solid #687586; border-radius: 5px; padding: 10px; max-width: 100%; }
+.adaptive-fitness textarea { width: 100%; min-height: 80px; }
+.adaptive-fitness button { background: #b8ee6e; color: #14200d; border: 0; border-radius: 6px; padding: 10px 16px; margin: 8px 8px 8px 0; cursor: pointer; }
+.adaptive-fitness button:disabled { opacity: .5; cursor: wait; }
+.adaptive-fitness button:focus-visible,.adaptive-fitness input:focus-visible { outline: 3px solid #8ecaff; outline-offset: 3px; }
+.adaptive-fitness .fitness-check { display: flex; gap: 10px; align-items: center; }
+.adaptive-fitness .fitness-check input { display: inline; }
+.fitness-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 15px; }
+.adaptive-fitness fieldset { padding: 12px; border: 1px solid #687586; }
+.adaptive-fitness .fitness-error { color: #ffb9b9; }
+.fitness-day { padding: 14px; border-bottom: 1px solid #687586; }
+.fitness-week-scroll { overflow-x: auto; }
+.fitness-week-table { width: 100%; min-width: 850px; border-collapse: collapse; table-layout: fixed; background: #fff; color: #17202a; }
+.fitness-week-table th,.fitness-week-table td { border: 1px solid #8a949d; padding: 10px; text-align: center; vertical-align: top; }
+.fitness-week-table thead th { background: #d9ff75; min-width: 145px; }
+.fitness-week-table tbody th { background: #d9ff75; width: 88px; vertical-align: middle; }
+.fitness-week-table td { min-width: 145px; height: 115px; }
+.fitness-week-table td small { display: block; margin: 8px 0; }
+.fitness-week-table ul { text-align: left; }
+.fitness-week-pending { color: #687586; }
+.fitness-profile-summary { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.fitness-profile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fitness-danger { background: #9f2727 !important; color: #fff !important; }
+.adaptive-fitness ul,.adaptive-fitness ol { padding-left: 24px; }
+.adaptive-fitness li { margin: 8px 0; }

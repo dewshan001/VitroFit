@@ -6,6 +6,7 @@ import 'classes_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'timetable_screen.dart';
+import '../features/adaptive_fitness/fitness_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -81,6 +82,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Adaptive fitness',
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const FitnessScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
             onPressed: () {

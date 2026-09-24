@@ -11,6 +11,7 @@ using VitroFit.API.Data;
 using VitroFit.API.Entities;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
+using VitroFit.API.Features.AdaptiveFitness;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddAdaptiveFitness(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

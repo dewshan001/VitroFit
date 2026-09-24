@@ -3,6 +3,9 @@
 # .NET build output
 bin/
 obj/
+/.fitness-build/
+/.fitness-build-check/
+/.fitness-build-check-tests/
 
 # Node.js dependencies
 node_modules/
@@ -35,3 +38,6 @@ logs/
 
 AI_Adaptive_Fitness_Gym_Agent_Assignment_Prompt.md
 
+/.fitness-build-check-bin/
+BackendAPI/.fitness-build-check-obj/
+BackendAPI/.fitness-build-check-tests-bin/
