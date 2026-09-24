@@ -81,7 +81,8 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
             var currentProfile = FitnessJson.Write(profile.ToInput());
             var canRestartAfterSafetyPause = roots.All(w => w.Status == "ReviewRequired" &&
                 FitnessJson.Write(FitnessJson.Read<AgentRequest>(w.RequestJson).Profile) != currentProfile);
-            if (roots.Count > 0 && !canRestartAfterSafetyPause)
+            var canStartFreshAfterFailure = roots.Count < 3 && roots.All(w => w.Status == "Failed");
+            if (roots.Count > 0 && !canRestartAfterSafetyPause && !canStartFreshAfterFailure)
                 return Conflict(new { message = "Your beginner program has already started. Continue from your current schedule; after schedule four, meet an instructor." });
         }
         var workflow = new FitnessWorkflow { UserId = UserId, PreviousWorkflowId = previous?.Id };

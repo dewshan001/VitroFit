@@ -71,10 +71,14 @@ export default function AdaptiveFitnessPage() {
     const workflow = await fitnessRequest('workflows', 'POST', { previousWorkflowId });
     await open(workflow.id);
     await refresh(currentProfile);
-    setNotice(`Beginner schedule ${workflow.plan?.week ?? ''} is ready.`);
+    setNotice(workflow.status === 'Ready'
+      ? `Beginner schedule ${workflow.plan?.week ?? ''} is ready.`
+      : workflow.summary || 'The schedule could not be generated. See failure details below.');
   }
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
+  const hasFocusMismatch = selected?.summary?.includes('Exercise does not match this day') ||
+    history?.events.some(event => event.step === 'validator' && event.summary.includes('Exercise does not match this day'));
 
   return <main className="adaptive-fitness">
     <h1>Adaptive beginner schedules</h1>
@@ -133,8 +137,11 @@ export default function AdaptiveFitnessPage() {
         <p>{selected.summary}</p>
         {history?.events.filter(event => ['planner', 'validator'].includes(event.step)).map((event, index) =>
           <p key={`${event.id}-${index}`}><strong>{event.step}:</strong> {event.summary}</p>)}
-        <p><code>MODEL_OUTPUT_TRUNCATED_TOKEN_LIMIT</code> confirms output truncation at the model token cap. HTTP 429 indicates rate limiting; HTTP 401/403 indicates provider key or permission trouble; HTTP 402 usually means provider credits/payment are unavailable. Timeout/connection codes indicate a network or provider delay. Validation messages point to a plan-rule mismatch.</p>
+        {hasFocusMismatch && <p>This workflow includes a schedule-rule mismatch. The updated agent replaces incompatible exercise selections with approved catalog items before validation.</p>}
+        {selected.summary.startsWith('Agent unavailable or interrupted') && <p>The agent service did not complete this request. Check that both the ASP.NET API and Python agent are running, then retry. The previous request’s activity entries may help identify which step stopped.</p>}
       </section>}
+      {selected.status === 'Failed' && !selected.previousWorkflowId && <button disabled={busy}
+        onClick={() => action(() => generate(null))}>Start a fresh week 1 with my saved profile</button>}
       {selected.status === 'Ready' && selected.plan && <>
         <ProgressForm key={selected.id} workflow={selected} busy={busy} onSave={data => action(async () => {
           await fitnessRequest(`workflows/${selected.id}/progress`, 'PUT', data);

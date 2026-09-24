@@ -26,10 +26,17 @@ public sealed class FitnessWorkflowService(FitnessDbContext db, FitnessAgentClie
         catch (Exception ex)
         {
             // Log only the exception type, never request bodies, credentials or provider responses.
+            var reason = ex switch
+            {
+                HttpRequestException { StatusCode: { } status } => $"The Python agent returned HTTP {(int)status}.",
+                HttpRequestException => "The Python agent could not be reached.",
+                OperationCanceledException => "The Python agent request timed out or was cancelled.",
+                _ => "The agent workflow failed before it returned a plan."
+            };
             logger.LogWarning("Fitness workflow {WorkflowId} failed ({ErrorType})", workflow.Id, ex.GetType().Name);
             workflow.Status = "Failed";
             workflow.PlanJson = null;
-            workflow.Summary = "Agent unavailable or interrupted. No plan was activated. You may retry.";
+            workflow.Summary = $"{reason} No plan was activated. Check the Python agent logs and service configuration, then retry.";
         }
         workflow.CurrentStep = workflow.Status == "Ready" ? "self_schedule_ready" : "finished";
         workflow.UpdatedAt = DateTime.UtcNow;

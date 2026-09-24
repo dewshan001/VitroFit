@@ -146,7 +146,7 @@ namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations
                             BeginnerAllowed = true,
                             Equipment = "bodyweight",
                             Instructions = "Keep a straight body and press gently away from the wall.",
-                            MuscleGroup = "upper body",
+                            MuscleGroup = "chest",
                             Name = "Wall push-up"
                         },
                         new
@@ -265,6 +265,24 @@ namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations
                             Instructions = "Hold a stable support and lower only through a comfortable range.",
                             MuscleGroup = "legs",
                             Name = "Supported split squat"
+                        },
+                        new
+                        {
+                            Id = 16,
+                            BeginnerAllowed = true,
+                            Equipment = "bodyweight",
+                            Instructions = "Stand against a wall and slide arms through a comfortable range while keeping posture tall.",
+                            MuscleGroup = "back",
+                            Name = "Wall angel"
+                        },
+                        new
+                        {
+                            Id = 17,
+                            BeginnerAllowed = true,
+                            Equipment = "bodyweight",
+                            Instructions = "Make small controlled arm circles without weights and stop if uncomfortable.",
+                            MuscleGroup = "arms",
+                            Name = "Arm circles"
                         });
                 });
 

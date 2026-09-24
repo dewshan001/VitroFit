@@ -16,6 +16,7 @@ void Check(bool condition, string name) { if (!condition) throw new Exception(na
 
 Check(FitnessPolicy.Validate(Plan(), request).Count == 0, "valid beginner plan");
 Check(FitnessPolicy.Validate(Plan(), request with { Catalog = [catalog[0], catalog[1] with { MuscleGroup = "legs" }] }).Count > 0, "focus blocks mismatched exercise groups");
+Check(FitnessPolicy.Validate(Plan(), request with { Catalog = [catalog[0], catalog[1] with { MuscleGroup = "upper body" }] }).Count == 0, "legacy upper-body push-up is accepted as chest");
 Check(FitnessPolicy.Validate(null, request).Count > 0, "null output rejected");
 Check(FitnessPolicy.Validate(Plan(2), request).Count > 0, "wrong week rejected");
 Check(FitnessPolicy.Validate(Plan(), request with { Profile = profile with { ReviewRequired = true } }).Count > 0, "health concern blocks automated schedule");

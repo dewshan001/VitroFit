@@ -72,7 +72,9 @@ public sealed class FitnessDbContext(DbContextOptions<FitnessDbContext> options)
             Exercise(12, "Bird dog", "bodyweight", "back", "From hands and knees, extend opposite arm and leg while keeping the trunk steady."),
             Exercise(13, "Standing hip hinge", "bodyweight", "legs", "Push hips back with a neutral spine, then stand tall."),
             Exercise(14, "Glute bridge", "bodyweight", "legs", "Lie on your back, press through your feet, and lift hips comfortably."),
-            Exercise(15, "Supported split squat", "bodyweight", "legs", "Hold a stable support and lower only through a comfortable range.")
+            Exercise(15, "Supported split squat", "bodyweight", "legs", "Hold a stable support and lower only through a comfortable range."),
+            Exercise(16, "Wall angel", "bodyweight", "back", "Stand against a wall and slide arms through a comfortable range while keeping posture tall."),
+            Exercise(17, "Arm circles", "bodyweight", "arms", "Make small controlled arm circles without weights and stop if uncomfortable.")
         );
     }
 

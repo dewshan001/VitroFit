@@ -150,6 +150,8 @@ class _FitnessScreenState extends State<FitnessScreen> {
       ],
       if (w['status'] == 'ReviewRequired')
         const Text('The agent paused because your profile or progress indicates a concern. Please speak with an instructor or qualified health professional before continuing.'),
+      if (w['status'] == 'Failed' && w['previousWorkflowId'] == null)
+        OutlinedButton(onPressed: _busy ? null : () => _act(() => _generate()), child: const Text('Start a fresh week 1 with my saved profile')),
       if (['Failed', 'Running'].contains(w['status'])) OutlinedButton(onPressed: _busy ? null : () => _act(() async {
         await _api.request('workflows/${w['id']}/retry', method: 'POST', body: {}); await _open(w['id']); await _load();
       }), child: const Text('Retry failed / interrupted request')),

@@ -1,11 +1,9 @@
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using VitroFit.API.Features.AdaptiveFitness;
 
-namespace VitroFit.API.Features.AdaptiveFitness;
+namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations;
 
-[DbContext(typeof(FitnessDbContext))]
-[Migration("20260925040000_AddWorkoutFocusExercises")]
-public sealed class AddWorkoutFocusExercises : Migration
+public sealed partial class AddWorkoutFocusExercises : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
@@ -38,7 +36,9 @@ public sealed class AddWorkoutFocusExercises : Migration
                 { 12, true, "bodyweight", "From hands and knees, extend opposite arm and leg while keeping the trunk steady.", "back", "Bird dog" },
                 { 13, true, "bodyweight", "Push hips back with a neutral spine, then stand tall.", "legs", "Standing hip hinge" },
                 { 14, true, "bodyweight", "Lie on your back, press through your feet, and lift hips comfortably.", "legs", "Glute bridge" },
-                { 15, true, "bodyweight", "Hold a stable support and lower only through a comfortable range.", "legs", "Supported split squat" }
+                { 15, true, "bodyweight", "Hold a stable support and lower only through a comfortable range.", "legs", "Supported split squat" },
+                { 16, true, "bodyweight", "Stand against a wall and slide arms through a comfortable range while keeping posture tall.", "back", "Wall angel" },
+                { 17, true, "bodyweight", "Make small controlled arm circles without weights and stop if uncomfortable.", "arms", "Arm circles" }
             });
     }
 
@@ -52,6 +52,8 @@ public sealed class AddWorkoutFocusExercises : Migration
         migrationBuilder.DeleteData(schema: "fitness", table: "Exercises", keyColumn: "Id", keyValue: 10);
         migrationBuilder.DeleteData(schema: "fitness", table: "Exercises", keyColumn: "Id", keyValue: 9);
         migrationBuilder.DeleteData(schema: "fitness", table: "Exercises", keyColumn: "Id", keyValue: 8);
+        migrationBuilder.DeleteData(schema: "fitness", table: "Exercises", keyColumn: "Id", keyValue: 17);
+        migrationBuilder.DeleteData(schema: "fitness", table: "Exercises", keyColumn: "Id", keyValue: 16);
         migrationBuilder.UpdateData(
             schema: "fitness",
             table: "Exercises",
