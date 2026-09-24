@@ -3,7 +3,7 @@ import { useState } from 'react';
 const defaults = { age: 25, heightCm: 170, weightKg: 70, goal: 'general_fitness', days: [1, 3, 5], sessionMinutes: 30, equipment: ['bodyweight'], reviewRequired: false };
 const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export default function FitnessProfileForm({ initial, onSave, busy, createSchedule = false, onCancel }) {
+export default function FitnessProfileForm({ initial, onSave, busy, createSchedule = false, onCancel, error, notice, working }) {
   const [form, setForm] = useState(initial || defaults);
   const [confirmed, setConfirmed] = useState(false);
   const [healthClearConfirmed, setHealthClearConfirmed] = useState(false);
@@ -40,6 +40,9 @@ export default function FitnessProfileForm({ initial, onSave, busy, createSchedu
       }} />None of these concerns apply to me. I want to create a self-guided beginner plan.</label>
     </fieldset>
     <label className="fitness-check"><input required type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I confirm my profile information is accurate and understand a beginner schedule is not medical clearance.</label>
+    {error && <p role="alert" className="fitness-error fitness-form-feedback">{error}</p>}
+    {notice && <p role="status" className="fitness-notice fitness-form-feedback">{notice}</p>}
+    {working && <p role="status" className="fitness-notice fitness-form-feedback">Saving your profile and preparing your schedule…</p>}
     {canSave && <button disabled={busy || form.days.length === 0 || !confirmed}>
       {createSchedule && !form.reviewRequired ? 'Save profile and create week 1' : form.reviewRequired ? 'Save profile — pause self-scheduling' : 'Save profile'}
     </button>}

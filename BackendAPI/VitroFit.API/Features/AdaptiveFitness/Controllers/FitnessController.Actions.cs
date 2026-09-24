@@ -30,8 +30,8 @@ public sealed partial class FitnessController
         var plan = FitnessJson.Read<WorkoutPlan>(workflow.PlanJson);
         if (!plan.Days.Any(d => d.Day == input.Day)) return BadRequest(new { message = "Day is not part of this plan." });
         var isoDay = (int)input.PerformedOn.DayOfWeek == 0 ? 7 : (int)input.PerformedOn.DayOfWeek;
-        if (input.PerformedOn > DateOnly.FromDateTime(DateTime.UtcNow) || input.PerformedOn < DateOnly.FromDateTime(workflow.CreatedAt) || isoDay != input.Day)
-            return BadRequest(new { message = "Use a matching weekday on or after plan creation, not in the future." });
+        if (input.PerformedOn < DateOnly.FromDateTime(workflow.CreatedAt) || isoDay != input.Day)
+            return BadRequest(new { message = "Choose the selected planned weekday on or after the schedule creation date." });
         var record = await db.Progress.SingleOrDefaultAsync(p => p.WorkflowId == id && p.Day == input.Day);
         if (record is null) { record = new() { WorkflowId = id, Day = input.Day }; db.Progress.Add(record); }
         record.Completed = input.Completed; record.Rpe = input.Rpe; record.Pain = input.Pain;

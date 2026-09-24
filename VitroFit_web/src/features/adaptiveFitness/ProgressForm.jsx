@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-export default function ProgressForm({ workflow, onSave, busy }) {
+export default function ProgressForm({ workflow, onSave, busy, error, notice, working }) {
+  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [day, setDay] = useState(workflow.plan.days[0].day);
   const [rpe, setRpe] = useState(5);
   const [completed, setCompleted] = useState(true);
@@ -13,7 +14,7 @@ export default function ProgressForm({ workflow, onSave, busy }) {
   };
   return <form className="fitness-form fitness-progress-form fitness-reveal" onSubmit={handleSubmit}>
     <span className="fitness-eyebrow">Keep your plan adaptive</span><h3>Record a session</h3><label>Planned weekday<select value={day} onChange={e => setDay(Number(e.target.value))}>
-      {workflow.plan.days.map(d => <option key={d.day} value={d.day}>Day {d.day} (Monday = 1)</option>)}</select></label>
+      {workflow.plan.days.map((d, index) => <option key={d.day} value={d.day}>Day {String(index + 1).padStart(2, '0')} · {weekdays[d.day - 1]}</option>)}</select></label>
     <label>Date<input required type="date" value={performedOn} onChange={e => setDate(e.target.value)} /></label>
     <label>Effort (1 easy – 10 maximum)<input required type="number" min="1" max="10" value={rpe} onChange={e => setRpe(Number(e.target.value))} /></label>
     <label className="fitness-check"><input type="checkbox" checked={completed} onChange={e => setCompleted(e.target.checked)} />Completed</label>
@@ -26,6 +27,9 @@ export default function ProgressForm({ workflow, onSave, busy }) {
       <p>If you experienced pain or felt unwell, select this and stop exercising until you have appropriate guidance. If you had no pain, confirm that below to enable saving the session.</p>
     </div>
     {!pain && <label className="fitness-check fitness-pain-free-check"><input type="checkbox" checked={noPainConfirmed} onChange={e => setNoPainConfirmed(e.target.checked)} />No pain or discomfort during this session</label>}
+    {error && <p role="alert" className="fitness-error fitness-form-feedback">{error}</p>}
+    {notice && <p role="status" className="fitness-notice fitness-form-feedback">{notice}</p>}
+    {working && <p role="status" className="fitness-notice fitness-form-feedback">Saving your session…</p>}
     {(pain || noPainConfirmed) && <button disabled={busy}>Save session</button>}
   </form>;
 }

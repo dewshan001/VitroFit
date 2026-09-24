@@ -424,6 +424,20 @@
   box-shadow: 0 0 0 3px rgba(200, 240, 0, 0.13);
 }
 
+.adaptive-fitness input[type='date'] {
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.adaptive-fitness input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.9;
+  cursor: pointer;
+}
+
+.adaptive-fitness input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 .adaptive-fitness textarea {
   min-height: 92px;
   resize: vertical;
@@ -616,67 +630,70 @@
 }
 
 .fitness-week-grid {
-  position: relative;
-  overflow: hidden;
   margin: 28px 0;
   padding: 0;
-  border: 0;
-  background: transparent;
+  color: #f3f6ee;
 }
 
-.fitness-week-grid::after {
-  position: absolute;
-  top: 4px;
-  right: 16px;
-  z-index: 0;
-  color: rgba(200, 240, 0, 0.035);
-  content: 'WEEKLY PLAN';
-  font-family: var(--font-display, 'Oswald', sans-serif);
-  font-size: clamp(3rem, 10vw, 8rem);
-  font-weight: 700;
-  line-height: 1;
-  pointer-events: none;
+.fitness-inline-feedback,
+.fitness-form-feedback {
+  margin: 14px 0 0;
 }
 
-.fitness-week-grid > h3,
-.fitness-week-grid > p,
-.fitness-week-scroll {
-  position: relative;
-  z-index: 1;
+.fitness-form-feedback {
+  grid-column: 1 / -1;
 }
 
-.fitness-week-grid h3 {
-  margin-bottom: 8px;
-  font-size: clamp(1.45rem, 3vw, 2rem);
+.fitness-week-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
 }
 
-.fitness-week-grid > p {
-  margin-bottom: 20px;
-  color: #9fa79a;
+.fitness-week-heading h3 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.fitness-week-heading p {
+  max-width: 360px;
+  margin: 0 0 3px;
+  color: #c1c9ba;
+  font-size: 0.9rem;
+  text-align: right;
 }
 
 .fitness-week-scroll {
   overflow-x: auto;
-  border: 0;
+  border: 1px solid #30392b;
+  border-radius: 8px;
+  background: #0d110d;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25);
   scrollbar-color: var(--fitness-green) #111;
+  scrollbar-width: thin;
+}
+
+.fitness-week-scroll:focus-visible {
+  outline: 2px solid var(--fitness-green);
+  outline-offset: 3px;
 }
 
 .fitness-week-table {
   width: 100%;
   min-width: 900px;
   border-collapse: separate;
-  border-spacing: 0;
+  border-spacing: 1px;
   table-layout: fixed;
-  background: #0e110e;
-  color: #eff1eb;
+  background: #263022;
+  color: #f2f4ef;
 }
 
 .fitness-week-table th,
 .fitness-week-table td {
-  min-width: 145px;
-  padding: 15px 13px;
-  border-right: 1px solid rgba(200, 240, 0, 0.16);
-  border-bottom: 1px solid rgba(200, 240, 0, 0.16);
+  min-width: 150px;
+  padding: 14px;
   text-align: left;
   vertical-align: top;
 }
@@ -684,67 +701,170 @@
 .fitness-week-table thead th {
   position: sticky;
   top: 0;
-  background: var(--fitness-green);
-  color: #0c1008;
+  z-index: 2;
+  background: #1c261a;
+  color: #f4f7ef;
   font-family: var(--font-display, 'Oswald', sans-serif);
-  font-size: 0.9rem;
-  letter-spacing: 0.08em;
+  font-size: 0.86rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .fitness-week-table thead th:first-child {
-  background: #181d15;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #1c261a;
   color: var(--fitness-green);
 }
 
+.fitness-week-table thead th span {
+  display: inline-grid;
+  width: 25px;
+  height: 25px;
+  margin-left: 5px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fitness-green);
+  color: #11150d;
+  font-size: 0.82rem;
+}
+
 .fitness-week-table tbody th {
-  width: 125px;
-  background: #181d15;
-  color: var(--fitness-green);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 132px;
+  background: #182018;
+  color: #e8f4d0;
   font-family: var(--font-display, 'Oswald', sans-serif);
-  font-size: 0.94rem;
-  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 .fitness-week-table td {
-  height: 126px;
-  background: rgba(17, 21, 17, 0.94);
-  font-size: 0.84rem;
+  height: 150px;
+  background: #111611;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  transition: background 150ms ease;
 }
 
-.fitness-week-table td strong {
-  color: #fff;
+.fitness-week-table tbody tr:nth-child(even) td {
+  background: #151b15;
 }
 
-.fitness-week-table td > strong {
+.fitness-week-table tbody tr:hover td {
+  background: #1a2218;
+}
+
+.fitness-focus-label {
+  display: inline-block;
+  margin-bottom: 7px;
+  padding: 4px 8px;
+  border: 1px solid rgba(200, 240, 0, 0.4);
+  border-radius: 3px;
+  background: rgba(200, 240, 0, 0.1);
   color: var(--fitness-green);
   font-family: var(--font-display, 'Oswald', sans-serif);
-  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
-.fitness-week-table td small {
+.fitness-session-meta {
   display: block;
-  margin: 8px 0;
-  color: #aab1a5;
-  line-height: 1.5;
+  margin-bottom: 10px;
+  color: #c3cbbd;
+  font-size: 0.72rem;
 }
 
-.fitness-week-table ul,
-.adaptive-fitness ul,
-.adaptive-fitness ol {
-  padding-left: 20px;
+.fitness-session-meta i {
+  padding: 0 3px;
+  color: var(--fitness-green);
+  font-style: normal;
 }
 
-.fitness-week-table li,
-.adaptive-fitness li {
-  margin: 7px 0;
+.fitness-exercise-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fitness-exercise-list li {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 8px 9px;
+  border-left: 2px solid var(--fitness-green);
+  background: #1c231b;
+}
+
+.fitness-exercise-name {
+  color: #fff;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.fitness-exercise-prescription {
+  color: #e1e8da;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.fitness-exercise-prescription i {
+  color: var(--fitness-green);
+  font-style: normal;
+}
+
+.fitness-week-table .fitness-exercise-rest {
+  color: #b7c0b0;
+  font-size: 0.7rem;
+}
+
+.fitness-week-rest,
+.fitness-week-pending {
+  display: flex;
+  min-height: 95px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+}
+
+.fitness-week-rest > i,
+.fitness-week-pending > i {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(200, 240, 0, 0.12);
+  color: var(--fitness-green);
+  font-size: 0.9rem;
+  font-style: normal;
+}
+
+.fitness-week-rest strong {
+  color: #e4eadc;
+  font-size: 0.8rem;
+}
+
+.fitness-week-rest small {
+  color: #aeb8a7;
+  font-size: 0.72rem;
+}
+
+.fitness-week-pending-cell {
+  background: #0e130f !important;
 }
 
 .fitness-week-pending {
-  color: #929a8d;
-  font-style: italic;
+  color: #c1cbb9;
+  font-size: 0.75rem;
 }
 
 .fitness-progress-form {
@@ -787,6 +907,13 @@
   margin: 7px 0 0 29px;
   color: #e8aeae;
   font-size: 0.83rem;
+}
+
+.fitness-progress-form .fitness-pain-free-check {
+  padding: 13px 16px;
+  border-left: 3px solid var(--fitness-green);
+  background: rgba(200, 240, 0, 0.07);
+  color: #e9f4c4;
 }
 
 .fitness-progress-form .fitness-eyebrow {
@@ -855,6 +982,16 @@
 
   .fitness-section-heading {
     align-items: flex-start;
+  }
+
+  .fitness-week-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fitness-week-heading p {
+    text-align: left;
   }
 
   .fitness-panel,

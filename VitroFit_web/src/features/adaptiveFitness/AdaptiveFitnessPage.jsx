@@ -19,6 +19,7 @@ export default function AdaptiveFitnessPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [feedbackTarget, setFeedbackTarget] = useState('page');
 
   const open = useCallback(async id => {
     const [workflow, audit] = await Promise.all([
@@ -55,7 +56,7 @@ export default function AdaptiveFitnessPage() {
         if (!active) return;
         setCatalog(exercises); setProfile(savedProfile); setEditing(!savedProfile);
         await refresh(savedProfile);
-    })().catch(e => { if (active) setError(e.message); })
+    })().catch(e => { if (active) { setFeedbackTarget('page'); setError(e.message); } })
       .finally(() => { if (active) setLoaded(true); });
     return () => { active = false; };
   }, [isLoggedIn, refresh]);
@@ -79,10 +80,10 @@ export default function AdaptiveFitnessPage() {
     return () => observer.disconnect();
   }, [loaded, profile, editing, selected, schedules.length]);
 
-  async function action(task) {
-    setBusy(true); setError(''); setNotice('');
+  async function action(task, target = 'schedule') {
+    setBusy(true); setError(''); setNotice(''); setFeedbackTarget(target);
     try { await task(); }
-    catch (e) { setError(e.message); }
+    catch (e) { setFeedbackTarget(target); setError(e.message); }
     finally { setBusy(false); }
   }
 
@@ -109,10 +110,10 @@ export default function AdaptiveFitnessPage() {
       <div className="fitness-hero-stamp" aria-hidden="true">VF</div>
       <span className="fitness-hero-index">01 — 04 <i /> SELF-GUIDED PLAN</span>
     </header>
-    {error && <p role="alert" className="fitness-error">{error}</p>}
-    {notice && <p role="status" className="fitness-notice">{notice}</p>}
-    {busy && <p role="status" className="fitness-notice">Working… generation can take up to two minutes. Do not submit again.</p>}
+    {feedbackTarget === 'page' && error && <p role="alert" className="fitness-error fitness-page-feedback">{error}</p>}
     {loaded && (!profile || editing) && <FitnessProfileForm key={profile?.updatedAt || 'new'} initial={profile} busy={busy}
+      error={feedbackTarget === 'profile' ? error : ''} notice={feedbackTarget === 'profile' ? notice : ''}
+      working={feedbackTarget === 'profile' && busy}
       createSchedule={!selected || (selected.status === 'ReviewRequired' && !selected.previousWorkflowId)}
       onCancel={profile ? () => setEditing(false) : undefined} onSave={data => action(async () => {
       const saved = await fitnessRequest('profile', 'PUT', data);
@@ -125,7 +126,7 @@ export default function AdaptiveFitnessPage() {
       }
       if (!selected || (selected.status === 'ReviewRequired' && !selected.previousWorkflowId)) await generate(null, saved);
       else setNotice('Profile saved. Continue your current beginner schedule below.');
-    })} />}
+      }, 'profile')} />}
 
     {profile && !editing && <section className="fitness-panel fitness-profile-panel fitness-reveal">
       <div className="fitness-section-heading"><div><span className="fitness-eyebrow">Your details</span><h2>Your fitness profile</h2></div><span className="fitness-profile-tag">PROFILE SAVED</span></div>
@@ -144,8 +145,10 @@ export default function AdaptiveFitnessPage() {
           await fitnessRequest('profile', 'DELETE');
           setProfile(null); setSelected(null); setHistory(null); setSchedules([]); setEditing(true);
           setNotice('Fitness profile and its schedules were deleted. Your VitroFit account is unchanged.');
-        })}>Delete fitness profile</button>
+        }, 'profile')}>Delete fitness profile</button>
       </div>
+      {feedbackTarget === 'profile' && error && <p role="alert" className="fitness-error fitness-inline-feedback">{error}</p>}
+      {feedbackTarget === 'profile' && notice && <p role="status" className="fitness-notice fitness-inline-feedback">{notice}</p>}
     </section>}
 
     {!selected && profile?.reviewRequired && <p role="status" className="fitness-notice">Automated scheduling is paused because your profile indicates a health concern or need for review. If you selected this by mistake and it does not apply to you, update the checkbox before saving.</p>}
@@ -180,15 +183,20 @@ export default function AdaptiveFitnessPage() {
       {selected.status === 'Failed' && !selected.previousWorkflowId && <button disabled={busy}
         onClick={() => action(() => generate(null))}>Start a fresh week 1 with my saved profile</button>}
       {selected.status === 'Ready' && selected.plan && <>
-        <ProgressForm key={selected.id} workflow={selected} busy={busy} onSave={data => action(async () => {
+        <ProgressForm key={selected.id} workflow={selected} busy={busy}
+          error={feedbackTarget === 'progress' ? error : ''} notice={feedbackTarget === 'progress' ? notice : ''}
+          working={feedbackTarget === 'progress' && busy} onSave={data => action(async () => {
           await fitnessRequest(`workflows/${selected.id}/progress`, 'PUT', data);
           await open(selected.id);
           setNotice('Progress saved.');
-        })} />
+        }, 'progress')} />
         {selected.plan.week < 4 && <button disabled={busy || history?.progress.length !== selected.plan.days.length}
           onClick={() => action(() => generate(selected.id))}>Create week {selected.plan.week + 1} of 4 from my progress</button>}
         {selected.plan.week === 4 && <p role="status" className="fitness-notice"><strong>You have completed the four beginner schedules.</strong> Meet an instructor to plan the next stage of your training.</p>}
       </>}
+      {feedbackTarget === 'schedule' && error && <p role="alert" className="fitness-error fitness-inline-feedback">{error}</p>}
+      {feedbackTarget === 'schedule' && notice && <p role="status" className="fitness-notice fitness-inline-feedback">{notice}</p>}
+      {feedbackTarget === 'schedule' && busy && <p role="status" className="fitness-notice fitness-inline-feedback">Working… generation can take up to two minutes. Do not submit again.</p>}
       {['Failed', 'Running'].includes(selected.status) && <button disabled={busy} onClick={() => action(async () => {
         await fitnessRequest(`workflows/${selected.id}/retry`, 'POST', {});
         await open(selected.id);
