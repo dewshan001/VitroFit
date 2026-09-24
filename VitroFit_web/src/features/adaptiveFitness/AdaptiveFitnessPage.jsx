@@ -157,12 +157,14 @@ export default function AdaptiveFitnessPage() {
       {selected.status === 'Ready' ? <details className="fitness-plan-disclosure">
         <summary>
           <span className="fitness-plan-title"><span className="fitness-plan-kicker">Your training block</span><strong>Current week {selected.plan?.week} of 4</strong></span>
-          <span className={`fitness-status fitness-status-${selected.status.toLowerCase()}`}>{selected.status}</span>
           <span className="fitness-plan-toggle"><span className="fitness-view-label">View plan</span><i aria-hidden="true">+</i></span>
         </summary>
         <div className="fitness-plan-content">
-          <p className="fitness-summary-line">{selected.summary}</p><p className="fitness-safety-note">{selected.safetyNote}</p>
           <WorkoutPlanView plans={schedules} catalog={catalog} />
+          <div className="fitness-plan-guidance">
+            <div className="fitness-progression-note"><span className="fitness-eyebrow">Progression guidance</span><p>{selected.summary}</p></div>
+            <p className="fitness-safety-note"><strong>Safety reminder</strong>{selected.safetyNote}</p>
+          </div>
         </div>
       </details> : <div className="fitness-section-heading"><div><span className="fitness-eyebrow">Plan update</span><h2>Schedule status</h2></div><span className={`fitness-status fitness-status-${selected.status.toLowerCase()}`}>{selected.status}</span></div>}
       {selected.status !== 'Ready' && <><p className="fitness-summary-line">{selected.summary}</p><p className="fitness-safety-note">{selected.safetyNote}</p></>}
