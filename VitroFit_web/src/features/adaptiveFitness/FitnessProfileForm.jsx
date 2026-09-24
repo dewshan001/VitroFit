@@ -7,7 +7,8 @@ export default function FitnessProfileForm({ initial, onSave, busy, createSchedu
   const [form, setForm] = useState(initial || defaults);
   const [confirmed, setConfirmed] = useState(false);
   const field = (key, value) => setForm(old => ({ ...old, [key]: value }));
-  return <form onSubmit={event => { event.preventDefault(); onSave(form); }}>
+  return <form className="fitness-form fitness-profile-form fitness-reveal" onSubmit={event => { event.preventDefault(); onSave(form); }}>
+    <span className="fitness-eyebrow">Start with the essentials</span>
     <h2>Your beginner fitness profile</h2>
     <p>For adult beginners. Confirm equipment is available at your gym before selecting it.</p>
     <div className="fitness-fields">
