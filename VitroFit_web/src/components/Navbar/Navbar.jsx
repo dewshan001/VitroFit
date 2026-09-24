@@ -5,9 +5,9 @@ import ProfileDropdown from '../ProfileDropdown/ProfileDropdown';
 import './Navbar.css';
 
 const navLinks = [
-  { label: 'Fitness Plan', to: '/adaptive-fitness', hash: '' },
   { label: 'Home',        to: '/',           hash: '' },
   { label: 'About Us',   to: '/about',       hash: '' },
+  { label: 'Self-Fitness Plan', to: '/adaptive-fitness', hash: '' },
   { label: 'Workouts',   to: '/classes',     hash: '' },
   { label: 'Find Gyms',  to: '/find-gyms',   hash: '' },
   { label: 'Diet Plans', to: '/diet-plans',  hash: '' },
