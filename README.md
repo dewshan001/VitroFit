@@ -397,6 +397,14 @@ Open `http://localhost:5173`, sign in with a verified VitroFit account, and visi
 
 ### Test and troubleshoot
 
+`BackendAPI/FitnessAgent.Tests` is the .NET regression-test project for the Adaptive Fitness API's deterministic planning and safety rules. Keep it in Git because it verifies important behavior—such as rejecting unsafe profiles, mismatched exercises, invalid schedules, and excessive progression—when the API or workout rules change. This helps the team catch regressions before evaluation or release. The test source is useful for development and evaluation, but is not required to start the API or Python agent. Its generated `bin` and `obj` folders are build artifacts and should not be committed.
+
+Run the backend checks from the repository root:
+
+```powershell
+dotnet run --project BackendAPI/FitnessAgent.Tests
+```
+
 Run the agent tests from `BackendAPI/FitnessAgentService`:
 
 ```powershell
