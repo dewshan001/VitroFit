@@ -1,0 +1,30 @@
+# ── Core Framework ──
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+python-dotenv>=1.0.0
+pydantic>=2.7.0
+
+# ── LangChain Ecosystem ──
+langchain>=1.4.0              # High-level agent factories, LCEL chains
+langchain-core>=1.6.0         # @tool, Runnables, messages, parsers
+langchain-openai>=1.6.0       # ChatOpenAI (also works with OpenRouter via base_url)
+langgraph>=0.13.0             # StateGraph, ToolNode, checkpointing, HITL
+
+# ── Tools & Loaders ──
+langchain-community>=0.3.0    # WebBaseLoader, TavilySearchResults
+httpx>=0.27.0                 # Async HTTP for custom scraping tool
+beautifulsoup4>=4.12.0        # HTML parsing for scraping tool
+
+# ── Vector Store (RAG) ──
+langchain-chroma>=0.2.0       # ChromaDB vector store
+chromadb>=0.5.0               # ChromaDB engine
+langchain-huggingface>=0.1.0  # Local embedding model (no external API needed)
+sentence-transformers>=3.0.0  # Backing model for langchain-huggingface
+
+# ── Observability (Optional) ──
+langsmith>=0.3.0              # Tracing & evaluation
+
+# ── Search (Optional — needs TAVILY_API_KEY) ──
+langchain-tavily>=0.1.0

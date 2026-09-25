@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VitroFit.API.Data;
@@ -11,9 +12,11 @@ using VitroFit.API.Data;
 namespace VitroFit.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920055714_AddTimetableSlots")]
+    partial class AddTimetableSlots
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -127,14 +130,9 @@ namespace VitroFit.API.Migrations
                     b.Property<int>("UserId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("WorkoutId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("WorkoutId");
 
                     b.ToTable("TimetableSlots");
                 });
@@ -197,36 +195,6 @@ namespace VitroFit.API.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("VitroFit.API.Entities.Workout", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Workouts");
-                });
-
             modelBuilder.Entity("VitroFit.API.Entities.RefreshToken", b =>
                 {
                     b.HasOne("VitroFit.API.Entities.User", "User")
@@ -246,26 +214,13 @@ namespace VitroFit.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("VitroFit.API.Entities.Workout", "Workout")
-                        .WithMany("TimetableSlots")
-                        .HasForeignKey("WorkoutId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("User");
-
-                    b.Navigation("Workout");
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.User", b =>
                 {
                     b.Navigation("RefreshTokens");
 
-                    b.Navigation("TimetableSlots");
-                });
-
-            modelBuilder.Entity("VitroFit.API.Entities.Workout", b =>
-                {
                     b.Navigation("TimetableSlots");
                 });
 #pragma warning restore 612, 618

@@ -7,6 +7,11 @@ obj/
 # Node.js dependencies
 node_modules/
 
+# Python virtual environments / caches
+venv/
+__pycache__/
+*.pyc
+
 # Environment files
 .env
 .env.*

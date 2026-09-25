@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Sockets;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -135,4 +137,113 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+var sidecarProcesses = new List<Process>();
+foreach (var (serviceName, relativeDir, port) in new[]
+{
+    ("GymAgentService", "GymAgentService", 8001),
+    ("chatbot_service", "chatbot_service", 8000),
+})
+{
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port);
+    if (process != null)
+    {
+        sidecarProcesses.Add(process);
+    }
+}
+
+if (sidecarProcesses.Count > 0)
+{
+    app.Lifetime.ApplicationStopping.Register(() =>
+    {
+        foreach (var process in sidecarProcesses)
+        {
+            PythonServiceSidecar.Stop(process, app.Logger);
+        }
+    });
+}
+
 app.Run();
+
+/// <summary>
+/// Launches a Python FastAPI sidecar service (GymAgentService, chatbot_service) alongside
+/// the API, so it's available without a separate manual step. Purely best-effort: if
+/// Python/the venv isn't set up yet, or the service is already running (e.g. started
+/// manually), this logs and does nothing rather than failing backend startup.
+/// </summary>
+static class PythonServiceSidecar
+{
+    public static Process? StartIfAvailable(ILogger logger, string serviceName, string relativeDir, int port)
+    {
+        if (IsPortInUse(port))
+        {
+            logger.LogInformation("{ServiceName} already listening on port {Port}, skipping sidecar launch.", serviceName, port);
+            return null;
+        }
+
+        var apiProjectDir = Directory.GetCurrentDirectory();
+        var serviceDir = Path.GetFullPath(Path.Combine(apiProjectDir, "..", relativeDir));
+        var pythonExe = OperatingSystem.IsWindows()
+            ? Path.Combine(serviceDir, "venv", "Scripts", "python.exe")
+            : Path.Combine(serviceDir, "venv", "bin", "python");
+
+        if (!File.Exists(pythonExe))
+        {
+            logger.LogWarning(
+                "{ServiceName} venv not found at {PythonExe} - skipping auto-start. " +
+                "Set it up with: cd BackendAPI/{RelativeDir} && python -m venv venv && " +
+                "venv/Scripts/pip install -r requirements.txt (see .env.example for required settings).",
+                serviceName, pythonExe, relativeDir);
+            return null;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = pythonExe,
+                Arguments = $"-m uvicorn main:app --port {port}",
+                WorkingDirectory = serviceDir,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            var process = Process.Start(startInfo);
+            logger.LogInformation("Started {ServiceName} sidecar (pid {Pid}) on port {Port}.", serviceName, process?.Id, port);
+            return process;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to start {ServiceName} sidecar.", serviceName);
+            return null;
+        }
+    }
+
+    public static void Stop(Process process, ILogger logger)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to stop sidecar process.");
+        }
+    }
+
+    private static bool IsPortInUse(int port)
+    {
+        try
+        {
+            using var client = new TcpClient();
+            var connectTask = client.ConnectAsync("127.0.0.1", port);
+            return connectTask.Wait(TimeSpan.FromMilliseconds(300)) && client.Connected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
