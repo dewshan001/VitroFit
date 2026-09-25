@@ -959,6 +959,31 @@
   font-size: 0.83rem;
 }
 
+.fitness-pain-stop {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 16px 0;
+  padding: 15px 18px;
+  border: 1px solid rgba(255, 91, 91, 0.62);
+  border-left: 4px solid #ff5c5c;
+  background: linear-gradient(100deg, rgba(135, 22, 27, 0.38), rgba(40, 14, 14, 0.76));
+  color: #ffd0d0;
+  line-height: 1.5;
+}
+
+.fitness-pain-stop strong {
+  color: #ffaaaa;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fitness-pain-stop-inline {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .fitness-session-records {
   margin: 18px 0;
   padding: 16px 18px;
