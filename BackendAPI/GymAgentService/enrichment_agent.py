@@ -55,6 +55,9 @@ class GymEnrichmentState(TypedDict):
     gym_name: str
     gym_address: str | None
     gym_website: str | None
+    known_phone: str | None
+    known_email: str | None
+    known_hours: str | None
     # Output
     result: dict | None
     source: str
@@ -69,22 +72,29 @@ def prepare_context(state: GymEnrichmentState) -> dict:
     name = state["gym_name"]
     address = state.get("gym_address") or "unknown"
     website = state.get("gym_website")
+    known_phone = state.get("known_phone")
+    known_email = state.get("known_email")
+    known_hours = state.get("known_hours")
 
     system_msg = SystemMessage(
         content=(
             "You are a gym data enrichment agent for the VitroFit fitness app. "
-            "Your goal is to find accurate equipment and class information for a specific gym.\n\n"
+            "Your goal is to find accurate equipment, class, and contact information for a specific gym.\n\n"
             "STRATEGY:\n"
             "1. If a website URL is provided, ALWAYS try scraping it first with scrape_gym_website.\n"
             "2. If scraping fails or returns little info, try search_gym_info with a specific query.\n"
             "3. If search also fails, try lookup_similar_gyms for reference data.\n"
             "4. After gathering information, provide your final answer.\n\n"
-            "Be thorough but efficient — don't call tools unnecessarily if you already have enough info."
+            "Be thorough but efficient — don't call tools unnecessarily if you already have enough info.\n\n"
+            "CONTACT DETAILS RULE (important): only report a phone number, email, or opening hours "
+            "if you actually see it written in the scraped website text or search results. "
+            "Never guess, infer, or invent a phone number, email, or opening hours — leave the field "
+            "empty/null if you didn't find it explicitly stated."
         )
     )
 
     user_msg_parts = [
-        f"Find equipment and classes for this gym:\n- Name: {name}\n- Address: {address}"
+        f"Find equipment, classes, and contact details for this gym:\n- Name: {name}\n- Address: {address}"
     ]
     if website:
         user_msg_parts.append(
@@ -93,6 +103,20 @@ def prepare_context(state: GymEnrichmentState) -> dict:
     else:
         user_msg_parts.append(
             "\nNo website is available. Try searching the web for this gym."
+        )
+
+    known_parts = []
+    if known_phone:
+        known_parts.append(f"phone = {known_phone}")
+    if known_email:
+        known_parts.append(f"email = {known_email}")
+    if known_hours:
+        known_parts.append(f"opening hours = {known_hours}")
+    if known_parts:
+        user_msg_parts.append(
+            "\nWe already know the following (no need to search for these): "
+            + ", ".join(known_parts)
+            + ". Focus your search on equipment/classes and any of the above that's still missing."
         )
 
     user_msg = HumanMessage(content="\n".join(user_msg_parts))
@@ -131,7 +155,9 @@ def extract_structured(state: GymEnrichmentState) -> dict:
                 "List all equipment and classes you found. Set confidence based on data quality:\n"
                 "- 0.8-1.0 if data came directly from the gym's website\n"
                 "- 0.5-0.7 if data came from web search or reviews\n"
-                "- 0.2-0.4 if you're guessing based on the gym name/type"
+                "- 0.2-0.4 if you're guessing based on the gym name/type\n\n"
+                "Also fill in phone, email, and opening_hours ONLY if explicitly present in the "
+                "scraped/searched content above — leave them null if not found. Do not invent them."
             )
         )
 
@@ -145,6 +171,9 @@ def extract_structured(state: GymEnrichmentState) -> dict:
                 "classes": result.classes,
                 "confidence": result.confidence,
                 "reasoning": result.reasoning,
+                "phone": result.phone,
+                "email": result.email,
+                "opening_hours": result.opening_hours,
             }
         }
     except Exception:
@@ -159,7 +188,10 @@ def _fallback_extraction(state: GymEnrichmentState) -> dict:
         content=(
             "Based on our conversation, respond with ONLY a JSON object:\n"
             '{"equipment": ["item1", "item2"], "classes": ["class1", "class2"], '
-            '"confidence": 0.5, "reasoning": "brief explanation"}'
+            '"confidence": 0.5, "reasoning": "brief explanation", '
+            '"phone": null, "email": null, "opening_hours": null}\n\n'
+            "Only fill in phone/email/opening_hours if explicitly present in the conversation above "
+            "— leave them null if not found. Do not invent them."
         )
     )
 
@@ -179,6 +211,9 @@ def _fallback_extraction(state: GymEnrichmentState) -> dict:
                     "classes": data.get("classes", []),
                     "confidence": data.get("confidence", 0.3),
                     "reasoning": data.get("reasoning", "Parsed from fallback"),
+                    "phone": data.get("phone"),
+                    "email": data.get("email"),
+                    "opening_hours": data.get("opening_hours"),
                 }
             }
         except json.JSONDecodeError:
@@ -206,6 +241,9 @@ def validate_result(state: GymEnrichmentState) -> dict:
                 "classes": [],
                 "confidence": 0.0,
                 "reasoning": "No result produced",
+                "phone": None,
+                "email": None,
+                "opening_hours": None,
             }
         }
 
@@ -295,19 +333,30 @@ _compiled_graph = _build_graph().compile(checkpointer=_checkpointer)
 
 
 async def enrich_gym(
-    name: str, address: str | None, website: str | None
+    name: str,
+    address: str | None,
+    website: str | None,
+    known_phone: str | None = None,
+    known_email: str | None = None,
+    known_hours: str | None = None,
 ) -> dict:
-    """Enrich a gym with equipment and class data using the LangGraph agent.
+    """Enrich a gym with equipment, class, and contact data using the LangGraph agent.
 
-    Returns: {"source": str, "equipment": list, "classes": list}
+    `known_*` are already-verified values (e.g. from OSM/Geoapify) — they're passed to
+    the agent as hints so it doesn't need to re-discover them, and they always win over
+    an AI-found value in the returned dict.
 
-    This function signature is identical to the old one, so main.py doesn't change.
+    Returns: {"source": str, "equipment": list, "classes": list,
+              "phone": str | None, "email": str | None, "opening_hours": str | None}
     """
     initial_state: GymEnrichmentState = {
         "messages": [],
         "gym_name": name,
         "gym_address": address,
         "gym_website": website,
+        "known_phone": known_phone,
+        "known_email": known_email,
+        "known_hours": known_hours,
         "result": None,
         "source": "ai-generic",
         "step_count": 0,
@@ -323,11 +372,14 @@ async def enrich_gym(
                 "source": result.get("source", "ai-generic"),
                 "equipment": result.get("equipment", []),
                 "classes": result.get("classes", []),
+                "phone": known_phone or result.get("phone"),
+                "email": known_email or result.get("email"),
+                "opening_hours": known_hours or result.get("opening_hours"),
             }
-        except openai.APIConnectionError as e:
+        except (openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError) as e:
             last_error = e
             logger.warning(
-                "Transient connection error enriching %r (attempt %d/%d): %s",
+                "Transient error enriching %r (attempt %d/%d): %s",
                 name, attempt + 1, MAX_RETRIES + 1, e,
             )
             if attempt < MAX_RETRIES:
@@ -337,6 +389,9 @@ async def enrich_gym(
                 "source": "ai-generic",
                 "equipment": [],
                 "classes": [],
+                "phone": known_phone,
+                "email": known_email,
+                "opening_hours": known_hours,
                 "error": str(e),
             }
 
@@ -344,5 +399,8 @@ async def enrich_gym(
         "source": "ai-generic",
         "equipment": [],
         "classes": [],
+        "phone": known_phone,
+        "email": known_email,
+        "opening_hours": known_hours,
         "error": str(last_error),
     }
