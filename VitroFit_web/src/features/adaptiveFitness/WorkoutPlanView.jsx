@@ -14,6 +14,10 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
       </div>
       <p>Record your sessions to unlock the next week of your beginner plan.</p>
     </div>
+    <aside className="fitness-week-safety-note" role="note">
+      <span className="fitness-week-safety-icon" aria-hidden="true">!</span>
+      <p><strong>Progress gradually and listen to your body.</strong> Increase workout weight only in small steps as you move through the weeks. Stop if you feel pain. If pain is severe or continues, contact a gym instructor or qualified health professional before exercising again.</p>
+    </aside>
 
     <div className="fitness-week-scroll" role="region" aria-label="Four-week training schedule" tabIndex="0">
       <table className="fitness-week-table">

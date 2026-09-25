@@ -202,7 +202,7 @@ export default function AdaptiveFitnessPage() {
           {!selected.plan.days.every(day => history?.progress.some(progress => progress.day === day.day && progress.completed && !progress.pain)) &&
             <p className="fitness-guidance-copy">Record each scheduled weekday as completed and confirm the correct date before creating the next week. If you report pain or discomfort, pause self-guided progression and seek appropriate guidance.</p>}
         </>}
-        {selected.plan.week === 4 && <p role="status" className="fitness-notice fitness-instructor-handoff"><strong>You have completed the four beginner schedules.</strong> Meet an instructor to plan the next stage of your training.</p>}
+        {selected.plan.week === 4 && <p role="status" className="fitness-notice fitness-instructor-handoff"><strong>You have completed the four beginner schedules. Thank you for training with VitroFit!</strong> Meet an instructor to plan the next stage of your training.</p>}
       </>}
       {feedbackTarget === 'schedule' && error && <p role="alert" className="fitness-error fitness-inline-feedback">{error}</p>}
       {feedbackTarget === 'schedule' && notice && <p role="status" className="fitness-notice fitness-inline-feedback">{notice}</p>}
@@ -211,11 +211,17 @@ export default function AdaptiveFitnessPage() {
         await fitnessRequest(`workflows/${selected.id}/retry`, 'POST', {});
         await open(selected.id);
       })}>Retry failed / interrupted request</button>}
-      <details><summary>Schedule activity</summary>
-        <ol>{history?.events.map(event => <li key={event.id}>
-          <strong>{event.step}</strong>: {event.summary} ({event.durationMs} ms)
-          <details><summary>Structured step data</summary><pre>{JSON.stringify(event.snapshot, null, 2)}</pre></details>
-        </li>)}</ol>
+      <details className="fitness-activity-disclosure">
+        <summary><span><small>WORKFLOW HISTORY</small><strong>Schedule activity</strong></span><i aria-hidden="true">+</i></summary>
+        {history?.events.length ? <ol className="fitness-activity-timeline">{history.events.map((event, index) =>
+          <li className="fitness-activity-item" key={event.id}>
+            <span className="fitness-activity-marker">{String(index + 1).padStart(2, '0')}</span>
+            <div className="fitness-activity-content">
+              <div className="fitness-activity-heading"><strong>{event.step}</strong><span>{event.durationMs} ms</span></div>
+              <p>{event.summary}</p>
+              <details className="fitness-activity-data"><summary>View structured data</summary><pre>{JSON.stringify(event.snapshot, null, 2)}</pre></details>
+            </div>
+          </li>)}</ol> : <p className="fitness-activity-empty">No workflow activity has been recorded.</p>}
         <section className="fitness-recorded-progress" aria-labelledby="fitness-recorded-progress-title">
           <div className="fitness-recorded-progress-heading">
             <span className="fitness-eyebrow">Training log</span>

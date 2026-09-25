@@ -652,6 +652,40 @@
   margin-bottom: 18px;
 }
 
+.fitness-week-safety-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 91, 91, 0.38);
+  border-left: 3px solid #ff5c5c;
+  background: linear-gradient(100deg, rgba(115, 22, 27, 0.18), rgba(20, 13, 14, 0.72));
+  color: #e7c7c3;
+}
+
+.fitness-week-safety-icon {
+  display: grid;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid rgba(255, 132, 112, 0.62);
+  border-radius: 50%;
+  color: #ff9a91;
+  font-weight: 800;
+}
+
+.fitness-week-safety-note p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.fitness-week-safety-note strong {
+  color: #ffaaaa;
+}
+
 .fitness-week-heading h3 {
   margin: 0;
   font-size: clamp(1.5rem, 3vw, 2rem);
@@ -972,11 +1006,249 @@
   margin: 16px 0;
 }
 
+.fitness-recorded-progress {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--fitness-line);
+}
+
+.fitness-recorded-progress-heading {
+  margin-bottom: 14px;
+}
+
+.fitness-recorded-progress-heading h3 {
+  margin: 4px 0 0;
+  color: #f3f6ee;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 1.4rem;
+  text-transform: uppercase;
+}
+
+.adaptive-fitness .fitness-recorded-progress ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adaptive-fitness .fitness-recorded-progress li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--fitness-line);
+  border-left: 3px solid var(--fitness-green);
+  background: linear-gradient(125deg, rgba(200, 240, 0, 0.07), rgba(12, 15, 12, 0.88) 52%);
+}
+
+.fitness-recorded-day,
+.fitness-recorded-effort {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fitness-recorded-day strong {
+  color: #c8f000;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  letter-spacing: 0.06em;
+}
+
+.fitness-recorded-day span,
+.fitness-recorded-effort span,
+.fitness-recorded-date {
+  color: #bfc6b8;
+  font-size: 0.8rem;
+}
+
+.fitness-recorded-status {
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 209, 138, 0.35);
+  color: #ffd18a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.fitness-recorded-status.is-complete {
+  border-color: rgba(200, 240, 0, 0.38);
+  color: #c8f000;
+}
+
+.fitness-recorded-effort strong {
+  color: #f3f6ee;
+  font-size: 1.15rem;
+}
+
+.fitness-recorded-effort small {
+  color: #929a8a;
+  font-size: 0.75rem;
+}
+
+.fitness-recorded-date {
+  justify-self: end;
+}
+
+.fitness-recorded-pain {
+  grid-column: 1 / -1;
+  color: #ff9a91;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.adaptive-fitness .fitness-activity-disclosure {
+  margin-top: 24px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--fitness-line);
+  border-radius: 3px;
+  background: linear-gradient(135deg, rgba(20, 25, 19, 0.96), rgba(9, 11, 9, 0.98));
+}
+
+.fitness-activity-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px;
+  list-style: none;
+}
+
+.fitness-activity-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fitness-activity-disclosure > summary span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fitness-activity-disclosure > summary small {
+  color: #9ca493;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+}
+
+.fitness-activity-disclosure > summary strong {
+  color: #f3f6ee;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 1.12rem;
+}
+
+.fitness-activity-disclosure > summary i {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(200, 240, 0, 0.45);
+  color: var(--fitness-green);
+  font-size: 1.2rem;
+  font-style: normal;
+  transition: transform 180ms ease;
+}
+
+.fitness-activity-disclosure[open] > summary i {
+  transform: rotate(45deg);
+}
+
+.fitness-activity-timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 8px 20px 20px;
+  list-style: none;
+}
+
+.fitness-activity-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 14px;
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.fitness-activity-marker {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(200, 240, 0, 0.4);
+  border-radius: 50%;
+  color: var(--fitness-green);
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 0.75rem;
+}
+
+.fitness-activity-content {
+  min-width: 0;
+}
+
+.fitness-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.fitness-activity-heading strong {
+  color: #eaf1dd;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  text-transform: uppercase;
+}
+
+.fitness-activity-heading span {
+  color: #929a8a;
+  font-size: 0.72rem;
+}
+
+.fitness-activity-content > p {
+  margin: 6px 0 0;
+  color: #b9c0b2;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.adaptive-fitness .fitness-activity-data {
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.fitness-activity-data summary {
+  display: inline-block;
+  color: #c8f000;
+  font-size: 0.72rem;
+}
+
+.fitness-activity-data pre {
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1px solid var(--fitness-line);
+  background: #080a08;
+  font-size: 0.75rem;
+}
+
+.fitness-activity-empty {
+  margin: 0;
+  padding: 18px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: #aeb5a8;
+}
+
 .fitness-instructor-handoff {
   border-color: rgba(255, 91, 91, 0.62);
   border-left-color: #ff5c5c;
   background: linear-gradient(100deg, rgba(115, 22, 27, 0.3), rgba(30, 13, 14, 0.72));
   color: #ffd0d0;
+  text-align: center;
 }
 
 .fitness-instructor-handoff strong {
