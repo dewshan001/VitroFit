@@ -4,20 +4,26 @@ JwtSettings config) so /api/diet/generate and /api/diet/confirm can trust the
 authenticated user's id instead of a client-supplied user_id. Neither sibling
 Python service (chatbot_service, GymAgentService) does this today - both are
 open/unauthenticated - but this service writes user-linked rows, so it needs it.
+
+JwtSettings are read directly from VitroFit.API's own appsettings.json (rather
+than duplicated into this service's .env) so the two services can never end up
+with mismatched secrets.
 """
+import json
 import os
 import jwt
-from dotenv import load_dotenv
 from fastapi import Header, HTTPException
 
-load_dotenv()
+_APPSETTINGS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "VitroFit.API", "appsettings.json"
+)
 
-JWT_SIGNING_KEY = os.getenv("JWT_SIGNING_KEY")
-JWT_ISSUER = os.getenv("JWT_ISSUER", "VitroFitApi")
-JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "VitroFitWeb")
+with open(_APPSETTINGS_PATH, "r", encoding="utf-8") as f:
+    _jwt_settings = json.load(f)["JwtSettings"]
 
-if not JWT_SIGNING_KEY:
-    print("WARNING: JWT_SIGNING_KEY is missing! Set it to match VitroFit.API's JwtSettings.Secret.")
+JWT_SIGNING_KEY = _jwt_settings["Secret"]
+JWT_ISSUER = _jwt_settings["Issuer"]
+JWT_AUDIENCE = _jwt_settings["Audience"]
 
 
 def get_current_user_id(authorization: str = Header(default=None)) -> int:

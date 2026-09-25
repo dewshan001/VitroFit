@@ -10,24 +10,23 @@ import os
 import json
 import re
 import asyncio
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from budget_reference import resolve_tier
 
 load_dotenv()
 
-DIET_GOOGLE_API_KEY = os.getenv("DIET_GOOGLE_API_KEY")
-PRIMARY_MODEL = os.getenv("GEMINI_MODEL_PRIMARY", "gemma-4-31b-it")
-FALLBACK_MODEL = os.getenv("GEMINI_MODEL_FALLBACK", "gemma-4-26b-a4b-it")
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+PRIMARY_MODEL = os.getenv("NVIDIA_MODEL_PRIMARY", "meta/llama-3.2-11b-vision-instruct")
+FALLBACK_MODEL = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/llama-3.2-11b-vision-instruct")
 
-if not DIET_GOOGLE_API_KEY:
-    print("WARNING: DIET_GOOGLE_API_KEY is missing! Set it in your .env file.")
+if not NVIDIA_API_KEY:
+    print("WARNING: NVIDIA_API_KEY is missing! Set it in your .env file.")
 
-client = genai.Client(api_key=DIET_GOOGLE_API_KEY)
+client = AsyncOpenAI(api_key=NVIDIA_API_KEY, base_url="https://integrate.api.nvidia.com/v1")
 
-_CALL_TIMEOUT_SECONDS = 15
+_CALL_TIMEOUT_SECONDS = 40
 _TOLERANCE = 0.10  # +/-10%
 
 _SYSTEM_INSTRUCTION = (
@@ -100,19 +99,18 @@ def _within_tolerance(totals: dict, targets: dict) -> bool:
 
 async def _call_model(model_id: str, prompt: str) -> str:
     response = await asyncio.wait_for(
-        client.aio.models.generate_content(
+        client.chat.completions.create(
             model=model_id,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=_SYSTEM_INSTRUCTION,
-                max_output_tokens=1500,
-                temperature=0.6,
-                response_mime_type="application/json",
-            ),
+            messages=[
+                {"role": "system", "content": _SYSTEM_INSTRUCTION},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1500,
+            temperature=0.6,
         ),
         timeout=_CALL_TIMEOUT_SECONDS,
     )
-    return response.text or ""
+    return response.choices[0].message.content or ""
 
 
 async def generate_meals(targets: dict, prefs: dict) -> dict:
