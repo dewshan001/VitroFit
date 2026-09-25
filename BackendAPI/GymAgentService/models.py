@@ -20,6 +20,9 @@ class GymDetails(Base):
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
     website = Column(String(500), nullable=True)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(255), nullable=True)
+    opening_hours = Column(String(255), nullable=True)
 
     source = Column(String(20), nullable=False, default="ai-generic")
     equipment = Column(JSON, nullable=False, default=list)

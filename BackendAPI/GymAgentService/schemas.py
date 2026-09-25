@@ -33,6 +33,27 @@ class GymEnrichmentResult(BaseModel):
         default="",
         description="Brief explanation of where this information was found or why it was inferred",
     )
+    phone: str | None = Field(
+        default=None,
+        description=(
+            "Gym's phone number, ONLY if explicitly present in the scraped website text "
+            "or search results. Leave null if not found. Never guess or invent a phone number."
+        ),
+    )
+    email: str | None = Field(
+        default=None,
+        description=(
+            "Gym's contact email, ONLY if explicitly present in the scraped website text "
+            "or search results. Leave null if not found. Never guess or invent an email."
+        ),
+    )
+    opening_hours: str | None = Field(
+        default=None,
+        description=(
+            "Gym's opening hours, ONLY if explicitly present in the scraped website text "
+            "or search results. Leave null if not found. Never guess or invent hours."
+        ),
+    )
 
 
 class GymSearchResult(BaseModel):

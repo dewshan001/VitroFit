@@ -16,6 +16,9 @@ export async function fetchGymDetails(place) {
       lng: place.lng,
       address: place.address,
       website: place.website,
+      phone: place.phone,
+      email: place.email,
+      opening_hours: place.openingHours,
     }),
   });
 

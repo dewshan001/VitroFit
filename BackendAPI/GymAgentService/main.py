@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
@@ -21,6 +22,34 @@ logger = logging.getLogger("gym_agent")
 CACHE_STALE_DAYS = int(os.getenv("CACHE_STALE_DAYS", "30"))
 
 Base.metadata.create_all(bind=engine)
+
+
+def _ensure_contact_columns() -> None:
+    """Add the phone/email/opening_hours columns if this table pre-dates them.
+
+    `Base.metadata.create_all` only creates missing tables, not new columns on an
+    existing one, so a one-off ALTER TABLE is needed for databases created before
+    these columns existed.
+    """
+    inspector = inspect(engine)
+    if "gym_agent_details" not in inspector.get_table_names():
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("gym_agent_details")}
+    missing = {
+        "phone": "VARCHAR(50)",
+        "email": "VARCHAR(255)",
+        "opening_hours": "VARCHAR(255)",
+    }
+    with engine.begin() as conn:
+        for column, col_type in missing.items():
+            if column not in existing_columns:
+                conn.execute(text(
+                    f"ALTER TABLE gym_agent_details ADD COLUMN IF NOT EXISTS {column} {col_type}"
+                ))
+
+
+_ensure_contact_columns()
 
 app = FastAPI(
     title="VitroFit Gym Agent API",
@@ -50,6 +79,9 @@ class GymDetailsRequest(BaseModel):
     lng: float | None = None
     address: str | None = None
     website: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    opening_hours: str | None = None
 
 
 @app.get("/health")
@@ -69,7 +101,10 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
         if age < timedelta(days=CACHE_STALE_DAYS):
             return _to_response(existing)
 
-    result = await enrich_gym(req.name, req.address, req.website)
+    result = await enrich_gym(
+        req.name, req.address, req.website,
+        known_phone=req.phone, known_email=req.email, known_hours=req.opening_hours,
+    )
     if "error" in result:
         raise HTTPException(status_code=502, detail=f"Enrichment failed: {result['error']}")
 
@@ -78,6 +113,9 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
         existing.lat = req.lat
         existing.lng = req.lng
         existing.website = req.website
+        existing.phone = result.get("phone")
+        existing.email = result.get("email")
+        existing.opening_hours = result.get("opening_hours")
         existing.source = result["source"]
         existing.equipment = result["equipment"]
         existing.classes = result["classes"]
@@ -89,6 +127,9 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
             lat=req.lat,
             lng=req.lng,
             website=req.website,
+            phone=result.get("phone"),
+            email=result.get("email"),
+            opening_hours=result.get("opening_hours"),
             source=result["source"],
             equipment=result["equipment"],
             classes=result["classes"],
@@ -120,5 +161,8 @@ def _to_response(row: GymDetails) -> dict:
         "source": row.source,
         "equipment": row.equipment or [],
         "classes": row.classes or [],
+        "phone": row.phone,
+        "email": row.email,
+        "opening_hours": row.opening_hours,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
