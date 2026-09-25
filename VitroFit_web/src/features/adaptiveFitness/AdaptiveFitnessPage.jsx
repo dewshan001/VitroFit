@@ -104,6 +104,9 @@ export default function AdaptiveFitnessPage() {
   if (!isLoggedIn) return <Navigate to="/login" replace />;
   const hasFocusMismatch = selected?.summary?.includes('Exercise does not match this day') ||
     history?.events.some(event => event.step === 'validator' && event.summary.includes('Exercise does not match this day'));
+  const recordedProgress = Object.entries(progressByWeek)
+    .flatMap(([week, records]) => records.map(record => ({ ...record, week: Number(week) })))
+    .sort((a, b) => a.week - b.week || a.day - b.day);
 
   return <main className="adaptive-fitness">
     <header className="fitness-hero fitness-reveal">
@@ -227,13 +230,24 @@ export default function AdaptiveFitnessPage() {
             <span className="fitness-eyebrow">Training log</span>
             <h3 id="fitness-recorded-progress-title">Recorded progress</h3>
           </div>
-          {history?.progress.length ? <ul>{history.progress.map(p => <li key={p.id}>
-            <span className="fitness-recorded-day"><strong>Day {String(selected.plan?.days.findIndex(d => d.day === p.day) + 1).padStart(2, '0')}</strong><span>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][p.day - 1]}</span></span>
-            <span className={`fitness-recorded-status${p.completed ? ' is-complete' : ' is-incomplete'}`}>{p.completed ? 'Completed' : 'Incomplete'}</span>
-            <span className="fitness-recorded-effort"><strong>{p.rpe}<small>/10</small></strong><span>Effort</span></span>
-            <span className="fitness-recorded-date">{p.performedOn}</span>
-            {p.pain && <span className="fitness-recorded-pain">Pain reported</span>}
-          </li>)}</ul> : <p>No sessions have been recorded yet.</p>}
+          {recordedProgress.length ? [...new Set(recordedProgress.map(record => record.week))].map(week => {
+            const weekRecords = recordedProgress.filter(record => record.week === week);
+            const completedCount = weekRecords.filter(record => record.completed).length;
+            const weekPlan = schedules.find(item => item.plan.week === week)?.plan;
+            return <details className="fitness-recorded-week" key={week}>
+              <summary><span>Week {week}</span><small>{completedCount} of {weekPlan?.days.length ?? weekRecords.length} days complete</small><i aria-hidden="true">+</i></summary>
+              <ul>{weekRecords.map(p => {
+                const dayIndex = weekPlan?.days.findIndex(planDay => planDay.day === p.day) ?? -1;
+                return <li key={`${p.week}-${p.day}`}>
+                  <span className="fitness-recorded-day"><strong>Day {String(dayIndex >= 0 ? dayIndex + 1 : p.day).padStart(2, '0')}</strong><span>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][p.day - 1]}</span></span>
+                  <span className={`fitness-recorded-status${p.completed ? ' is-complete' : ' is-incomplete'}`}>{p.completed ? 'Completed' : 'Incomplete'}</span>
+                  <span className="fitness-recorded-effort"><strong>{p.rpe}<small>/10</small></strong><span>Effort</span></span>
+                  <span className="fitness-recorded-date">{p.performedOn}</span>
+                  {p.pain && <span className="fitness-recorded-pain">Pain reported</span>}
+                </li>;
+              })}</ul>
+            </details>;
+          }) : <p>No sessions have been recorded yet.</p>}
         </section>
       </details>
     </section>}

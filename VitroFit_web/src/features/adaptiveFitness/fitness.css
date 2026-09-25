@@ -1024,6 +1024,54 @@
   text-transform: uppercase;
 }
 
+.adaptive-fitness .fitness-recorded-week {
+  margin: 10px 0;
+  padding: 0;
+  border: 1px solid var(--fitness-line);
+  background: rgba(9, 12, 9, 0.72);
+}
+
+.fitness-recorded-week > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  list-style: none;
+}
+
+.fitness-recorded-week > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fitness-recorded-week > summary span {
+  color: #c8f000;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 0.95rem;
+}
+
+.fitness-recorded-week > summary small {
+  margin-left: auto;
+  color: #aeb5a8;
+  font-size: 0.75rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.fitness-recorded-week > summary i {
+  color: #c8f000;
+  font-size: 1.1rem;
+  font-style: normal;
+  transition: transform 180ms ease;
+}
+
+.fitness-recorded-week[open] > summary i {
+  transform: rotate(45deg);
+}
+
+.adaptive-fitness .fitness-recorded-week ul {
+  padding: 0 12px 12px;
+}
+
 .adaptive-fitness .fitness-recorded-progress ul {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
