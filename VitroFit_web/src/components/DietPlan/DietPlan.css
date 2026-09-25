@@ -432,6 +432,39 @@
 .dp-meal-item-macros { color: var(--text-muted); font-size: 0.75rem; }
 
 .dp-result-actions { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+.dp-result-secondary-actions { display: flex; justify-content: center; margin-top: 1rem; }
+
+.dp-btn-danger { color: #f87171; border-color: #f87171; }
+.dp-btn-danger:hover { background: rgba(248, 113, 113, 0.1); }
+
+.dp-browse-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.dp-browse-title { font-family: var(--font-display); font-size: 1.4rem; letter-spacing: 1px; text-transform: uppercase; }
+.dp-browse-list { display: flex; flex-direction: column; gap: 0.9rem; }
+.dp-browse-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+.dp-browse-card:hover, .dp-browse-card:focus-visible { border-color: var(--accent); }
+.dp-browse-card-info { display: flex; flex-direction: column; gap: 0.2rem; }
+.dp-browse-card-date { color: var(--text-muted); font-size: 0.85rem; }
+.dp-browse-card-cal { color: var(--accent); font-weight: 600; }
+.dp-browse-card-actions { display: flex; gap: 0.6rem; }
 
 .dp-disclaimer {
   border: 1px solid var(--border);

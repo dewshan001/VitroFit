@@ -113,7 +113,7 @@ function NumberStepper({ value, onChange, min, max, label, placeholder }) {
  * to generate an individualised meal plan. Kept separate from the results view
  * for clean future integration.
  */
-export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
+export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     age: initialPrefs?.age ?? 25,
     gender: initialPrefs?.gender ?? 'male',
@@ -396,6 +396,11 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
       </div>
 
       <div className="dp-form-actions">
+        {onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
         <button type="submit" className="btn-primary">
           Generate My Plan
         </button>

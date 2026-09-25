@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import DietPlanPreferenceForm from './DietPlanPreferenceForm';
 import DietPlanResult from './DietPlanResult';
-import { generateDietPlan, confirmDietPlan } from '../../api/dietPlan';
+import {
+  generateDietPlan,
+  confirmDietPlan,
+  updateDietPlan,
+  deleteDietPlan,
+  fetchSavedDietPlans,
+} from '../../api/dietPlan';
 import './DietPlan.css';
 
 // Real hero for the page banner.
@@ -13,11 +20,15 @@ export default function DietPlan() {
   const { auth, getFullName } = useAuth();
   const user = auth?.user ?? {};
 
-  // phase: 'empty' | 'form' | 'loading' | 'result' | 'error'
-  const [phase, setPhase] = useState('empty');
+  // phase: 'loading-plans' | 'browse' | 'empty' | 'form' | 'loading' | 'result' | 'error' | 'view'
+  const [phase, setPhase] = useState('loading-plans');
   const [plan, setPlan] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
+  const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
+  const [savedPlans, setSavedPlans] = useState([]);
+  const [viewingPlan, setViewingPlan] = useState(null);
+  const [editingPlanId, setEditingPlanId] = useState(null);
 
   // Prefill from existing profile where available (goal + level).
   const initialPrefs = {
@@ -53,6 +64,35 @@ export default function DietPlan() {
       .forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [phase]);
+
+  const refreshSavedPlans = async () => {
+    if (!auth) return [];
+    try {
+      const plans = await fetchSavedDietPlans();
+      setSavedPlans(plans);
+      return plans;
+    } catch {
+      return savedPlans;
+    }
+  };
+
+  // Initial load: once the saved plans come back, land on Browse (if any exist)
+  // or Empty (first-time user). Later refreshes (after confirm/update/delete)
+  // don't re-navigate — they just keep the list current.
+  useEffect(() => {
+    if (!auth) return;
+    let cancelled = false;
+    (async () => {
+      const plans = await refreshSavedPlans();
+      if (cancelled) return;
+      setPhase((prev) => (prev === 'loading-plans' ? (plans.length > 0 ? 'browse' : 'empty') : prev));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth]);
+
   const handleGenerate = async (prefs) => {
     setPhase('loading');
     setConfirmStatus('idle');
@@ -69,6 +109,15 @@ export default function DietPlan() {
 
   const handleEdit = () => setPhase('form');
 
+  const handleCancelEdit = () => {
+    if (editingPlanId) {
+      setEditingPlanId(null);
+      setPhase('browse');
+    } else {
+      setPhase('result');
+    }
+  };
+
   const runGenerate = (prefs) => {
     setLastPrefs(prefs);
     handleGenerate(prefs);
@@ -76,16 +125,66 @@ export default function DietPlan() {
 
   const handleConfirm = async () => {
     if (!plan) return;
+    if (!auth) {
+      setConfirmErrorMessage('Please log in to save your plan.');
+      setConfirmStatus('error');
+      return;
+    }
     setConfirmStatus('saving');
     try {
-      await confirmDietPlan(toApiPrefs(lastPrefs), plan);
+      if (editingPlanId) {
+        await updateDietPlan(editingPlanId, toApiPrefs(lastPrefs), plan);
+      } else {
+        await confirmDietPlan(toApiPrefs(lastPrefs), plan);
+      }
       setConfirmStatus('saved');
-    } catch {
+      setConfirmErrorMessage('');
+      await refreshSavedPlans();
+    } catch (err) {
+      setConfirmErrorMessage(err.message || "Couldn't save your plan. Please try again.");
       setConfirmStatus('error');
     }
   };
 
-  const startForm = () => setPhase('form');
+  const handleCreateNew = () => {
+    setPlan(null);
+    setEditingPlanId(null);
+    setLastPrefs(initialPrefs);
+    setConfirmStatus('idle');
+    setConfirmErrorMessage('');
+    setPhase('form');
+  };
+
+  const handleViewPlan = (savedPlan) => {
+    setViewingPlan(savedPlan);
+    setPhase('view');
+  };
+
+  const handleEditSavedPlan = (savedPlan) => {
+    setEditingPlanId(savedPlan.id);
+    setLastPrefs(savedPlan.inputs || initialPrefs);
+    setPlan(null);
+    setConfirmStatus('idle');
+    setConfirmErrorMessage('');
+    setPhase('form');
+  };
+
+  const handleBackToBrowse = () => {
+    setViewingPlan(null);
+    setPhase(savedPlans.length > 0 ? 'browse' : 'empty');
+  };
+
+  const handleDeletePlan = async (planId) => {
+    if (!window.confirm('Delete this diet plan? This cannot be undone.')) return;
+    try {
+      await deleteDietPlan(planId);
+      const plans = await refreshSavedPlans();
+      if (viewingPlan?.id === planId) setViewingPlan(null);
+      setPhase(plans.length > 0 ? 'browse' : 'empty');
+    } catch {
+      window.alert("Couldn't delete this plan. Please try again.");
+    }
+  };
 
   return (
     <div className="diet-plan-page">
@@ -115,12 +214,51 @@ export default function DietPlan() {
 
       <section className="dp-section">
         <div className="container">
-          {phase === 'empty' && <DietPlanResult state="empty" onGenerate={startForm} />}
-          {phase === 'form' && (
-            <DietPlanPreferenceForm initialPrefs={initialPrefs} onSubmit={runGenerate} />
+          {!auth && (
+            <div className="dp-empty dp-fade-up">
+              <div className="dp-empty-icon">🔒</div>
+              <h2 className="dp-empty-title">Log In to Build Your Diet Plan</h2>
+              <p className="dp-empty-desc">
+                Create an account or log in so we can generate and save a personalised
+                nutrition plan under your profile.
+              </p>
+              <Link to="/login" className="btn-primary">Log In</Link>
+            </div>
           )}
-          {phase === 'loading' && <DietPlanResult state="loading" />}
-          {phase === 'error' && (
+
+          {auth && phase === 'loading-plans' && (
+            <div className="dp-loading dp-fade-up">
+              <div className="dp-loading-top">
+                <span className="dp-loader" />
+                <h3 className="dp-loading-title">Loading your plans…</h3>
+              </div>
+            </div>
+          )}
+
+          {auth && phase === 'browse' && (
+            <DietPlanResult
+              state="browse"
+              savedPlans={savedPlans}
+              onCreateNew={handleCreateNew}
+              onViewPlan={handleViewPlan}
+              onEditPlan={handleEditSavedPlan}
+              onDeletePlan={handleDeletePlan}
+            />
+          )}
+
+          {auth && phase === 'empty' && <DietPlanResult state="empty" onGenerate={handleCreateNew} />}
+
+          {auth && phase === 'form' && (
+            <DietPlanPreferenceForm
+              initialPrefs={lastPrefs}
+              onSubmit={runGenerate}
+              onCancel={(plan || editingPlanId) ? handleCancelEdit : undefined}
+            />
+          )}
+
+          {auth && phase === 'loading' && <DietPlanResult state="loading" />}
+
+          {auth && phase === 'error' && (
             <DietPlanResult
               state="error"
               errorMessage={errorMessage}
@@ -128,15 +266,28 @@ export default function DietPlan() {
               onRegenerate={() => runGenerate(lastPrefs)}
             />
           )}
-          {phase === 'result' && plan && (
+
+          {auth && phase === 'result' && plan && (
             <DietPlanResult
               state="result"
               plan={plan}
               hasMedicalConditions={(lastPrefs.medicalConditions || []).length > 0}
               confirmStatus={confirmStatus}
+              confirmErrorMessage={confirmErrorMessage}
               onEdit={handleEdit}
-              onRegenerate={() => runGenerate(lastPrefs)}
               onConfirm={handleConfirm}
+              onBack={handleBackToBrowse}
+            />
+          )}
+
+          {auth && phase === 'view' && viewingPlan && (
+            <DietPlanResult
+              state="view"
+              plan={viewingPlan}
+              hasMedicalConditions={(viewingPlan.inputs?.medicalConditions || []).length > 0}
+              onBack={handleBackToBrowse}
+              onEdit={() => handleEditSavedPlan(viewingPlan)}
+              onDelete={() => handleDeletePlan(viewingPlan.id)}
             />
           )}
         </div>
@@ -160,11 +311,6 @@ export default function DietPlan() {
             Combine your personalised meal plan with your workout schedule and
             partner gyms on VitroFit — sustain your energy wherever you train.
           </p>
-          <div className="mt-4">
-            <button className="btn-primary" onClick={startForm}>
-              Build My Plan
-            </button>
-          </div>
         </div>
       </section>
     </div>
