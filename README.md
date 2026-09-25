@@ -26,7 +26,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, three **Python (
 | ----- | ---------- |
 | **Backend** | ASP.NET Core (.NET 10), Entity Framework Core, PostgreSQL (Npgsql), JWT Bearer auth, Swagger/OpenAPI, MailKit (SMTP), Cloudinary (image hosting) |
 | **Web** | React 19, Vite 8, React Router 7, Three.js (react-three-fiber / drei), GSAP, Framer Motion |
-| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService, DietPlanService), OpenRouter (OpenAI-compatible client) for gym enrichment, Google AI Studio (Gemini/Gemma via `google-genai`) for the chatbot and diet plan agent |
+| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService, DietPlanService), OpenRouter (OpenAI-compatible client) for gym enrichment, Google AI Studio (Gemini/Gemma via `google-genai`) for the chatbot, NVIDIA API (OpenAI-compatible client) for the diet plan agent |
 
 ---
 
@@ -295,14 +295,13 @@ copy .env.example .env                          # cp on macOS/Linux, then fill i
 ```
 
 Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the
-backend), `DIET_GOOGLE_API_KEY` (a **separate** Google AI Studio key from
-`chatbot_service`'s — get one at
-[Google AI Studio](https://aistudio.google.com/apikey) — so the two services
-don't share/exhaust the same quota), optionally `GEMINI_MODEL_PRIMARY` /
-`GEMINI_MODEL_FALLBACK`, and `JWT_SIGNING_KEY` / `JWT_ISSUER` / `JWT_AUDIENCE`
-which must match `VitroFit.API`'s `appsettings.json` → `JwtSettings` exactly
-(this service verifies the same access tokens the .NET backend issues, since
-it writes user-linked data).
+backend), `NVIDIA_API_KEY` (get one at
+[build.nvidia.com](https://build.nvidia.com/)), and optionally
+`NVIDIA_MODEL_PRIMARY` / `NVIDIA_MODEL_FALLBACK` to override the default
+model. JWT verification needs **no** `.env` entry — this service reads the
+signing key/issuer/audience directly from `VitroFit.API`'s
+`appsettings.json` → `JwtSettings` at startup, so that folder must exist
+alongside `DietPlanService` with a valid `appsettings.json`.
 
 ### 3.3 Running manually
 
@@ -393,8 +392,11 @@ folder.
 | GET | `/health` | — | Health check |
 | POST | `/api/diet/generate` | 🔒 | Compute calorie/macro targets and generate a meal plan from the given preferences (not saved) |
 | POST | `/api/diet/confirm` | 🔒 | Save a (possibly user-edited) generated plan, plus the inputs that produced it |
+| GET | `/api/diet/plans` | 🔒 | List the current user's saved plans |
+| PUT | `/api/diet/plans/{id}` | 🔒 | Update a saved plan |
+| DELETE | `/api/diet/plans/{id}` | 🔒 | Delete a saved plan |
 
-> 🔒 = requires the same `Authorization: Bearer <access token>` header issued by `VitroFit.API`; this service verifies it independently (see [§3.2](#32-one-time-setup)).
+> 🔒 = requires the same `Authorization: Bearer <access token>` header issued by `VitroFit.API`; this service verifies it directly against `VitroFit.API`'s `appsettings.json` (see [§3.2](#32-one-time-setup)).
 
 ---
 
@@ -409,9 +411,9 @@ and `http://localhost:8002/api/diet` respectively if unset). The backend's
 settings. Each Python microservice has its own `.env` (copy from the
 `.env.example` in its folder): `GymAgentService` needs `DATABASE_URL` and
 `OPENROUTER_API_KEY`; `chatbot_service` needs `GOOGLE_API_KEY`;
-`DietPlanService` needs `DATABASE_URL`, `DIET_GOOGLE_API_KEY`, and
-`JWT_SIGNING_KEY`/`JWT_ISSUER`/`JWT_AUDIENCE` matching the backend's
-`JwtSettings`. For basic local development you only need to set the database
+`DietPlanService` needs `DATABASE_URL` and `NVIDIA_API_KEY` (JWT settings are
+read directly from `VitroFit.API`'s `appsettings.json`, not from its own
+`.env`). For basic local development you only need to set the database
 connection string and a JWT secret; SMTP, Cloudinary, and the Python
 services' API keys are only used by specific features (email OTPs, profile
 photo uploads, and Find Gyms / Chatbot / Diet Plans).
