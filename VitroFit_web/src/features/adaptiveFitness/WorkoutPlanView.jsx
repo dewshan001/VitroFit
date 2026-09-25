@@ -1,7 +1,7 @@
 const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const weeks = [1, 2, 3, 4];
 
-export default function WorkoutPlanView({ plans = [], catalog = [] }) {
+export default function WorkoutPlanView({ plans = [], catalog = [], progressByWeek = {} }) {
   if (!plans.length) return null;
 
   const plansByWeek = new Map(plans.map(item => [item.plan.week, item.plan]));
@@ -51,6 +51,12 @@ export default function WorkoutPlanView({ plans = [], catalog = [] }) {
 
                 return <td key={week}>
                   <span className="fitness-focus-label">{session.focus}</span>
+                  {(() => {
+                    const saved = progressByWeek[week]?.find(record => record.day === day);
+                    return <span className={`fitness-week-progress${saved?.completed ? ' is-complete' : saved ? ' is-incomplete' : ''}`}>
+                      {saved ? `${saved.completed ? 'Completed' : 'Recorded'} · ${saved.performedOn}` : 'Not completed'}
+                    </span>;
+                  })()}
                   <span className="fitness-session-meta">Warm up {session.warmupMinutes} min <i>·</i> Cool down {session.cooldownMinutes} min</span>
                   <ul className="fitness-exercise-list">
                     {session.exercises.map(item => {

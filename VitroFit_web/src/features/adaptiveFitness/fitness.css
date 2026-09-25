@@ -867,6 +867,22 @@
   font-size: 0.75rem;
 }
 
+.fitness-week-progress {
+  display: block;
+  margin: 7px 0;
+  color: #aeb5a8;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.fitness-week-progress.is-complete {
+  color: #c8f000;
+}
+
+.fitness-week-progress.is-incomplete {
+  color: #ffd18a;
+}
+
 .fitness-progress-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -907,6 +923,66 @@
   margin: 7px 0 0 29px;
   color: #e8aeae;
   font-size: 0.83rem;
+}
+
+.fitness-session-records {
+  margin: 18px 0;
+  padding: 16px 18px;
+  border-left: 3px solid var(--fitness-green);
+  background: rgba(200, 240, 0, 0.055);
+}
+
+.fitness-session-records .fitness-eyebrow {
+  color: var(--fitness-green);
+}
+
+.fitness-session-records ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fitness-session-records li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--fitness-line);
+  background: rgba(8, 10, 8, 0.62);
+  color: #c7cebf;
+  font-size: 0.85rem;
+}
+
+.fitness-session-records li strong {
+  color: #f1f4eb;
+}
+
+.fitness-session-records li.is-complete {
+  border-color: rgba(200, 240, 0, 0.38);
+}
+
+.fitness-session-records li.is-complete span {
+  color: #d6ee8c;
+}
+
+.fitness-session-complete {
+  margin: 16px 0;
+}
+
+.fitness-instructor-handoff {
+  border-color: rgba(255, 91, 91, 0.62);
+  border-left-color: #ff5c5c;
+  background: linear-gradient(100deg, rgba(115, 22, 27, 0.3), rgba(30, 13, 14, 0.72));
+  color: #ffd0d0;
+}
+
+.fitness-instructor-handoff strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #ffaaaa;
 }
 
 .fitness-progress-form .fitness-pain-free-check {

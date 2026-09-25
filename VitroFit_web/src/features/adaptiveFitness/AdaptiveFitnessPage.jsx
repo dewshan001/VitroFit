@@ -14,6 +14,7 @@ export default function AdaptiveFitnessPage() {
   const [catalog, setCatalog] = useState([]);
   const [selected, setSelected] = useState(null);
   const [schedules, setSchedules] = useState([]);
+  const [progressByWeek, setProgressByWeek] = useState({});
   const [editing, setEditing] = useState(false);
   const [history, setHistory] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -28,6 +29,7 @@ export default function AdaptiveFitnessPage() {
     ]);
     setSelected(workflow);
     setHistory(audit);
+    if (workflow.plan?.week) setProgressByWeek(current => ({ ...current, [workflow.plan.week]: audit.progress || [] }));
   }, []);
 
   const refresh = useCallback(async currentProfile => {
@@ -35,6 +37,9 @@ export default function AdaptiveFitnessPage() {
     const details = await Promise.all(data.items.map(item => fitnessRequest(`workflows/${item.id}`)));
     const readySchedules = details.filter(item => item.status === 'Ready' && item.plan)
       .sort((a, b) => a.plan.week - b.plan.week);
+    const audits = await Promise.all(readySchedules.map(item =>
+      fitnessRequest(`workflows/${item.id}/history`)));
+    setProgressByWeek(Object.fromEntries(readySchedules.map((item, index) => [item.plan.week, audits[index].progress || []])));
     setSchedules(currentProfile?.reviewRequired ? [] : readySchedules);
     const latest = details[0];
     if (latest && !currentProfile?.reviewRequired) await open(latest.id);
@@ -163,7 +168,7 @@ export default function AdaptiveFitnessPage() {
           <span className="fitness-plan-toggle"><span className="fitness-view-label">View plan</span><i aria-hidden="true">+</i></span>
         </summary>
         <div className="fitness-plan-content">
-          <WorkoutPlanView plans={schedules} catalog={catalog} />
+          <WorkoutPlanView plans={schedules} catalog={catalog} progressByWeek={progressByWeek} />
           <div className="fitness-plan-guidance">
             <div className="fitness-progression-note"><span className="fitness-eyebrow">Progression guidance</span><p>{selected.summary}</p></div>
             <p className="fitness-safety-note"><strong>Safety reminder</strong>{selected.safetyNote}</p>
@@ -183,16 +188,21 @@ export default function AdaptiveFitnessPage() {
       {selected.status === 'Failed' && !selected.previousWorkflowId && <button disabled={busy}
         onClick={() => action(() => generate(null))}>Start a fresh week 1 with my saved profile</button>}
       {selected.status === 'Ready' && selected.plan && <>
-        <ProgressForm key={selected.id} workflow={selected} busy={busy}
+        <ProgressForm key={selected.id} workflow={selected} progress={history?.progress || []}
+          previousWeekProgress={progressByWeek[selected.plan.week - 1] || []} busy={busy}
           error={feedbackTarget === 'progress' ? error : ''} notice={feedbackTarget === 'progress' ? notice : ''}
           working={feedbackTarget === 'progress' && busy} onSave={data => action(async () => {
           await fitnessRequest(`workflows/${selected.id}/progress`, 'PUT', data);
           await open(selected.id);
           setNotice('Progress saved.');
         }, 'progress')} />
-        {selected.plan.week < 4 && <button disabled={busy || history?.progress.length !== selected.plan.days.length}
-          onClick={() => action(() => generate(selected.id))}>Create week {selected.plan.week + 1} of 4 from my progress</button>}
-        {selected.plan.week === 4 && <p role="status" className="fitness-notice"><strong>You have completed the four beginner schedules.</strong> Meet an instructor to plan the next stage of your training.</p>}
+        {selected.plan.week < 4 && <>
+          <button disabled={busy || !selected.plan.days.every(day => history?.progress.some(progress => progress.day === day.day && progress.completed && !progress.pain))}
+            onClick={() => action(() => generate(selected.id))}>Create week {selected.plan.week + 1} of 4 from my progress</button>
+          {!selected.plan.days.every(day => history?.progress.some(progress => progress.day === day.day && progress.completed && !progress.pain)) &&
+            <p className="fitness-guidance-copy">Record each scheduled weekday as completed and confirm the correct date before creating the next week. If you report pain or discomfort, pause self-guided progression and seek appropriate guidance.</p>}
+        </>}
+        {selected.plan.week === 4 && <p role="status" className="fitness-notice fitness-instructor-handoff"><strong>You have completed the four beginner schedules.</strong> Meet an instructor to plan the next stage of your training.</p>}
       </>}
       {feedbackTarget === 'schedule' && error && <p role="alert" className="fitness-error fitness-inline-feedback">{error}</p>}
       {feedbackTarget === 'schedule' && notice && <p role="status" className="fitness-notice fitness-inline-feedback">{notice}</p>}
@@ -206,8 +216,19 @@ export default function AdaptiveFitnessPage() {
           <strong>{event.step}</strong>: {event.summary} ({event.durationMs} ms)
           <details><summary>Structured step data</summary><pre>{JSON.stringify(event.snapshot, null, 2)}</pre></details>
         </li>)}</ol>
-        <h3>Recorded progress</h3>
-        <ul>{history?.progress.map(p => <li key={p.id}>Day {p.day}: {p.completed ? 'Completed' : 'Incomplete'}, effort {p.rpe}/10{p.pain ? ', pain reported' : ''}</li>)}</ul>
+        <section className="fitness-recorded-progress" aria-labelledby="fitness-recorded-progress-title">
+          <div className="fitness-recorded-progress-heading">
+            <span className="fitness-eyebrow">Training log</span>
+            <h3 id="fitness-recorded-progress-title">Recorded progress</h3>
+          </div>
+          {history?.progress.length ? <ul>{history.progress.map(p => <li key={p.id}>
+            <span className="fitness-recorded-day"><strong>Day {String(selected.plan?.days.findIndex(d => d.day === p.day) + 1).padStart(2, '0')}</strong><span>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][p.day - 1]}</span></span>
+            <span className={`fitness-recorded-status${p.completed ? ' is-complete' : ' is-incomplete'}`}>{p.completed ? 'Completed' : 'Incomplete'}</span>
+            <span className="fitness-recorded-effort"><strong>{p.rpe}<small>/10</small></strong><span>Effort</span></span>
+            <span className="fitness-recorded-date">{p.performedOn}</span>
+            {p.pain && <span className="fitness-recorded-pain">Pain reported</span>}
+          </li>)}</ul> : <p>No sessions have been recorded yet.</p>}
+        </section>
       </details>
     </section>}
   </main>;

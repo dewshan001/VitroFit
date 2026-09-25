@@ -74,6 +74,8 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
                 .Select(p => new AgentProgress(p.Day, p.Completed, p.Rpe, p.Pain)).ToListAsync();
             if (progress.Count != previousPlan.Days.Count || previousPlan.Days.Any(day => progress.All(p => p.Day != day.Day)))
                 return BadRequest(new { message = "Record progress for every day in this schedule before requesting the next one." });
+            if (progress.Any(p => !p.Completed))
+                return BadRequest(new { message = "Complete every scheduled day before requesting the next week." });
         }
         else
         {

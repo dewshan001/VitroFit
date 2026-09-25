@@ -30,8 +30,19 @@ public sealed partial class FitnessController
         var plan = FitnessJson.Read<WorkoutPlan>(workflow.PlanJson);
         if (!plan.Days.Any(d => d.Day == input.Day)) return BadRequest(new { message = "Day is not part of this plan." });
         var isoDay = (int)input.PerformedOn.DayOfWeek == 0 ? 7 : (int)input.PerformedOn.DayOfWeek;
-        if (input.PerformedOn < DateOnly.FromDateTime(workflow.CreatedAt) || isoDay != input.Day)
-            return BadRequest(new { message = "Choose the selected planned weekday on or after the schedule creation date." });
+        var lastCompletedDate = await db.Progress
+            .Where(p => p.WorkflowId == id && p.Day != input.Day && p.Completed)
+            .MaxAsync(p => (DateOnly?)p.PerformedOn);
+        if (workflow.PreviousWorkflowId is Guid previousWorkflowId)
+        {
+            var previousWeekLastDate = await db.Progress
+                .Where(p => p.WorkflowId == previousWorkflowId && p.Completed)
+                .MaxAsync(p => (DateOnly?)p.PerformedOn);
+            if (previousWeekLastDate > lastCompletedDate) lastCompletedDate = previousWeekLastDate;
+        }
+        var earliestAllowedDate = lastCompletedDate?.AddDays(1) ?? DateOnly.FromDateTime(workflow.CreatedAt);
+        if (input.PerformedOn < earliestAllowedDate || isoDay != input.Day)
+            return BadRequest(new { message = $"Choose a {System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.GetDayName((DayOfWeek)(input.Day % 7))} after the last completed session ({lastCompletedDate?.ToString("yyyy-MM-dd") ?? "schedule start"}). Future dates are allowed." });
         var record = await db.Progress.SingleOrDefaultAsync(p => p.WorkflowId == id && p.Day == input.Day);
         if (record is null) { record = new() { WorkflowId = id, Day = input.Day }; db.Progress.Add(record); }
         record.Completed = input.Completed; record.Rpe = input.Rpe; record.Pain = input.Pain;
