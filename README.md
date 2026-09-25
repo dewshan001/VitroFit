@@ -1,6 +1,6 @@
 # VitroFit
 
-VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (FastAPI) microservices** for gym enrichment and chatbot features, a **React (Vite) web frontend**, and a **Flutter mobile app**. This guide covers how to run the **backend**, **microservices**, and the **web frontend** on your local machine. (The mobile app is not covered here.)
+VitroFit is a fitness platform with a **.NET Web API backend**, three **Python services** (gym enrichment, chatbot, and adaptive fitness agent), a **React (Vite) web frontend**, and a **Flutter mobile app**. This guide covers how to run the backend, services, and web frontend locally. (The mobile app is not covered here.)
 
 ---
 
@@ -12,6 +12,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (Fa
 - [1. Running the Backend API](#1-running-the-backend-api)
 - [2. Running the Web Frontend](#2-running-the-web-frontend)
 - [3. Running the Python Microservices](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)
+- [4. Running the Adaptive Fitness Agent](#4-running-the-adaptive-fitness-agent)
 - [Both Apps at a Glance](#both-apps-at-a-glance)
 - [API Endpoints](#api-endpoints)
 - [Configuration Reference](#configuration-reference)
@@ -26,7 +27,7 @@ VitroFit is a fitness platform with a **.NET Web API backend**, two **Python (Fa
 | ----- | ---------- |
 | **Backend** | ASP.NET Core (.NET 10), Entity Framework Core, PostgreSQL (Npgsql), JWT Bearer auth, Swagger/OpenAPI, MailKit (SMTP), Cloudinary (image hosting) |
 | **Web** | React 19, Vite 8, React Router 7, Three.js (react-three-fiber / drei), GSAP, Framer Motion |
-| **Microservices** | Python (FastAPI, Uvicorn), SQLAlchemy + psycopg2 (GymAgentService), OpenRouter (OpenAI-compatible client) for gym enrichment, Google AI Studio (Gemini/Gemma via `google-genai`) for the chatbot |
+| **Python services** | FastAPI/Uvicorn gym enrichment and chatbot services; LangGraph adaptive fitness agent with PostgreSQL checkpoints and OpenRouter model access |
 
 ---
 
@@ -72,7 +73,7 @@ Make sure the following are installed on your machine:
 | **Node.js** | 20+ (LTS) | `node --version` |
 | **npm** | 9+ | `npm --version` |
 | **PostgreSQL** | 13+ | running locally on **port 5432** |
-| **Python** | 3.12+ | `python --version` (only needed for the Find Gyms / Chatbot microservices) |
+| **Python** | 3.12+ | `python --version` (needed for Find Gyms, Chatbot, and Adaptive Fitness services) |
 ---
 
 ## Optional: One-command dependency install
@@ -309,13 +310,114 @@ Check either is up with `GET http://localhost:8001/health` or
 | API Swagger | — | `http://localhost:5284/swagger` |
 | Web frontend | `npm run dev` (in `VitroFit_web`) | `http://localhost:5173` |
 | Gym Agent service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8001` |
+| Adaptive Fitness agent | run manually (see [§4](#4-running-the-adaptive-fitness-agent)) | `http://127.0.0.1:8002` |
 | Chatbot service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8000` |
 
-The web app must be running while the backend is running in order to see real
-data (login, register, admin dashboard, profile). The two Python services are
-only needed for the Find Gyms and Chatbot features.
+The web app and backend must both be running to use authenticated features. The
+gym and chatbot services support Find Gyms and Chatbot; the Adaptive Fitness
+agent must be running when generating fitness schedules.
 
 ---
+## 4. Running the Adaptive Fitness Agent
+
+Adaptive Fitness uses a dedicated Python FastAPI/LangGraph service to propose beginner workout schedules. The React web app calls the ASP.NET API, and the ASP.NET API calls the Python agent; browsers do not call the agent directly. The agent listens on `127.0.0.1:8002`.
+
+### Prerequisites
+
+- Python 3.12 or newer
+- PostgreSQL running with the same local VitroFit database used by ASP.NET (`ConnectionStrings:DefaultConnection`)
+- An OpenRouter API key and an available model ID
+- .NET SDK 10 and Node.js for the API and web app
+
+### Configure the agent
+
+From the repository root, create the agent's local environment file and virtual environment:
+
+```powershell
+Copy-Item BackendAPI/FitnessAgentService/.env.example BackendAPI/FitnessAgentService/.env
+py -3.12 -m venv BackendAPI/FitnessAgentService/.venv
+BackendAPI/FitnessAgentService/.venv/Scripts/python.exe -m pip install -r BackendAPI/FitnessAgentService/requirements.txt
+```
+
+Edit `BackendAPI/FitnessAgentService/.env` and set:
+
+| Variable | Value |
+| --- | --- |
+| `FITNESS_SERVICE_KEY` | A random secret at least 32 characters long. ASP.NET must use the exact same value. |
+| `FITNESS_API_URL` | ASP.NET base URL, normally `http://127.0.0.1:5284` (no `/api` suffix). |
+| `FITNESS_DATABASE_URL` | PostgreSQL connection URL for the same local database as ASP.NET; for example `postgresql://postgres:<password>@127.0.0.1:5432/VitroFit?sslmode=disable`. |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key. |
+| `OPENROUTER_MODEL` | A model identifier enabled for your OpenRouter account. |
+
+Keep `.env` local and never commit API keys or service secrets. `.env.example` contains placeholders only.
+
+Configure the matching key and agent URL for ASP.NET. From `BackendAPI/VitroFit.API`:
+
+```powershell
+dotnet user-secrets init
+dotnet user-secrets set 'FitnessAgent:ServiceKey' '<the-same-random-secret>'
+dotnet user-secrets set 'FitnessAgent:BaseUrl' 'http://127.0.0.1:8002'
+```
+
+If User Secrets are not configured, use environment variables `FitnessAgent__ServiceKey` and `FitnessAgent__BaseUrl`. Do not put production secrets in committed `appsettings.json`.
+
+### Apply the fitness database migrations
+
+The fitness feature uses the existing configured PostgreSQL database but keeps its tables in the separate `fitness` schema. Verify the connection string points to your local database, then run from `BackendAPI/VitroFit.API`:
+
+```powershell
+dotnet ef database update --context FitnessDbContext
+```
+
+This migration is separate from the API's normal startup migrations. It does not require creating a second database. Do not apply it to a shared or deployed database without your team's review.
+
+### Start the services
+
+Open separate terminals from the repository root:
+
+```powershell
+# Terminal 1: ASP.NET API (serves the fitness endpoints on port 5284)
+Set-Location BackendAPI/VitroFit.API
+dotnet run
+```
+
+```powershell
+# Terminal 2: Adaptive Fitness Python agent (Windows uses the selector event loop)
+Set-Location BackendAPI/FitnessAgentService
+.\.venv\Scripts\python.exe -m app.server
+```
+
+```powershell
+# Terminal 3: React web app
+Set-Location VitroFit_web
+npm run dev
+```
+
+Open `http://localhost:5173`, sign in with a verified VitroFit account, and visit `/adaptive-fitness` (Self-Fitness Plan). The agent health endpoint is `http://127.0.0.1:8002/health`; the authenticated internal generation endpoint is for ASP.NET only.
+
+### Test and troubleshoot
+
+`BackendAPI/FitnessAgent.Tests` is the .NET regression-test project for the Adaptive Fitness API's deterministic planning and safety rules. Keep it in Git because it verifies important behavior—such as rejecting unsafe profiles, mismatched exercises, invalid schedules, and excessive progression—when the API or workout rules change. This helps the team catch regressions before evaluation or release. The test source is useful for development and evaluation, but is not required to start the API or Python agent. Its generated `bin` and `obj` folders are build artifacts and should not be committed.
+
+Run the backend checks from the repository root:
+
+```powershell
+dotnet run --project BackendAPI/FitnessAgent.Tests
+```
+
+Run the agent tests from `BackendAPI/FitnessAgentService`:
+
+```powershell
+Set-Location BackendAPI/FitnessAgentService
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+```
+
+If fitness requests return `503`, confirm the Python agent and ASP.NET API are running, the fitness migration is applied, and the ASP.NET `FitnessAgent:BaseUrl` points to port `8002`. An agent `401` usually means `FITNESS_SERVICE_KEY` and `FitnessAgent:ServiceKey` do not match. Provider `401`/`403` errors indicate an invalid OpenRouter key or model permission; `402` indicates unavailable provider credits; `429` indicates rate limiting. If output is truncated or schedule validation fails, check the agent logs and configured model. The agent requires provider access to generate plans; no unlimited free API is guaranteed.
+
+More feature details and endpoint contracts are in [`BackendAPI/VitroFit.API/Features/AdaptiveFitness/README.md`](BackendAPI/VitroFit.API/Features/AdaptiveFitness/README.md).
+
+---
+
 ## API Endpoints
 
 All routes are under the `/api` prefix and are defined in the `Controllers/`

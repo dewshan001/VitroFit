@@ -1,4 +1,5 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
+import AdaptiveFitnessPage from './features/adaptiveFitness/AdaptiveFitnessPage';
 import './index.css';
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
@@ -27,6 +28,7 @@ export default function App() {
       <div className="noise-overlay" />
       {!isAuthPage && <Navbar />}
       <Routes>
+        <Route path="/adaptive-fitness" element={<AdaptiveFitnessPage />} />
         <Route path="/"               element={<HomePage />} />
         <Route path="/about"          element={<AboutPage />} />
         <Route path="/classes"        element={<ClassesPage />} />
