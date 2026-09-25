@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Sockets;
 using System.Text;
@@ -140,13 +140,14 @@ using (var scope = app.Services.CreateScope())
 }
 
 var sidecarProcesses = new List<Process>();
-foreach (var (serviceName, relativeDir, port) in new[]
+foreach (var (serviceName, relativeDir, port, customArgs) in new (string, string, int, string?)[]
 {
-    ("GymAgentService", "GymAgentService", 8001),
-    ("chatbot_service", "chatbot_service", 8000),
+    ("GymAgentService", "GymAgentService", 8001, null),
+    ("chatbot_service", "chatbot_service", 8000, null),
+    ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server"),
 })
 {
-    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port);
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port, customArgs);
     if (process != null)
     {
         sidecarProcesses.Add(process);
@@ -174,7 +175,7 @@ app.Run();
 /// </summary>
 static class PythonServiceSidecar
 {
-    public static Process? StartIfAvailable(ILogger logger, string serviceName, string relativeDir, int port)
+    public static Process? StartIfAvailable(ILogger logger, string serviceName, string relativeDir, int port, string? customArgs = null)
     {
         if (IsPortInUse(port))
         {
@@ -203,7 +204,7 @@ static class PythonServiceSidecar
             var startInfo = new ProcessStartInfo
             {
                 FileName = pythonExe,
-                Arguments = $"-m uvicorn main:app --port {port}",
+                Arguments = customArgs ?? $"-m uvicorn main:app --port {port}",
                 WorkingDirectory = serviceDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
