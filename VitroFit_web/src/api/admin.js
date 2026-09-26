@@ -53,6 +53,33 @@ async function apiAuthPost(path, body) {
   return data;
 }
 
+/** Authenticated PUT */
+async function apiAuthPut(path, body) {
+  let token = '';
+  try {
+    const stored = sessionStorage.getItem('vitrofitAuth');
+    token = stored ? JSON.parse(stored).accessToken : '';
+  } catch { /* ignore */ }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = data?.error || data?.message || 'Server error. Please try again.';
+    throw new Error(error);
+  }
+
+  return data;
+}
+
 /** Authenticated DELETE */
 async function apiAuthDelete(path) {
   let token = '';
@@ -94,4 +121,24 @@ export function createUser(userData) {
 
 export function deleteUser(userId) {
   return apiAuthDelete(`/admin/users/${userId}`);
+}
+
+// -------------------------------------------------------------
+// Workout Catalog Endpoints
+// -------------------------------------------------------------
+
+export function getWorkouts() {
+  return apiAuthGet('/workouts');
+}
+
+export function createWorkout(workout) {
+  return apiAuthPost('/workouts', workout);
+}
+
+export function updateWorkout(id, workout) {
+  return apiAuthPut(`/workouts/${id}`, workout);
+}
+
+export function deleteWorkout(id) {
+  return apiAuthDelete(`/workouts/${id}`);
 }

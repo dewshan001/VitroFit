@@ -3,6 +3,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'rea
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchGymDetails } from '../../api/gyms';
+import GymList from './GymList';
+import { SOURCE_LABELS } from './gymSourceLabels';
 import './GymMap.css';
 
 /* ─────────────────────────────────────────
@@ -101,12 +103,6 @@ function MapController({ coords, onCenterChange }) {
    GYM EQUIPMENT / CLASSES (fetched on demand
    when a marker's popup is opened)
 ───────────────────────────────────────── */
-const SOURCE_LABELS = {
-  verified: 'Verified by gym',
-  'ai-scraped': "AI summary of the gym's website",
-  'ai-generic': 'AI best guess (no site data)',
-};
-
 function GymDetailsSection({ status }) {
   if (!status || status.loading) {
     return <div className="gym-place-popup-details gym-place-popup-details--loading">Loading equipment & classes…</div>;
@@ -419,6 +415,14 @@ export default function GymMap() {
         </div>
 
       </div>
+
+      <GymList
+        places={places}
+        userCoords={userCoords}
+        loadingPlaces={loadingPlaces}
+        gymDetails={gymDetails}
+        onLoadDetails={loadGymDetails}
+      />
     </div>
   );
 }
