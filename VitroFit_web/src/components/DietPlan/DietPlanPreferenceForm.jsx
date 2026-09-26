@@ -31,6 +31,31 @@ const MEAL_FREQUENCIES = [
   { value: 'intermittent', label: 'Intermittent fasting (16:8)' },
 ];
 
+const BUDGET_MIN = 500;
+const BUDGET_MAX = 15000;
+
+const BUDGET_TIERS = [
+  { value: 'low', label: 'Low', range: 'Below Rs.2,000/day' },
+  { value: 'medium', label: 'Medium', range: 'Rs.2,000 – 4,000/day' },
+  { value: 'high', label: 'High', range: 'Above Rs.4,000/day' },
+  { value: 'custom', label: 'Custom', range: `Set your own (Rs.${BUDGET_MIN.toLocaleString()} – ${BUDGET_MAX.toLocaleString()}/day)` },
+];
+
+const MEDICAL_CONDITIONS = [
+  'diabetes',
+  'high blood pressure',
+  'high cholesterol',
+  'heart condition',
+  'kidney condition',
+  'thyroid condition',
+];
+
+const COOKING_TIMES = [
+  { value: 'quick', label: 'Quick meals only (< 15 min)' },
+  { value: 'moderate', label: "Moderate, I don't mind some prep" },
+  { value: 'nocook', label: 'No-cook / ready-to-eat only' },
+];
+
 /**
  * Custom number stepper (▲ / ▼) styled to match the app's dropdown arrows
  * instead of the browser's native white up/down spin box.
@@ -88,7 +113,7 @@ function NumberStepper({ value, onChange, min, max, label, placeholder }) {
  * to generate an individualised meal plan. Kept separate from the results view
  * for clean future integration.
  */
-export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
+export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     age: initialPrefs?.age ?? 25,
     gender: initialPrefs?.gender ?? 'male',
@@ -99,6 +124,10 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
     mealFrequency: initialPrefs?.mealFrequency ?? '3Meals',
     restrictions: initialPrefs?.restrictions ?? [],
     dislikes: initialPrefs?.dislikes ?? '',
+    budgetTier: initialPrefs?.budgetTier ?? 'medium',
+    budgetCustomAmount: initialPrefs?.budgetCustomAmount ?? '',
+    medicalConditions: initialPrefs?.medicalConditions ?? [],
+    cookingTime: initialPrefs?.cookingTime ?? 'moderate',
   });
   const [errors, setErrors] = useState({});
 
@@ -116,6 +145,15 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
     }));
   };
 
+  const toggleMedicalCondition = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      medicalConditions: prev.medicalConditions.includes(value)
+        ? prev.medicalConditions.filter((c) => c !== value)
+        : [...prev.medicalConditions, value],
+    }));
+  };
+
   const validate = () => {
     const e = {};
     if (!form.age || form.age < 10 || form.age > 100) e.age = 'Enter an age between 10 and 100.';
@@ -125,6 +163,14 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
     if (!form.activityLevel) e.activityLevel = 'Select your activity level.';
     if (!form.goal) e.goal = 'Select your primary goal.';
     if (!form.mealFrequency) e.mealFrequency = 'Select a meal frequency.';
+    if (!form.budgetTier) e.budgetTier = 'Select a budget tier.';
+    if (form.budgetTier === 'custom') {
+      const amount = Number(form.budgetCustomAmount);
+      if (!form.budgetCustomAmount || Number.isNaN(amount) || amount < BUDGET_MIN || amount > BUDGET_MAX) {
+        e.budgetCustomAmount = `Enter an amount between Rs.${BUDGET_MIN.toLocaleString()} and Rs.${BUDGET_MAX.toLocaleString()}.`;
+      }
+    }
+    if (!form.cookingTime) e.cookingTime = 'Select your cooking time/skill.';
     return e;
   };
 
@@ -133,7 +179,10 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
     const e = validate();
     setErrors(e);
     if (Object.keys(e).some((k) => e[k])) return;
-    onSubmit({ ...form });
+    onSubmit({
+      ...form,
+      budgetCustomAmount: form.budgetTier === 'custom' ? Number(form.budgetCustomAmount) : null,
+    });
   };
 
   return (
@@ -230,6 +279,39 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
       </div>
 
       <div className="dp-form-group">
+        <h3 className="dp-form-group-title">Food Budget</h3>
+        <div className="dp-chip-row">
+          {BUDGET_TIERS.map((b) => (
+            <button
+              type="button"
+              key={b.value}
+              className={`dp-chip dp-chip-stacked${form.budgetTier === b.value ? ' active' : ''}`}
+              onClick={() => setField('budgetTier', b.value)}
+            >
+              <span className="dp-chip-main">{b.label}</span>
+              <span className="dp-chip-sub">{b.range}</span>
+            </button>
+          ))}
+        </div>
+        {errors.budgetTier && <span className="dp-field-err-text">{errors.budgetTier}</span>}
+        {form.budgetTier === 'custom' && (
+          <label className={`dp-field${errors.budgetCustomAmount ? ' dp-field-error' : ''}`}>
+            <span className="dp-field-label">Daily budget (Rs.)</span>
+            <NumberStepper
+              value={form.budgetCustomAmount}
+              min={BUDGET_MIN}
+              max={BUDGET_MAX}
+              label="Daily budget"
+              placeholder={`e.g. ${BUDGET_MIN}-${BUDGET_MAX}`}
+              onChange={(v) => setField('budgetCustomAmount', v)}
+            />
+            <p className="dp-field-hint">Between Rs.{BUDGET_MIN.toLocaleString()} and Rs.{BUDGET_MAX.toLocaleString()} per day.</p>
+            {errors.budgetCustomAmount && <span className="dp-field-err-text">{errors.budgetCustomAmount}</span>}
+          </label>
+        )}
+      </div>
+
+      <div className="dp-form-group">
         <h3 className="dp-form-group-title">Dietary Preferences</h3>
         <div className="dp-chip-row">
           {RESTRICTIONS.map((r) => (
@@ -264,6 +346,43 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
       </div>
 
       <div className="dp-form-group">
+        <h3 className="dp-form-group-title">Medical Conditions</h3>
+        <div className="dp-chip-row">
+          {MEDICAL_CONDITIONS.map((c) => (
+            <button
+              type="button"
+              key={c}
+              className={`dp-chip${form.medicalConditions.includes(c) ? ' active' : ''}`}
+              onClick={() => toggleMedicalCondition(c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <p className="dp-field-hint">
+          Select any that apply, if any (optional). This is not medical advice — always confirm
+          your plan with a doctor or dietitian if you have a medical condition.
+        </p>
+      </div>
+
+      <div className="dp-form-group">
+        <h3 className="dp-form-group-title">Cooking Time / Skill</h3>
+        <div className="dp-chip-row">
+          {COOKING_TIMES.map((c) => (
+            <button
+              type="button"
+              key={c.value}
+              className={`dp-chip${form.cookingTime === c.value ? ' active' : ''}`}
+              onClick={() => setField('cookingTime', c.value)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        {errors.cookingTime && <span className="dp-field-err-text">{errors.cookingTime}</span>}
+      </div>
+
+      <div className="dp-form-group">
         <h3 className="dp-form-group-title">Anything We Should Avoid?</h3>
         <label className="dp-field">
           <span className="dp-field-label">Dislikes (optional)</span>
@@ -277,6 +396,11 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit }) {
       </div>
 
       <div className="dp-form-actions">
+        {onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
         <button type="submit" className="btn-primary">
           Generate My Plan
         </button>

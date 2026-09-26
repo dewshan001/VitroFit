@@ -144,6 +144,7 @@ foreach (var (serviceName, relativeDir, port, customArgs) in new (string, string
 {
     ("GymAgentService", "GymAgentService", 8001, null),
     ("chatbot_service", "chatbot_service", 8000, null),
+    ("DietPlanService", "DietPlanService", 8003, null),
     ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server"),
 })
 {
