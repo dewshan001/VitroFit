@@ -29,3 +29,21 @@ class GymDetails(Base):
     classes = Column(JSON, nullable=False, default=list)
 
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class GymWorkoutSuggestions(Base):
+    """Cached AI-suggested workouts for a gym, keyed by place id.
+
+    `equipment_fingerprint` is a hash of the equipment/classes list the suggestions
+    were generated from — if a gym's known equipment/classes change, the fingerprint
+    no longer matches and the cache is regenerated instead of served stale.
+    """
+
+    __tablename__ = "gym_agent_workouts"
+
+    place_id = Column(String(255), primary_key=True)
+    equipment_fingerprint = Column(String(64), nullable=False)
+    workouts = Column(JSON, nullable=False, default=list)
+    notes = Column(String(500), nullable=True)
+
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
