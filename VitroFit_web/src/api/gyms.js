@@ -31,3 +31,30 @@ export async function fetchGymDetails(place) {
 
   return data;
 }
+
+/**
+ * Asks the GymAgentService to suggest possible workouts for a gym, based on its
+ * known equipment/classes (falls back to generic suggestions if those are empty).
+ * `place` should be `{ placeId, name, equipment, classes }`.
+ */
+export async function fetchGymWorkouts(place) {
+  const response = await fetch(`${GYM_AGENT_API_URL}/gyms/workouts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      place_id: place.placeId,
+      name: place.name,
+      equipment: place.equipment || [],
+      classes: place.classes || [],
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = data?.detail || 'Could not load workout suggestions.';
+    throw new Error(error);
+  }
+
+  return data;
+}
