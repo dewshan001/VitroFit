@@ -17,8 +17,17 @@ class AppColors {
   
   static const Color border = Color(0x1AFFFFFF);
   static const Color borderAccent = Color(0x66C8F000);
-  
+
   static const Color shadowAccent = Color(0x26C8F000);
+  static const Color cardShadow = Color(0x66000000);
+
+  // Semantic colors, matching the web app's design tokens.
+  static const Color error = Color(0xFFFF6B6B);
+  static const Color errorGlow = Color(0x33FF6B6B);
+  static const Color success = Color(0xFF22C55E);
+  static const Color successGlow = Color(0x3322C55E);
+  static const Color info = Color(0xFF00C8FF);
+  static const Color infoGlow = Color(0x3300C8FF);
 }
 
 class SlantedClipper extends CustomClipper<Path> {

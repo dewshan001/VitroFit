@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/fitness_data.dart';
+import 'package:provider/provider.dart';
+import '../data/team_data.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/badge_chip.dart';
-import '../widgets/class_card.dart';
 import '../widgets/outline_text.dart';
+import '../widgets/skeleton_box.dart';
 import '../widgets/slanted_button.dart';
 import '../widgets/trainer_card.dart';
-import 'class_detail_sheet.dart';
+import '../widgets/workout_card.dart';
+import 'workout_detail_sheet.dart';
 
 class HomeScreen extends StatelessWidget {
   final Function(int) onNavigateToTab;
@@ -19,46 +24,52 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. HERO BANNER
-          _buildHeroSection(context),
+    final appState = context.watch<AppState>();
+    return RefreshIndicator(
+      color: AppColors.accent,
+      backgroundColor: AppColors.bgCard,
+      onRefresh: () => appState.loadWorkouts(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. HERO BANNER
+            _buildHeroSection(context),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 2. STATS BAR
-          _buildStatsBar(),
+            // 2. STATS BAR
+            _buildStatsBar(),
 
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
-          // 3. DAILY FITNESS TRACKER WIDGET
-          _buildDailyActivityTracker(context),
+            // 3. DAILY FITNESS TRACKER WIDGET (sample/illustrative data)
+            _buildDailyActivityTracker(context),
 
-          const SizedBox(height: 36),
+            const SizedBox(height: 36),
 
-          // 4. FEATURED CLASSES CAROUSEL
-          _buildFeaturedClasses(context),
+            // 4. FEATURED WORKOUTS CAROUSEL
+            _buildFeaturedWorkouts(context, appState),
 
-          const SizedBox(height: 36),
+            const SizedBox(height: 36),
 
-          // 5. WHY US FEATURES
-          _buildWhyUsSection(),
+            // 5. WHY US FEATURES
+            _buildWhyUsSection(),
 
-          const SizedBox(height: 36),
+            const SizedBox(height: 36),
 
-          // 6. CERTIFIED TRAINERS
-          _buildTrainersSection(),
+            // 6. CERTIFIED TRAINERS
+            _buildTrainersSection(),
 
-          const SizedBox(height: 36),
+            const SizedBox(height: 36),
 
-          // 7. BOTTOM CTA BANNER
-          _buildCtaBanner(context),
+            // 7. BOTTOM CTA BANNER
+            _buildCtaBanner(context),
 
-          const SizedBox(height: 40),
-        ],
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -147,7 +158,7 @@ class HomeScreen extends StatelessWidget {
                   SlantedButton(
                     text: "START NOW",
                     icon: Icons.arrow_forward,
-                    onPressed: () => onNavigateToTab(1), // Go to Classes tab
+                    onPressed: () => onNavigateToTab(1), // Go to Workouts tab
                   ),
                   SlantedButton(
                     text: "FREE TRIAL",
@@ -244,7 +255,7 @@ class HomeScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "TODAY'S ACTIVITY",
+                      "SAMPLE ACTIVITY",
                       style: GoogleFonts.oswald(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -253,9 +264,9 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      "Daily goal: 600 kcal burn",
+                      "Illustrative only — not connected to a tracker",
                       style: GoogleFonts.inter(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: AppColors.textMuted,
                       ),
                     ),
@@ -263,7 +274,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const BadgeChip(label: "75% DONE"),
+              const BadgeChip(label: "DEMO", isAccent: false),
             ],
           ),
           const SizedBox(height: 16),
@@ -320,8 +331,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedClasses(BuildContext context) {
-    final featured = SampleData.classes.take(4).toList();
+  Widget _buildFeaturedWorkouts(BuildContext context, AppState appState) {
+    final featured = appState.workouts.take(4).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,7 +347,7 @@ class HomeScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "FEATURED CLASSES",
+                      "FEATURED WORKOUTS",
                       style: GoogleFonts.oswald(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -345,7 +356,7 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      "High impact workout programs",
+                      "From the studio's live workout catalog",
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: AppColors.textMuted,
@@ -370,25 +381,49 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 350,
-          child: ListView.builder(
+        if (appState.workoutsLoading && featured.isEmpty)
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            scrollDirection: Axis.horizontal,
-            itemCount: featured.length,
-            itemBuilder: (context, index) {
-              final item = featured[index];
-              return Container(
-                width: 280,
-                margin: const EdgeInsets.only(right: 16),
-                child: ClassCard(
-                  classItem: item,
-                  onTap: () => ClassDetailSheet.show(context, item),
+            child: Row(
+              children: List.generate(
+                2,
+                (i) => const Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 12),
+                    child: SkeletonBox(height: 190, borderRadius: 12),
+                  ),
                 ),
-              );
-            },
+              ),
+            ),
+          )
+        else if (featured.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              "No workouts available yet.",
+              style: GoogleFonts.inter(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          SizedBox(
+            height: 230,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: featured.length,
+              itemBuilder: (context, index) {
+                final item = featured[index];
+                return Container(
+                  width: 240,
+                  margin: const EdgeInsets.only(right: 16),
+                  child: WorkoutCard(
+                    workout: item,
+                    onTap: () => WorkoutDetailSheet.show(context, item),
+                  ),
+                ).animate(delay: (index * 80).ms).fadeIn(duration: 350.ms).slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
+              },
+            ),
           ),
-        ),
       ],
     );
   }
@@ -502,9 +537,12 @@ class HomeScreen extends StatelessWidget {
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             scrollDirection: Axis.horizontal,
-            itemCount: SampleData.trainers.length,
+            itemCount: TeamData.members.length,
             itemBuilder: (context, index) {
-              return TrainerCard(trainer: SampleData.trainers[index]);
+              return TrainerCard(trainer: TeamData.members[index])
+                  .animate(delay: (index * 80).ms)
+                  .fadeIn(duration: 350.ms)
+                  .slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
             },
           ),
         ),
@@ -548,10 +586,21 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          SlantedButton(
-            text: "JOIN NOW FREE",
-            icon: Icons.flash_on,
-            onPressed: () => onNavigateToTab(4), // Go to Auth/Profile
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SlantedButton(
+                text: "JOIN NOW FREE",
+                icon: Icons.flash_on,
+                onPressed: () => onNavigateToTab(3), // Go to Profile tab
+              ),
+              SlantedButton(
+                text: "ABOUT US",
+                isSecondary: true,
+                onPressed: () => context.push('/main/about'),
+              ),
+            ],
           ),
         ],
       ),

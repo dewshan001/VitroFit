@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/fitness_data.dart';
+import '../data/team_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/outline_text.dart';
 import '../widgets/trainer_card.dart';
@@ -187,9 +188,12 @@ class AboutScreen extends StatelessWidget {
             height: 350,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: SampleData.trainers.length,
+              itemCount: TeamData.members.length,
               itemBuilder: (context, index) {
-                return TrainerCard(trainer: SampleData.trainers[index]);
+                return TrainerCard(trainer: TeamData.members[index])
+                    .animate(delay: (index * 80).ms)
+                    .fadeIn(duration: 350.ms)
+                    .slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
               },
             ),
           ),

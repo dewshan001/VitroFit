@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/fitness_data.dart';
+import '../data/team_data.dart';
 import '../theme/app_theme.dart';
 import 'badge_chip.dart';
 
 class TrainerCard extends StatelessWidget {
-  final TrainerItem trainer;
+  final TeamMember trainer;
 
   const TrainerCard({
     super.key,

@@ -1,316 +1,164 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../models/timetable_slot.dart';
+import '../models/user_profile.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/badge_chip.dart';
-import '../widgets/outline_text.dart';
-import '../widgets/slanted_button.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  int _activeTab = 0; // 0: Profile, 1: Login, 2: Register
-
-  // Form Controllers
-  final _loginEmailController = TextEditingController(text: "athlete@vitrofit.com");
-  final _loginPasswordController = TextEditingController(text: "password123");
-  
-  final _regNameController = TextEditingController();
-  final _regEmailController = TextEditingController();
-  final _regPasswordController = TextEditingController();
-
-  bool _obscureLoginPass = true;
-  bool _obscureRegPass = true;
-  bool _isLoggedIn = true;
-
-  @override
-  void dispose() {
-    _loginEmailController.dispose();
-    _loginPasswordController.dispose();
-    _regNameController.dispose();
-    _regEmailController.dispose();
-    _regPasswordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Segmented Navigation Bar
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.bgCard,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                _buildSegmentTab(0, "MY PROFILE"),
-                _buildSegmentTab(1, "SIGN IN"),
-                _buildSegmentTab(2, "REGISTER"),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+    final appState = context.watch<AppState>();
+    final user = appState.currentUser;
 
-          // Tab Content
-          if (_activeTab == 0) ...[
-            _buildProfileTab(),
-          ] else if (_activeTab == 1) ...[
-            _buildLoginTab(),
-          ] else ...[
-            _buildRegisterTab(),
+    if (user == null) {
+      // The router keeps unauthenticated users off /main entirely, but guard
+      // defensively in case of a brief state transition mid-logout.
+      return const SizedBox.shrink();
+    }
+
+    return RefreshIndicator(
+      color: AppColors.accent,
+      backgroundColor: AppColors.bgCard,
+      onRefresh: () => appState.refreshAll(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildProfileBanner(user),
+            const SizedBox(height: 24),
+            Text(
+              "MY UPCOMING SESSIONS",
+              style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 10),
+            _buildUpcomingSessions(context, appState),
+            const SizedBox(height: 24),
+            Text(
+              "ACCOUNT & PREFERENCES",
+              style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 10),
+            _buildSettingOption(context, Icons.person_outline, "Personal Details", () => context.push('/main/personal-details')),
+            _buildSettingOption(context, Icons.lock_outline, "Change Password", () => context.push('/main/change-password')),
+            _buildSettingOption(context, Icons.credit_card, "Payment & Billing", () => context.push('/main/billing')),
+            _buildSettingOption(context, Icons.notifications_none, "Notification Settings", () => context.push('/main/notifications')),
+            _buildSettingOption(context, Icons.help_outline, "Customer Support", () => context.push('/main/support')),
+            _buildSettingOption(context, Icons.info_outline, "About VitroFit", () => context.push('/main/about')),
+            _buildSettingOption(context, Icons.logout, "Sign Out", () => appState.logout(), isDanger: false),
+            _buildSettingOption(context, Icons.delete_forever_outlined, "Delete Account", () => _confirmDeleteAccount(context, appState), isDanger: true),
+            const SizedBox(height: 30),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegmentTab(int index, String label) {
-    final isSelected = _activeTab == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _activeTab = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.oswald(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-              color: isSelected ? AppColors.bgPrimary : AppColors.textSecondary,
-            ),
-          ),
         ),
       ),
     );
   }
 
-  // --- 1. PROFILE TAB ---
-  Widget _buildProfileTab() {
-    if (!_isLoggedIn) {
+  Widget _buildProfileBanner(UserProfile user) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderAccent),
+        boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 16)],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.accent, width: 2),
+              color: AppColors.bgSecondary,
+              image: user.profileImageUrl != null
+                  ? DecorationImage(image: NetworkImage(user.profileImageUrl!), fit: BoxFit.cover)
+                  : null,
+            ),
+            child: user.profileImageUrl == null
+                ? Center(
+                    child: Text(
+                      user.initials,
+                      style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.accent),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      user.fullName,
+                      style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    if (user.role != UserRole.user) BadgeChip(label: user.role.name.toUpperCase()),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(user.email, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUpcomingSessions(BuildContext context, AppState appState) {
+    if (appState.timetableLoading && appState.timetableSlots.isEmpty) {
+      return Text("Loading your timetable…", style: GoogleFonts.inter(color: AppColors.textMuted));
+    }
+    if (appState.timetableSlots.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(32),
-        alignment: Alignment.center,
-        child: Column(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+        child: Row(
           children: [
-            const Icon(Icons.lock_outline, size: 50, color: AppColors.accent),
-            const SizedBox(height: 16),
-            Text(
-              "ACCESS YOUR ACCOUNT",
-              style: GoogleFonts.oswald(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+            const Icon(Icons.event_note, color: AppColors.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "No sessions yet. Add workouts to your timetable from the WORKOUTS tab.",
+                style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.textSecondary),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Please sign in or register to view your membership dashboard, booked classes, and training history.",
-              style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            SlantedButton(
-              text: "SIGN IN NOW",
-              onPressed: () => setState(() => _activeTab = 1),
             ),
           ],
         ),
       );
     }
 
+    final upcoming = appState.timetableSlots.take(3).toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // User Profile Banner Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.bgCard,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderAccent),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.shadowAccent,
-                blurRadius: 16,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.accent, width: 2),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/testimonial_man.png'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          "Marcus Vance",
-                          style: GoogleFonts.oswald(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const BadgeChip(label: "PRO ATHLETE"),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "athlete@vitrofit.com",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "Member since August 2026",
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Active Plan Card
-        Text(
-          "MEMBERSHIP SUBSCRIPTION",
-          style: GoogleFonts.oswald(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: AppColors.textMuted,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppColors.bgSecondary,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.card_membership, size: 36, color: AppColors.accent),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "UNLIMITED PRO MONTHLY",
-                      style: GoogleFonts.oswald(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      "Renews on Sept 12, 2026 • \$79 / mo",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const BadgeChip(label: "ACTIVE"),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Upcoming Reservations
-        Text(
-          "MY UPCOMING CLASSES",
-          style: GoogleFonts.oswald(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: AppColors.textMuted,
-          ),
-        ),
-        const SizedBox(height: 10),
-        _buildBookingItem("FITFUSION", "Today @ 06:00 PM", "Alexandra Rodriguez", "Studio 1"),
-        _buildBookingItem("YOGA HARMONY", "Tomorrow @ 08:00 AM", "David Chen", "Zen Room"),
-        const SizedBox(height: 24),
-
-        // Quick Settings Actions
-        Text(
-          "ACCOUNT & PREFERENCES",
-          style: GoogleFonts.oswald(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: AppColors.textMuted,
-          ),
-        ),
-        const SizedBox(height: 10),
-        _buildSettingOption(Icons.person_outline, "Personal Details", () {}),
-        _buildSettingOption(Icons.credit_card, "Payment & Billing", () {}),
-        _buildSettingOption(Icons.notifications_none, "Notification Settings", () {}),
-        _buildSettingOption(Icons.help_outline, "Customer Support", () {}),
-        _buildSettingOption(Icons.logout, "Sign Out", () {
-          setState(() => _isLoggedIn = false);
-        }, isDanger: true),
-        const SizedBox(height: 30),
-      ],
+      children: upcoming
+          .map((slot) => _buildSessionItem(slot))
+          .toList()
+          .animate(interval: 60.ms)
+          .fadeIn(duration: 300.ms)
+          .slideX(begin: 0.08, end: 0, curve: Curves.easeOut),
     );
   }
 
-  Widget _buildBookingItem(String title, String time, String trainer, String location) {
+  Widget _buildSessionItem(TimetableSlot slot) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
+      decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
       child: Row(
         children: [
           const Icon(Icons.event_available, color: AppColors.accent, size: 24),
@@ -319,270 +167,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(slot.title, style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 Text(
-                  title,
-                  style: GoogleFonts.oswald(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  "$time • Coach $trainer",
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                  "${slot.day.label} • ${slot.startTime.label} - ${slot.endTime.label}",
+                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
           ),
-          Text(
-            location,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              color: AppColors.accent,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(slot.workoutCategory, style: GoogleFonts.inter(fontSize: 11, color: AppColors.accent, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  Widget _buildSettingOption(IconData icon, String label, VoidCallback onTap, {bool isDanger = false}) {
+  Widget _buildSettingOption(BuildContext context, IconData icon, String label, VoidCallback onTap, {bool isDanger = false}) {
+    final color = isDanger ? AppColors.error : AppColors.textPrimary;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
+      decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: ListTile(
           onTap: onTap,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          leading: Icon(icon, color: isDanger ? Colors.redAccent : AppColors.textPrimary, size: 20),
-          title: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: isDanger ? Colors.redAccent : AppColors.textPrimary,
-            ),
-          ),
-          trailing: Icon(
-            Icons.arrow_forward_ios,
-            size: 14,
-            color: isDanger ? Colors.redAccent : AppColors.textMuted,
-          ),
+          leading: Icon(icon, color: color, size: 20),
+          title: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
+          trailing: Icon(Icons.arrow_forward_ios, size: 14, color: isDanger ? AppColors.error : AppColors.textMuted),
         ),
       ),
     );
   }
 
-  // --- 2. SIGN IN TAB ---
-  Widget _buildLoginTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const OutlineText(text: "WELCOME BACK", fontSize: 24),
-        Text(
-          "SIGN IN TO VITROFIT",
-          style: GoogleFonts.oswald(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            color: AppColors.accent,
+  Future<void> _confirmDeleteAccount(BuildContext context, AppState appState) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.error)),
+        title: Text("DELETE ACCOUNT?", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, color: AppColors.error)),
+        content: Text(
+          "This permanently deletes your VitroFit account and timetable. This cannot be undone.",
+          style: GoogleFonts.inter(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("CANCEL", style: GoogleFonts.oswald(color: AppColors.textMuted)),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          "Enter your account credentials to access your fitness dashboard.",
-          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 24),
-
-        // Email Input
-        Text(
-          "EMAIL ADDRESS",
-          style: GoogleFonts.oswald(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: AppColors.textPrimary,
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("DELETE", style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold)),
           ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _loginEmailController,
-          style: GoogleFonts.inter(color: AppColors.textPrimary),
-          decoration: _buildInputDecoration("name@example.com", Icons.email_outlined),
-        ),
-        const SizedBox(height: 16),
-
-        // Password Input
-        Text(
-          "PASSWORD",
-          style: GoogleFonts.oswald(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _loginPasswordController,
-          obscureText: _obscureLoginPass,
-          style: GoogleFonts.inter(color: AppColors.textPrimary),
-          decoration: _buildInputDecoration("••••••••", Icons.lock_outline).copyWith(
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureLoginPass ? Icons.visibility_off : Icons.visibility,
-                color: AppColors.textMuted,
-              ),
-              onPressed: () => setState(() => _obscureLoginPass = !_obscureLoginPass),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        SizedBox(
-          width: double.infinity,
-          child: SlantedButton(
-            text: "SIGN IN NOW",
-            icon: Icons.login,
-            onPressed: () {
-              setState(() {
-                _isLoggedIn = true;
-                _activeTab = 0;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: AppColors.accent,
-                  content: Text(
-                    "Welcome back to VitroFit!",
-                    style: GoogleFonts.inter(color: AppColors.bgPrimary, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // --- 3. REGISTER TAB ---
-  Widget _buildRegisterTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const OutlineText(text: "JOIN THE CLUB", fontSize: 24),
-        Text(
-          "CREATE ACCOUNT",
-          style: GoogleFonts.oswald(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            color: AppColors.accent,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          "Start your 7-day free trial with full access to classes & trainers.",
-          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 24),
-
-        Text("FULL NAME", style: _labelStyle()),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _regNameController,
-          style: GoogleFonts.inter(color: AppColors.textPrimary),
-          decoration: _buildInputDecoration("John Doe", Icons.person_outline),
-        ),
-        const SizedBox(height: 14),
-
-        Text("EMAIL ADDRESS", style: _labelStyle()),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _regEmailController,
-          style: GoogleFonts.inter(color: AppColors.textPrimary),
-          decoration: _buildInputDecoration("john@example.com", Icons.email_outlined),
-        ),
-        const SizedBox(height: 14),
-
-        Text("PASSWORD", style: _labelStyle()),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _regPasswordController,
-          obscureText: _obscureRegPass,
-          style: GoogleFonts.inter(color: AppColors.textPrimary),
-          decoration: _buildInputDecoration("••••••••", Icons.lock_outline).copyWith(
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureRegPass ? Icons.visibility_off : Icons.visibility,
-                color: AppColors.textMuted,
-              ),
-              onPressed: () => setState(() => _obscureRegPass = !_obscureRegPass),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        SizedBox(
-          width: double.infinity,
-          child: SlantedButton(
-            text: "CREATE ACCOUNT",
-            icon: Icons.arrow_forward,
-            onPressed: () {
-              setState(() {
-                _isLoggedIn = true;
-                _activeTab = 0;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: AppColors.accent,
-                  content: Text(
-                    "Account created! Welcome to VitroFit.",
-                    style: GoogleFonts.inter(color: AppColors.bgPrimary, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  TextStyle _labelStyle() {
-    return GoogleFonts.oswald(
-      fontSize: 13,
-      fontWeight: FontWeight.bold,
-      letterSpacing: 1.0,
-      color: AppColors.textPrimary,
-    );
-  }
-
-  InputDecoration _buildInputDecoration(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: GoogleFonts.inter(color: AppColors.textMuted),
-      prefixIcon: Icon(icon, color: AppColors.accent, size: 20),
-      filled: true,
-      fillColor: AppColors.bgCard,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+        ],
       ),
     );
+
+    if (confirmed == true) {
+      try {
+        await appState.deleteAccount();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(backgroundColor: AppColors.error, content: Text(e.toString())),
+          );
+        }
+      }
+    }
   }
 }
