@@ -75,6 +75,19 @@ public sealed class FitnessProgress
     public bool Completed { get; set; }
     public int Rpe { get; set; }
     public bool Pain { get; set; }
+    public string[] AffectedAreas { get; set; } = [];
     public DateOnly PerformedOn { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class FitnessCycle
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public int UserId { get; set; }
+    public Guid SourceWorkflowId { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public string AnalysisJson { get; set; } = "{}";
+    public string ScheduleJson { get; set; } = "[]";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

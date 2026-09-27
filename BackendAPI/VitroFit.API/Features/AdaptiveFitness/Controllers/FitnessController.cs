@@ -26,7 +26,7 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
         if (!await appDb.Users.AnyAsync(user => user.Id == UserId)) return Unauthorized();
         if (input.Days.Any(d => d is < 1 or > 7) || input.Days.Distinct().Count() != input.Days.Length)
             return BadRequest(new { message = "Select unique weekdays from 1 to 7." });
-        if (input.Equipment.Any(e => e is not ("bodyweight" or "dumbbells" or "resistance_band")))
+        if (input.Equipment.Any(e => e is not ("bodyweight" or "dumbbells" or "resistance_band" or "gym")))
             return BadRequest(new { message = "Unsupported equipment." });
         var profile = await db.Profiles.FindAsync(UserId);
         if (profile is null) { profile = new() { UserId = UserId }; db.Profiles.Add(profile); }
@@ -61,23 +61,66 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
         if (profile is null) return BadRequest(new { message = "Save your profile first." });
         FitnessWorkflow? previous = null;
         List<AgentProgress> progress = [];
+        List<AgentProgress> history = [];
+        var feedback = "";
         if (input.PreviousWorkflowId.HasValue)
         {
             previous = await db.Workflows.SingleOrDefaultAsync(w => w.Id == input.PreviousWorkflowId && w.UserId == UserId && w.Status == "Ready");
             if (previous?.PlanJson is null) return BadRequest(new { message = "Continue from your latest ready schedule." });
             var previousPlan = FitnessJson.Read<WorkoutPlan>(previous.PlanJson);
-            if (previousPlan.Week >= 4)
-                return Conflict(new { message = "You have completed the four beginner schedules. Meet an instructor to continue your training." });
+            var priorChain = await Ancestors(previous.Id);
+            var cycle = await FindCycle(priorChain) ?? await db.Cycles.Where(c => c.UserId == UserId).OrderByDescending(c => c.CreatedAt).FirstOrDefaultAsync();
+
+            if (previousPlan.Week == 4 && cycle is null)
+            {
+                var progressMap = (await db.Progress.Where(p => priorChain.Select(w => w.Id).Contains(p.WorkflowId)).ToListAsync())
+                    .GroupBy(p => p.WorkflowId).ToDictionary(g => g.Key, g => g.ToList());
+                var (initAnalysis, start, end) = FitnessCyclePlanner.Analyze(priorChain, progressMap);
+                cycle = new FitnessCycle
+                {
+                    UserId = UserId,
+                    SourceWorkflowId = previous.Id,
+                    StartDate = start,
+                    EndDate = end,
+                    AnalysisJson = FitnessJson.Write(initAnalysis),
+                    ScheduleJson = "[]"
+                };
+                db.Cycles.Add(cycle);
+                await db.SaveChangesAsync();
+            }
+
+            if (previousPlan.Week > 4 && cycle is not null)
+            {
+                var cycleBlocks = priorChain.Count(w => w.PlanJson is not null && FitnessJson.Read<WorkoutPlan>(w.PlanJson).Week > 4);
+                var cycleCompleted = (cycleBlocks > 0 && cycleBlocks % 12 == 0) || cycle.EndDate < DateOnly.FromDateTime(DateTime.UtcNow);
+                if (cycleCompleted && cycle.SourceWorkflowId != previous.Id)
+                    return Conflict(new { message = "Your three-month cycle is complete. Review your profile and create the next cycle before requesting another workout block." });
+            }
+
+            if (cycle is not null)
+            {
+                var cycleAnalysis = FitnessJson.Read<FitnessCycleAnalysis>(cycle.AnalysisJson);
+                var cycleReview = cycleAnalysis.Review;
+                var reviewSummary = cycleReview is null ? "" : $"Goals: {cycleReview.Goal}. Condition: {cycleReview.CurrentCondition}. Pain: {cycleReview.PainOrDiscomfort}. Restrictions: {cycleReview.InjuriesOrRestrictions}. ";
+                var perfSummary = $"Previous 3-month cycle: {cycleAnalysis.CompletedSessions} completed sessions, {cycleAnalysis.PainReports} pain reports, avg RPE {cycleAnalysis.AverageRpe?.ToString("F1") ?? "N/A"}. ";
+                var fullFeedback = reviewSummary + perfSummary;
+                feedback = fullFeedback[..Math.Min(fullFeedback.Length, 1500)];
+            }
+            if (previousPlan.Week > 4 && profile.SessionMinutes < 100)
+                return Conflict(new { message = "Update your available workout time to about two hours before generating this block." });
             if (await db.Workflows.AnyAsync(w => w.UserId == UserId && w.PreviousWorkflowId == previous.Id))
                 return Conflict(new { message = "Continue from your latest schedule; this schedule already has a follow-up." });
-            progress = await db.Progress.Where(p => p.WorkflowId == previous.Id)
-                .Select(p => new AgentProgress(p.Day, p.Completed, p.Rpe, p.Pain)).ToListAsync();
+            progress = await db.Progress.Where(p => p.WorkflowId == previous.Id).OrderBy(p => p.Day)
+                .Select(p => new AgentProgress(p.Day, p.Completed, p.Rpe, p.Pain, p.AffectedAreas, previousPlan.Week)).ToListAsync();
             if (progress.Count != previousPlan.Days.Count || previousPlan.Days.Any(day => progress.All(p => p.Day != day.Day)))
                 return BadRequest(new { message = "Record progress for every day in this schedule before requesting the next one." });
-            if (progress.Any(p => p.Pain))
-                return BadRequest(new { message = "Pain or discomfort was reported. Stop self-guided training and contact an instructor before requesting another week." });
-            if (progress.Any(p => !p.Completed))
+            if (progress.Any(p => !p.Completed && !p.Pain))
                 return BadRequest(new { message = "Complete every scheduled day before requesting the next week." });
+            var ids = priorChain.Select(w => w.Id).ToArray();
+            var storedHistory = await db.Progress.Where(p => ids.Contains(p.WorkflowId)).OrderBy(p => p.PerformedOn).ToListAsync();
+            history = storedHistory.Select(p => new AgentProgress(p.Day, p.Completed, p.Rpe, p.Pain,
+                p.AffectedAreas, priorChain.First(w => w.Id == p.WorkflowId).PlanJson is { } planJson
+                    ? FitnessJson.Read<WorkoutPlan>(planJson).Week : 0)).ToList();
         }
         else
         {
@@ -92,7 +135,7 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
         var workflow = new FitnessWorkflow { UserId = UserId, PreviousWorkflowId = previous?.Id };
         var request = new AgentRequest(workflow.Id, workflow.RunId, profile.ToInput(),
             (await db.Exercises.ToListAsync()).Select(e => e.ToDto()).ToList(),
-            previous?.PlanJson is { } json ? FitnessJson.Read<WorkoutPlan>(json) : null, progress, "");
+            previous?.PlanJson is { } json ? FitnessJson.Read<WorkoutPlan>(json) : null, progress, feedback, history);
         workflow.RequestJson = FitnessJson.Write(request);
         db.Workflows.Add(workflow);
         await db.SaveChangesAsync();
@@ -136,6 +179,6 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
     private static object Details(FitnessWorkflow w) => new {
         w.Id, w.UserId, w.Status, w.Version, w.PreviousWorkflowId, w.CurrentStep, w.Summary, w.Feedback, w.CreatedAt, w.UpdatedAt,
         plan = w.PlanJson is null ? null : FitnessJson.Read<WorkoutPlan>(w.PlanJson),
-        safetyNote = "This beginner schedule is not medical clearance. Stop if you feel pain or unwell. After week four, meet an instructor for a personalized program."
+        safetyNote = "This self-guided workout is not medical clearance. Stop any movement that causes pain. Significant, worsening, or persistent pain needs qualified professional guidance."
     };
 }
