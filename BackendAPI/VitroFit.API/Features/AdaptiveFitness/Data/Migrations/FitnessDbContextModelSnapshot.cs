@@ -59,6 +59,45 @@ namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations
                     b.ToTable("Approvals", "fitness");
                 });
 
+            modelBuilder.Entity("VitroFit.API.Features.AdaptiveFitness.FitnessCycle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AnalysisJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ScheduleJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("SourceWorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceWorkflowId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "StartDate");
+
+                    b.ToTable("Cycles", "fitness");
+                });
+
             modelBuilder.Entity("VitroFit.API.Features.AdaptiveFitness.FitnessEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -283,6 +322,258 @@ namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations
                             Instructions = "Make small controlled arm circles without weights and stop if uncomfortable.",
                             MuscleGroup = "arms",
                             Name = "Arm circles"
+                        },
+                        new
+                        {
+                            Id = 18,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Set bench to 30–45 degrees, press dumbbells from chest level to lockout with control.",
+                            MuscleGroup = "chest",
+                            Name = "Dumbbell incline press"
+                        },
+                        new
+                        {
+                            Id = 19,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Stand between cables set high, bring handles together in an arc in front of your chest.",
+                            MuscleGroup = "chest",
+                            Name = "Cable crossover"
+                        },
+                        new
+                        {
+                            Id = 20,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Sit on machine, grip handles at chest width, and press to full extension then lower with control.",
+                            MuscleGroup = "chest",
+                            Name = "Plate-loaded machine bench press"
+                        },
+                        new
+                        {
+                            Id = 21,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Lie on decline bench, unrack barbell, lower to lower chest, press up to lockout.",
+                            MuscleGroup = "chest",
+                            Name = "Decline barbell press"
+                        },
+                        new
+                        {
+                            Id = 22,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Lie on flat bench, hold barbell above chest, bend elbows to lower bar to forehead, extend back up.",
+                            MuscleGroup = "triceps",
+                            Name = "Lying barbell triceps extension"
+                        },
+                        new
+                        {
+                            Id = 23,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold one dumbbell with both hands overhead, lower behind head by bending elbows, press back up.",
+                            MuscleGroup = "triceps",
+                            Name = "Single dumbbell tricep overhead extension"
+                        },
+                        new
+                        {
+                            Id = 24,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Attach straight bar to high cable, grip underhand, keep elbows at sides and push bar down to full extension.",
+                            MuscleGroup = "triceps",
+                            Name = "Reverse grip cable tricep pushdown"
+                        },
+                        new
+                        {
+                            Id = 25,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Rest forearms on bench, hold barbell with palms up, curl wrists up and lower with control.",
+                            MuscleGroup = "arms",
+                            Name = "Wrist curls"
+                        },
+                        new
+                        {
+                            Id = 26,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Sit on incline bench set to ~75 degrees, press dumbbells from shoulder height to overhead.",
+                            MuscleGroup = "upper body",
+                            Name = "Incline shoulder press"
+                        },
+                        new
+                        {
+                            Id = 27,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold dumbbells at thighs, raise both arms to shoulder height in front, lower with control.",
+                            MuscleGroup = "upper body",
+                            Name = "Front raises"
+                        },
+                        new
+                        {
+                            Id = 28,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold cables at sides, raise arms out to shoulder height and lower slowly.",
+                            MuscleGroup = "upper body",
+                            Name = "Hanging side lateral raises"
+                        },
+                        new
+                        {
+                            Id = 29,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Stand with bar behind at hip height, shrug shoulders up and back, hold briefly.",
+                            MuscleGroup = "back",
+                            Name = "Smith machine back body shrugs"
+                        },
+                        new
+                        {
+                            Id = 30,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Attach rope to high cable, pull to face level splitting rope apart, squeeze rear delts.",
+                            MuscleGroup = "back",
+                            Name = "Face pulls"
+                        },
+                        new
+                        {
+                            Id = 31,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Grip barbell underhand shoulder-width, hinge at hips, row bar to lower chest, lower with control.",
+                            MuscleGroup = "back",
+                            Name = "Reverse grip barbell rows"
+                        },
+                        new
+                        {
+                            Id = 32,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hinge at hips, hold dumbbells below chest, row both to sides of torso, lower with control.",
+                            MuscleGroup = "back",
+                            Name = "Bent-over dumbbell rows"
+                        },
+                        new
+                        {
+                            Id = 33,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Stand at high cable, arms extended, pull bar down to thighs keeping arms straight.",
+                            MuscleGroup = "back",
+                            Name = "Straight arm pulldowns"
+                        },
+                        new
+                        {
+                            Id = 34,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Lock feet in hyperextension bench, lower torso toward floor, raise back to parallel using lower back.",
+                            MuscleGroup = "back",
+                            Name = "Back extensions"
+                        },
+                        new
+                        {
+                            Id = 35,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Kneel at high cable with rope, crunch torso toward knees contracting abs, return under control.",
+                            MuscleGroup = "core",
+                            Name = "Cable crunches"
+                        },
+                        new
+                        {
+                            Id = 36,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Lie on back knees bent, rise to sitting position engaging abs, lower with control.",
+                            MuscleGroup = "core",
+                            Name = "Sit-ups"
+                        },
+                        new
+                        {
+                            Id = 37,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Lie flat or hang from bar, raise straight legs to 90 degrees and lower with control.",
+                            MuscleGroup = "core",
+                            Name = "Leg raises"
+                        },
+                        new
+                        {
+                            Id = 38,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Position bar on front delts in Smith machine, squat until thighs parallel, drive through heels to stand.",
+                            MuscleGroup = "legs",
+                            Name = "Smith machine front squats"
+                        },
+                        new
+                        {
+                            Id = 39,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Sit on leg extension machine, extend one leg to lockout, lower with control, alternate legs.",
+                            MuscleGroup = "legs",
+                            Name = "Single leg extensions"
+                        },
+                        new
+                        {
+                            Id = 40,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold barbell at hips, hinge back pushing hips back keeping bar close, feel hamstring stretch, drive hips forward to stand.",
+                            MuscleGroup = "legs",
+                            Name = "Romanian deadlifts"
+                        },
+                        new
+                        {
+                            Id = 41,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Stand on calf raise machine or step, rise onto toes fully, lower heel below platform.",
+                            MuscleGroup = "legs",
+                            Name = "Calf raises"
+                        },
+                        new
+                        {
+                            Id = 42,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold barbell with hands 6 inches apart, curl to shoulder height keeping elbows at sides, lower with control.",
+                            MuscleGroup = "arms",
+                            Name = "Close grip bicep curls"
+                        },
+                        new
+                        {
+                            Id = 43,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold barbell with hands wider than shoulders, curl to shoulder height, lower with control.",
+                            MuscleGroup = "arms",
+                            Name = "Wide grip bicep curls"
+                        },
+                        new
+                        {
+                            Id = 44,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Rest upper arm on preacher pad, curl dumbbell to shoulder, lower fully to stretch.",
+                            MuscleGroup = "arms",
+                            Name = "Single arm dumbbell preacher curls"
+                        },
+                        new
+                        {
+                            Id = 45,
+                            BeginnerAllowed = true,
+                            Equipment = "gym",
+                            Instructions = "Hold barbell with overhand grip, curl to shoulder height keeping wrists neutral, lower with control.",
+                            MuscleGroup = "arms",
+                            Name = "Reverse curls"
                         });
                 });
 
@@ -334,6 +625,10 @@ namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations
                         .HasColumnType("bigint");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.PrimitiveCollection<string[]>("AffectedAreas")
+                        .IsRequired()
+                        .HasColumnType("text[]");
 
                     b.Property<bool>("Completed")
                         .HasColumnType("boolean");
@@ -437,6 +732,15 @@ namespace VitroFit.API.Features.AdaptiveFitness.Data.Migrations
                     b.HasOne("VitroFit.API.Features.AdaptiveFitness.FitnessWorkflow", null)
                         .WithMany()
                         .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("VitroFit.API.Features.AdaptiveFitness.FitnessCycle", b =>
+                {
+                    b.HasOne("VitroFit.API.Features.AdaptiveFitness.FitnessWorkflow", null)
+                        .WithMany()
+                        .HasForeignKey("SourceWorkflowId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

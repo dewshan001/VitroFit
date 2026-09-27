@@ -8,6 +8,13 @@ public sealed class FitnessWorkflowService(FitnessDbContext db, FitnessAgentClie
     public async Task Run(FitnessWorkflow workflow)
     {
         var request = FitnessJson.Read<AgentRequest>(workflow.RequestJson);
+        if (request.Catalog.Count < 40)
+        {
+            var allExercises = (await db.Exercises.OrderBy(e => e.Id).ToListAsync()).Select(e => e.ToDto()).ToList();
+            request = request with { Catalog = allExercises };
+            workflow.RequestJson = FitnessJson.Write(request);
+            await db.SaveChangesAsync();
+        }
         try
         {
             // The run survives browser disconnection; service timeout still bounds its lifetime.
@@ -25,7 +32,6 @@ public sealed class FitnessWorkflowService(FitnessDbContext db, FitnessAgentClie
         }
         catch (Exception ex)
         {
-            // Log only the exception type, never request bodies, credentials or provider responses.
             var reason = ex switch
             {
                 HttpRequestException { StatusCode: { } status } => $"The Python agent returned HTTP {(int)status}.",
@@ -33,7 +39,8 @@ public sealed class FitnessWorkflowService(FitnessDbContext db, FitnessAgentClie
                 OperationCanceledException => "The Python agent request timed out or was cancelled.",
                 _ => "The agent workflow failed before it returned a plan."
             };
-            logger.LogWarning("Fitness workflow {WorkflowId} failed ({ErrorType})", workflow.Id, ex.GetType().Name);
+            // Keep the detailed exception in the local API log while never returning it to the browser.
+            logger.LogWarning(ex, "Fitness workflow {WorkflowId} failed ({ErrorType})", workflow.Id, ex.GetType().Name);
             workflow.Status = "Failed";
             workflow.PlanJson = null;
             workflow.Summary = $"{reason} No plan was activated. Check the Python agent logs and service configuration, then retry.";
