@@ -49,7 +49,7 @@ const allClasses = [
     title: "POWER ATHLETE",
     type: "Advanced Strength",
     level: "ADVANCED",
-    img: "https://images.unsplash.com/photo-1599058945522-28d584b6f4ff?auto=format&fit=crop&w=800&q=80"
+    img: "/hero_athlete.png"
   },
   {
     title: "FUNCTIONAL MOVE",
