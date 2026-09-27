@@ -6,7 +6,7 @@ from .schemas import Exercise, GenerateRequest
 
 
 def exercise_search(request: GenerateRequest) -> list[Exercise]:
-    confirmed = set(request.profile.equipment) | {"bodyweight"}
+    confirmed = set(request.profile.equipment) | {"bodyweight", "gym"}
     return [e for e in request.catalog if e.beginnerAllowed and e.equipment in confirmed]
 
 
@@ -14,6 +14,7 @@ def progress_history(request: GenerateRequest) -> dict:
     return {
         "previousPlan": request.previousPlan.model_dump() if request.previousPlan else None,
         "progress": [p.model_dump() for p in request.progress],
+        "workoutHistory": [p.model_dump() for p in (request.history or request.progress)],
     }
 
 

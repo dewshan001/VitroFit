@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Sockets;
 using System.Text;
@@ -121,6 +121,9 @@ using (var scope = app.Services.CreateScope())
     // Apply any pending EF Core migrations automatically (creates the DB on first run).
     context.Database.Migrate();
 
+    var fitnessContext = scope.ServiceProvider.GetRequiredService<FitnessDbContext>();
+    fitnessContext.Database.Migrate();
+
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     
     if (!context.Users.Any(u => u.Email == "admin@gmail.com"))
@@ -187,8 +190,12 @@ static class PythonServiceSidecar
         var apiProjectDir = Directory.GetCurrentDirectory();
         var serviceDir = Path.GetFullPath(Path.Combine(apiProjectDir, "..", relativeDir));
         var pythonExe = OperatingSystem.IsWindows()
-            ? Path.Combine(serviceDir, "venv", "Scripts", "python.exe")
-            : Path.Combine(serviceDir, "venv", "bin", "python");
+            ? (File.Exists(Path.Combine(serviceDir, ".venv", "Scripts", "python.exe"))
+                ? Path.Combine(serviceDir, ".venv", "Scripts", "python.exe")
+                : Path.Combine(serviceDir, "venv", "Scripts", "python.exe"))
+            : (File.Exists(Path.Combine(serviceDir, ".venv", "bin", "python"))
+                ? Path.Combine(serviceDir, ".venv", "bin", "python")
+                : Path.Combine(serviceDir, "venv", "bin", "python"));
 
         if (!File.Exists(pythonExe))
         {

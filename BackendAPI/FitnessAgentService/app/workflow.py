@@ -1,7 +1,4 @@
-"""Explicit LangGraph delegation with durable step summaries in ASP.NET/PostgreSQL.
-
-The agent prepares a self-guided four-week beginner program; instructor-led training starts afterward.
-"""
+"""Explicit LangGraph delegation for beginner schedules and adaptive short workout blocks."""
 from time import monotonic
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
@@ -39,10 +36,11 @@ async def execute(request: GenerateRequest, record, proposer=llm.propose, checkp
         return {"steps": steps, "attempt": 0, "errors": [], "plan": None}, "Delegate: " + " -> ".join(steps)
 
     async def screen(state):
-        blocked = request.profile.reviewRequired or any(p.pain for p in request.progress)
+        blocked = request.profile.reviewRequired
         return {"status": "ReviewRequired" if blocked else "Planning"}, (
             "Professional review required; automated planning stopped" if blocked else
-            "No declared review flag; this is not medical clearance"
+            ("Pain was recorded; adapting affected exercises while continuing suitable workouts" if any(p.pain for p in (request.history or request.progress))
+             else "No declared review flag; this is not medical clearance")
         )
 
     async def analyze(state):
@@ -58,8 +56,9 @@ async def execute(request: GenerateRequest, record, proposer=llm.propose, checkp
             return {"plan": prepared.model_dump(mode="json"), "attempt": state["attempt"] + 1,
                     "toolResults": {**state.get("toolResults", {}), "exercise_search": [e.model_dump() for e in exercises]}}, "Tool exercise_search; structured draft matched to approved exercises for each focus"
         except Exception as exc:
-            # Do not log raw provider responses, prompts or secrets.
-            code = str(exc) if isinstance(exc, llm.PlannerError) else "MODEL_OUTPUT_OR_SERVICE_ERROR"
+            import traceback
+            traceback.print_exc()
+            code = str(exc) if isinstance(exc, llm.PlannerError) else f"SERVICE_ERROR: {type(exc).__name__}: {exc}"
             return {"plan": None, "errors": [code], "attempt": state["attempt"] + 1}, f"Planner failed: {code}"
 
     async def validate(state):

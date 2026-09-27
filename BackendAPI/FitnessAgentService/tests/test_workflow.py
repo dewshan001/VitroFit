@@ -12,7 +12,7 @@ from app.llm import PlannerError, parse_chat_completion
 
 def request(**updates):
     data = dict(workflowId="12345678-1234-4234-8234-123456789012", runId="12345678-1234-4234-8234-123456789013",
-        profile=dict(age=25, heightCm=170, weightKg=70, goal="general_fitness", days=[1], sessionMinutes=30,
+        profile=dict(age=25, heightCm=170, weightKg=70, goal="general_fitness", days=[1, 3, 6], sessionMinutes=30,
                      equipment=["bodyweight"], reviewRequired=False),
         catalog=[dict(id=i, name=f"Exercise {i}", equipment="bodyweight", muscleGroup="chest", instructions="Controlled movement", beginnerAllowed=True) for i in [1,2]])
     data.update(updates)
@@ -137,15 +137,57 @@ def test_three_day_split_is_normalized_to_matching_approved_groups():
     assert not validate_plan(prepared, req)
 
 
-def test_pain_in_history_stops_planning():
+def test_pain_in_history_is_recorded_and_planning_continues_conservatively():
     req=request(previousPlan=draft().model_dump(),progress=[dict(day=1,completed=True,rpe=5,pain=True)])
-    assert run(req,[])[0].status=="ReviewRequired"
+    result,traces=run(req,[draft(2,7)])
+    assert result.status=="Ready"
+    assert "RECOVER" in result.analysis
+    assert any("Pain was recorded" in t.summary for t in traces if t.step=="screening")
 
 
 def test_high_effort_requires_recovery():
     req=request(previousPlan=draft().model_dump(),progress=[dict(day=1,completed=True,rpe=9,pain=False)])
     assert validate_plan(draft(2),req)
     assert not validate_plan(draft(2,7),req)
+
+
+def test_recovery_draft_is_reduced_before_validation():
+    req=request(previousPlan=draft().model_dump(),progress=[dict(day=1,completed=True,rpe=9,pain=False)])
+    result,traces=run(req,[draft(2)])
+    assert result.status=="Ready"
+    assert sum(e.sets*e.repetitions for day in result.plan.days for e in day.exercises) < 32
+
+
+def test_recovery_at_minimum_valid_volume_may_hold_steady():
+    catalog = [
+        dict(id=1, name="Wall push-up", equipment="bodyweight", muscleGroup="chest", instructions="Controlled", beginnerAllowed=True),
+        dict(id=2, name="Close-grip wall push-up", equipment="bodyweight", muscleGroup="triceps", instructions="Controlled", beginnerAllowed=True),
+        dict(id=3, name="Arm circles", equipment="bodyweight", muscleGroup="arms", instructions="Controlled", beginnerAllowed=True),
+        dict(id=4, name="Wall angel", equipment="bodyweight", muscleGroup="back", instructions="Controlled", beginnerAllowed=True),
+        dict(id=5, name="Chair squat", equipment="bodyweight", muscleGroup="legs", instructions="Controlled", beginnerAllowed=True),
+        dict(id=6, name="Calf raise", equipment="bodyweight", muscleGroup="legs", instructions="Controlled", beginnerAllowed=True),
+    ]
+    days = [
+        dict(day=1, focus="Chest and triceps", warmupMinutes=5, cooldownMinutes=5,
+             exercises=[dict(exerciseId=i, sets=1, repetitions=6, restSeconds=60) for i in [1, 2]]),
+        dict(day=3, focus="Arms and back", warmupMinutes=5, cooldownMinutes=5,
+             exercises=[dict(exerciseId=i, sets=1, repetitions=6, restSeconds=60) for i in [3, 4]]),
+        dict(day=6, focus="Legs", warmupMinutes=5, cooldownMinutes=5,
+             exercises=[dict(exerciseId=i, sets=1, repetitions=6, restSeconds=60) for i in [5, 6]]),
+    ]
+    previous = Plan.model_validate(dict(week=3, days=days))
+    proposed = Plan.model_validate(dict(week=4, days=days))
+    req = request(previousPlan=previous.model_dump(), progress=[
+        dict(day=1, completed=True, rpe=5, pain=True),
+        dict(day=3, completed=True, rpe=5, pain=False),
+        dict(day=6, completed=True, rpe=5, pain=False),
+    ], catalog=catalog,
+       profile=dict(age=25, heightCm=170, weightKg=70, goal="general_fitness", days=[1, 3, 6],
+                    sessionMinutes=30, equipment=["bodyweight"], reviewRequired=False))
+    assert not validate_plan(proposed, req)
+    result, _ = run(req, [proposed])
+    assert result.status == "Ready"
+    assert sum(e.sets*e.repetitions for day in result.plan.days for e in day.exercises) == 36
 
 
 @pytest.mark.parametrize("field",["weightKg","goal"])
