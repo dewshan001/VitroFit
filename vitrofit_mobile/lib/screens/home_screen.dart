@@ -177,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(width: 12),
                       GestureDetector(
-                        onTap: () => widget.onNavigateToTab(3),
+                        onTap: () => widget.onNavigateToTab(4), // Go to Profile tab
                         child: _Avatar(user: user)
                             .animate()
                             .fadeIn(duration: 400.ms)

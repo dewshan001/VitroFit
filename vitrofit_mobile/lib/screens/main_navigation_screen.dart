@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chatbot_fab.dart';
+import '../widgets/floating_nav_bar.dart';
+import 'find_gym_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'timetable_screen.dart';
@@ -31,6 +33,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       }),
       const WorkoutsScreen(),
       const TimetableScreen(),
+      const FindGymScreen(),
       const ProfileScreen(),
     ];
   }
@@ -127,48 +130,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       floatingActionButton: const ChatbotFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.bgSecondary.withOpacity(0.9),
-              border: const Border(top: BorderSide(color: AppColors.border, width: 1.0)),
-            ),
-            child: BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: (index) => setState(() => _currentIndex = index),
-              backgroundColor: Colors.transparent,
-              type: BottomNavigationBarType.fixed,
-              selectedItemColor: AppColors.accent,
-              unselectedItemColor: AppColors.textMuted,
-              selectedLabelStyle: GoogleFonts.oswald(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-              unselectedLabelStyle: GoogleFonts.oswald(fontSize: 11, letterSpacing: 1.0),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home_outlined),
-                  activeIcon: Icon(Icons.home, color: AppColors.accent),
-                  label: 'HOME',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.fitness_center_outlined),
-                  activeIcon: Icon(Icons.fitness_center, color: AppColors.accent),
-                  label: 'WORKOUTS',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_month_outlined),
-                  activeIcon: Icon(Icons.calendar_month, color: AppColors.accent),
-                  label: 'TIMETABLE',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline),
-                  activeIcon: Icon(Icons.person, color: AppColors.accent),
-                  label: 'PROFILE',
-                ),
-              ],
-            ),
-          ),
-        ),
+      bottomNavigationBar: FloatingNavBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
       ),
     );
   }
