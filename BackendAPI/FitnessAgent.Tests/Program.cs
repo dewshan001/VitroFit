@@ -31,7 +31,8 @@ var progressed = request with { PreviousPlan = Plan(), Progress = [new(1, true, 
 Check(FitnessPolicy.Validate(Plan(2, 9), progressed).Count > 0, "over ten percent progression rejected");
 Check(FitnessPolicy.Validate(Plan(2), progressed with { Progress = [new(1, true, 9, false)] }).Count > 0, "recovery must reduce workload");
 Check(FitnessPolicy.Validate(Plan(2, 7), progressed with { Progress = [new(1, true, 9, false)] }).Count == 0, "recovery plan accepted");
-Check(FitnessPolicy.Validate(Plan(2), progressed with { Progress = [new(1, true, 5, true)] }).Count > 0, "progress pain blocks automated schedule");
+Check(FitnessPolicy.Validate(Plan(2), progressed with { Progress = [new(1, true, 5, true)] }).Count > 0, "pain requires reduced workload");
+Check(FitnessPolicy.Validate(Plan(2, 7), progressed with { Progress = [new(1, true, 5, true)] }).Count == 0, "pain allows a conservative next schedule");
 var ageParameter = typeof(ProfileInput).GetConstructors().Single().GetParameters().Single(p => p.Name == "Age");
 var ageRange = ageParameter.GetCustomAttributes(typeof(RangeAttribute), false).Cast<RangeAttribute>().Single();
 Check(!ageRange.IsValid(0) && ageRange.IsValid(25), "record input age validation metadata");
@@ -40,4 +41,24 @@ using var db = new FitnessDbContext(options);
 Check(db.Model.FindEntityType(typeof(FitnessWorkflow))!.FindProperty("Version")!.IsConcurrencyToken, "workflow updates use concurrency token");
 Check(db.Model.GetEntityTypes().All(e => e.GetSchema() == "fitness"), "tables isolated in fitness schema");
 Check(db.Model.FindEntityType(typeof(FitnessProgress))!.GetIndexes().Any(i => i.IsUnique), "duplicate session constraint");
+Check(db.Model.FindEntityType(typeof(FitnessCycle))!.GetSchema() == "fitness", "three-month cycles use the fitness schema");
+var cycleWorkflows = Enumerable.Range(1, 4).Select(week => new FitnessWorkflow
+{
+    PlanJson = FitnessJson.Write(Plan(week))
+}).ToList();
+var cycleProgress = cycleWorkflows.ToDictionary(workflow => workflow.Id, workflow => new List<FitnessProgress>
+{
+    new() { WorkflowId = workflow.Id, Day = 1, Completed = weekOf(workflow, cycleWorkflows) != 2,
+        Pain = weekOf(workflow, cycleWorkflows) == 2, Rpe = 5, PerformedOn = new DateOnly(2026, 9, 1) }
+});
+var cycle = FitnessCyclePlanner.Build(cycleWorkflows, cycleProgress, profile, catalog);
+Check(cycle.Analysis.Weeks.Count == 4 && cycle.Analysis.PainReports == 1, "three-month analysis aggregates all four weeks");
+Check(cycle.Analysis.RecoveryAdjustment, "four-week pain history adjusts the next cycle");
+Check(cycle.Days.Count is >= 89 and <= 92 && cycle.Days.First().Date == cycle.Start && cycle.Days.Last().Date == cycle.End,
+    "three-month plan has one calendar entry per date");
+Check(cycle.Days.Count(day => day.Type == "Workout") > 0 && cycle.Days.Any(day => day.Type == "Rest / Recovery"),
+    "three-month plan includes workout and recovery days");
 Console.WriteLine($"{count} checks passed.");
+
+static int weekOf(FitnessWorkflow workflow, List<FitnessWorkflow> workflows)
+    => FitnessJson.Read<WorkoutPlan>(workflow.PlanJson!).Week;
