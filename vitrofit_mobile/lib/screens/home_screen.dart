@@ -3,18 +3,16 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../data/team_data.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import '../widgets/badge_chip.dart';
+import '../widgets/animated_glow_background.dart';
 import '../widgets/outline_text.dart';
 import '../widgets/skeleton_box.dart';
 import '../widgets/slanted_button.dart';
-import '../widgets/trainer_card.dart';
 import '../widgets/workout_card.dart';
 import 'workout_detail_sheet.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
 
   const HomeScreen({
@@ -23,54 +21,63 @@ class HomeScreen extends StatelessWidget {
   });
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    return RefreshIndicator(
-      color: AppColors.accent,
-      backgroundColor: AppColors.bgCard,
-      onRefresh: () => appState.loadWorkouts(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. HERO BANNER
-            _buildHeroSection(context),
+    return Stack(
+      children: [
+        Positioned.fill(child: AmbientGlowBackground(scrollController: _scrollController)),
+        RefreshIndicator(
+          color: AppColors.accent,
+          backgroundColor: AppColors.bgCard,
+          onRefresh: () => appState.loadWorkouts(),
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. HERO BANNER
+                _buildHeroSection(context),
 
-            const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-            // 2. STATS BAR
-            _buildStatsBar(),
+                // 2. STATS BAR
+                _buildStatsBar(),
 
-            const SizedBox(height: 32),
+                const SizedBox(height: 36),
 
-            // 3. DAILY FITNESS TRACKER WIDGET (sample/illustrative data)
-            _buildDailyActivityTracker(context),
+                // 3. FEATURED WORKOUTS CAROUSEL
+                _buildFeaturedWorkouts(context, appState),
 
-            const SizedBox(height: 36),
+                const SizedBox(height: 36),
 
-            // 4. FEATURED WORKOUTS CAROUSEL
-            _buildFeaturedWorkouts(context, appState),
+                // 4. WHY US FEATURES
+                _buildWhyUsSection(),
 
-            const SizedBox(height: 36),
+                const SizedBox(height: 36),
 
-            // 5. WHY US FEATURES
-            _buildWhyUsSection(),
+                // 5. BOTTOM CTA BANNER
+                _buildCtaBanner(context),
 
-            const SizedBox(height: 36),
-
-            // 6. CERTIFIED TRAINERS
-            _buildTrainersSection(),
-
-            const SizedBox(height: 36),
-
-            // 7. BOTTOM CTA BANNER
-            _buildCtaBanner(context),
-
-            const SizedBox(height: 40),
-          ],
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -130,7 +137,10 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              const OutlineText(text: "ACHIEVE MORE", fontSize: 32),
+              const OutlineText(text: "ACHIEVE MORE", fontSize: 32)
+                  .animate()
+                  .fadeIn(duration: 450.ms)
+                  .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
               Text(
                 "THAN JUST FITNESS",
                 style: GoogleFonts.oswald(
@@ -140,7 +150,10 @@ class HomeScreen extends StatelessWidget {
                   letterSpacing: 1.5,
                   color: AppColors.textPrimary,
                 ),
-              ),
+              )
+                  .animate(delay: 80.ms)
+                  .fadeIn(duration: 450.ms)
+                  .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
               const SizedBox(height: 12),
               Text(
                 "Combine strength, flexibility, and endurance in a supportive community designed for constant growth.",
@@ -149,7 +162,7 @@ class HomeScreen extends StatelessWidget {
                   height: 1.5,
                   color: AppColors.textSecondary,
                 ),
-              ),
+              ).animate(delay: 180.ms).fadeIn(duration: 450.ms),
               const SizedBox(height: 24),
               Wrap(
                 spacing: 12,
@@ -158,15 +171,15 @@ class HomeScreen extends StatelessWidget {
                   SlantedButton(
                     text: "START NOW",
                     icon: Icons.arrow_forward,
-                    onPressed: () => onNavigateToTab(1), // Go to Workouts tab
+                    onPressed: () => widget.onNavigateToTab(1), // Go to Workouts tab
                   ),
                   SlantedButton(
                     text: "FREE TRIAL",
                     isSecondary: true,
-                    onPressed: () => onNavigateToTab(2), // Go to Timetable tab
+                    onPressed: () => widget.onNavigateToTab(2), // Go to Timetable tab
                   ),
                 ],
-              ),
+              ).animate(delay: 280.ms).fadeIn(duration: 450.ms).slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
             ],
           ),
         ),
@@ -176,18 +189,18 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildStatsBar() {
     final stats = [
-      {'val': '500+', 'label': 'Members'},
-      {'val': '30+', 'label': 'Classes/Wk'},
-      {'val': '10', 'label': 'Trainers'},
-      {'val': '99%', 'label': 'Satisfaction'},
+      {'val': 500.0, 'suffix': '+', 'label': 'Members'},
+      {'val': 30.0, 'suffix': '+', 'label': 'Classes/Wk'},
+      {'val': 10.0, 'suffix': '', 'label': 'Trainers'},
+      {'val': 99.0, 'suffix': '%', 'label': 'Satisfaction'},
     ];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderAccent),
         boxShadow: const [
           BoxShadow(
@@ -198,137 +211,64 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: stats.map((s) {
+        children: List.generate(stats.length, (i) {
+          final s = stats[i];
           return Expanded(
-            child: Column(
+            child: Row(
               children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    s['val']!,
-                    style: GoogleFonts.oswald(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.accent,
-                    ),
+                if (i > 0)
+                  Container(
+                    width: 1,
+                    height: 28,
+                    color: AppColors.border,
                   ),
-                ),
-                const SizedBox(height: 2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    s['label']!,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 1,
+                Expanded(
+                  child: Column(
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: s['val'] as double),
+                        duration: Duration(milliseconds: 900 + i * 150),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          final isDecimalFree = value == value.roundToDouble();
+                          return FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '${isDecimalFree ? value.round() : value.toStringAsFixed(0)}${s['suffix']}',
+                              style: GoogleFonts.oswald(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          s['label'] as String,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           );
-        }).toList(),
+        }),
       ),
-    );
-  }
-
-  Widget _buildDailyActivityTracker(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "SAMPLE ACTIVITY",
-                      style: GoogleFonts.oswald(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      "Illustrative only — not connected to a tracker",
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const BadgeChip(label: "DEMO", isAccent: false),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Linear Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: 0.75,
-              minHeight: 10,
-              backgroundColor: AppColors.bgCardHover,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildTrackerStat(Icons.local_fire_department, "450 / 600", "CALORIES BURNED"),
-              _buildTrackerStat(Icons.timer, "45 MINS", "WORKOUT TIME"),
-              _buildTrackerStat(Icons.favorite, "132 BPM", "AVG HEART RATE"),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackerStat(IconData icon, String val, String label) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, size: 18, color: AppColors.accent),
-          const SizedBox(height: 4),
-          Text(
-            val,
-            style: GoogleFonts.oswald(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 9,
-              color: AppColors.textMuted,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
+    )
+        .animate()
+        .fadeIn(duration: 500.ms, delay: 150.ms)
+        .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic);
   }
 
   Widget _buildFeaturedWorkouts(BuildContext context, AppState appState) {
@@ -367,7 +307,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => onNavigateToTab(1),
+                onTap: () => widget.onNavigateToTab(1),
                 child: Text(
                   "SEE ALL →",
                   style: GoogleFonts.oswald(
@@ -463,91 +403,18 @@ class HomeScreen extends StatelessWidget {
             itemCount: features.length,
             itemBuilder: (context, index) {
               final f = features[index];
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.bgCard,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(f['icon'] as IconData, color: AppColors.accent, size: 28),
-                    const SizedBox(height: 10),
-                    Text(
-                      f['title'] as String,
-                      style: GoogleFonts.oswald(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      f['desc'] as String,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              );
+              return _WhyUsCard(
+                icon: f['icon'] as IconData,
+                title: f['title'] as String,
+                desc: f['desc'] as String,
+              )
+                  .animate(delay: (index * 90).ms)
+                  .fadeIn(duration: 400.ms)
+                  .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic);
             },
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTrainersSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "EXPERT COACHES",
-                style: GoogleFonts.oswald(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                "Guided by industry professionals",
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 350,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            scrollDirection: Axis.horizontal,
-            itemCount: TeamData.members.length,
-            itemBuilder: (context, index) {
-              return TrainerCard(trainer: TeamData.members[index])
-                  .animate(delay: (index * 80).ms)
-                  .fadeIn(duration: 350.ms)
-                  .slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
-            },
-          ),
-        ),
-
-      ],
     );
   }
 
@@ -593,7 +460,7 @@ class HomeScreen extends StatelessWidget {
               SlantedButton(
                 text: "JOIN NOW FREE",
                 icon: Icons.flash_on,
-                onPressed: () => onNavigateToTab(3), // Go to Profile tab
+                onPressed: () => widget.onNavigateToTab(3), // Go to Profile tab
               ),
               SlantedButton(
                 text: "ABOUT US",
@@ -603,6 +470,87 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    )
+        .animate()
+        .fadeIn(duration: 500.ms)
+        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic);
+  }
+}
+
+class _WhyUsCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String desc;
+
+  const _WhyUsCard({required this.icon, required this.title, required this.desc});
+
+  @override
+  State<_WhyUsCard> createState() => _WhyUsCardState();
+}
+
+class _WhyUsCardState extends State<_WhyUsCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _pressed ? AppColors.borderAccent : AppColors.border),
+            boxShadow: _pressed
+                ? const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 14, spreadRadius: 1)]
+                : [],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.accent.withOpacity(0.22), AppColors.accent.withOpacity(0.06)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(widget.icon, color: AppColors.accent, size: 22),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.title,
+                style: GoogleFonts.oswald(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.desc,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
