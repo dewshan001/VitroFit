@@ -12,7 +12,7 @@ This feature adds an internal Python LangGraph workflow, public ASP.NET Core end
    dotnet user-secrets set 'FitnessAgent:BaseUrl' 'http://127.0.0.1:8002'
    ```
 
-3. From `BackendAPI/FitnessAgentService`, create a Python virtual environment, install `requirements.txt`, then run `python -m app.server`. Both services must be running. The runner selects the Windows event loop required by psycopg's async PostgreSQL driver.
+3. From `BackendAPI/FitnessAgentService`, create a Python virtual environment and install `requirements.txt`. When started from `BackendAPI/VitroFit.API`, the backend starts the agent as a child process with `python -m app.server` if port `8002` is free, and stops that child when the API shuts down. The runner selects the Windows event loop required by psycopg's async PostgreSQL driver. To run the agent manually for debugging, start it from `BackendAPI/FitnessAgentService` with `python -m app.server`.
 4. Apply the feature migration explicitly to your local database:
 
    ```powershell
