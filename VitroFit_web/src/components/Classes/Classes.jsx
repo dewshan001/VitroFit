@@ -1,4 +1,5 @@
 import { useScrollAnimation } from '../../hooks/useScrollAnimation';
+import { Link } from 'react-router-dom';
 import './Classes.css';
 
 const classes = [
@@ -48,17 +49,17 @@ export default function Classes() {
         <div className="classes-carousel">
           <div className="classes-track-wrapper">
             <div className="classes-track">
-              {classes.map((cls, i) => (
-                <div className="class-card" key={cls.id}>
+              {classes.map((cls) => (
+                <Link className="class-card" key={cls.id} to="/adaptive-fitness" aria-label={`Create a self-fitness plan: ${cls.title}`}>
                   <img src={cls.image} alt={cls.title} className="class-card-image" />
-                  <button className="class-card-view-btn">VIEW MORE</button>
+                  <span className="class-card-view-btn" aria-hidden="true">VIEW MORE</span>
                   <div className="class-card-accent" />
                   <div className="class-card-overlay">
                     <div className="class-card-category">{cls.category}</div>
                     <div className={`class-card-title ${cls.active ? '' : 'no-underline'}`}>{cls.title}</div>
                     <div className="class-card-desc">{cls.desc}</div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
