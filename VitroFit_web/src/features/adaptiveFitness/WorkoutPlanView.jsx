@@ -4,7 +4,29 @@ const weeks = [1, 2, 3, 4];
 export default function WorkoutPlanView({ plans = [], catalog = [], progressByWeek = {} }) {
   if (!plans.length) return null;
 
-  const plansByWeek = new Map(plans.map(item => [item.plan.week, item.plan]));
+  const sortedPlans = [...plans].sort((a, b) => (a.plan?.week || 0) - (b.plan?.week || 0));
+  const plansByWeek = new Map(sortedPlans.map(item => [item.plan.week, item.plan]));
+  const latestPlan = sortedPlans.at(-1)?.plan;
+  if (latestPlan?.week > 4) return <section className="fitness-week-grid fitness-block-plan" aria-labelledby="fitness-week-title">
+    <div className="fitness-week-heading">
+      <div><span className="fitness-eyebrow">Progressive workout block</span><h3 id="fitness-week-title">Block {latestPlan.week - 4}</h3></div>
+      <p>Complete and record every workout to unlock the next 3 or 4 day block.</p>
+    </div>
+    <ol className="fitness-block-days">{latestPlan.days.map((session, index) => <li key={session.day}>
+      <header><span>Day {String(index + 1).padStart(2, '0')}</span></header>
+      <h4>{session.focus}</h4>
+      <p>Warm up {session.warmupMinutes} min · Cool down {session.cooldownMinutes} min</p>
+      <ul className="fitness-exercise-list">{session.exercises.map(item => {
+        const exercise = catalog.find(value => value.id === item.exerciseId);
+        return <li key={item.exerciseId}>
+          <strong className="fitness-exercise-name">{exercise?.name || `Exercise ${item.exerciseId}`}</strong>
+          <span className="fitness-exercise-prescription">{item.sets} sets × {item.repetitions} reps</span>
+          <small className="fitness-exercise-rest">Rest {item.restSeconds} sec</small>
+          {item.adaptedFromExerciseId && <small className="fitness-adaptation-reason">Adapted from exercise {item.adaptedFromExerciseId}: {item.adaptationReason || 'changed to account for your pain report'}</small>}
+        </li>;
+      })}</ul>
+    </li>)}</ol>
+  </section>;
 
   return <section className="fitness-week-grid" aria-labelledby="fitness-week-title">
     <div className="fitness-week-heading">
