@@ -1,4 +1,5 @@
 # GymAgentService/main.py
+import hashlib
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -11,15 +12,17 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
 from db import Base, engine, get_session
-from models import GymDetails
+from models import GymDetails, GymWorkoutSuggestions
 from enrichment_agent import enrich_gym
 from vectorstore import store_gym_enrichment
+from workout_agent import suggest_workouts
 
 load_dotenv()
 
 logger = logging.getLogger("gym_agent")
 
 CACHE_STALE_DAYS = int(os.getenv("CACHE_STALE_DAYS", "30"))
+WORKOUT_CACHE_STALE_DAYS = int(os.getenv("WORKOUT_CACHE_STALE_DAYS", "30"))
 
 Base.metadata.create_all(bind=engine)
 
@@ -82,6 +85,13 @@ class GymDetailsRequest(BaseModel):
     phone: str | None = None
     email: str | None = None
     opening_hours: str | None = None
+
+
+class WorkoutSuggestionRequest(BaseModel):
+    place_id: str = Field(..., min_length=1, max_length=255)
+    name: str = Field(..., min_length=1, max_length=255)
+    equipment: list[str] = Field(default_factory=list)
+    classes: list[str] = Field(default_factory=list)
 
 
 @app.get("/health")
@@ -152,6 +162,45 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
         logger.exception("Failed to store gym enrichment in vector store for place_id=%s", req.place_id)
 
     return _to_response(row)
+
+
+def _workout_fingerprint(equipment: list[str], classes: list[str]) -> str:
+    key = "|".join(sorted(equipment)) + "::" + "|".join(sorted(classes))
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+@app.post("/api/gyms/workouts")
+async def get_gym_workouts(req: WorkoutSuggestionRequest, session: Session = Depends(get_session)):
+    fingerprint = _workout_fingerprint(req.equipment, req.classes)
+    existing = session.get(GymWorkoutSuggestions, req.place_id)
+
+    if existing and existing.equipment_fingerprint == fingerprint and existing.workouts:
+        age = datetime.now(timezone.utc) - existing.updated_at
+        if age < timedelta(days=WORKOUT_CACHE_STALE_DAYS):
+            return {"workouts": existing.workouts, "notes": existing.notes or ""}
+
+    result = await suggest_workouts(req.name, req.equipment, req.classes)
+    if "error" in result:
+        raise HTTPException(status_code=502, detail=f"Workout suggestion failed: {result['error']}")
+
+    # Only cache a real (non-empty) result, so a degenerate generation never poisons
+    # future requests for this gym.
+    if result["workouts"]:
+        if existing:
+            existing.equipment_fingerprint = fingerprint
+            existing.workouts = result["workouts"]
+            existing.notes = result.get("notes", "")
+        else:
+            session.add(GymWorkoutSuggestions(
+                place_id=req.place_id,
+                equipment_fingerprint=fingerprint,
+                workouts=result["workouts"],
+                notes=result.get("notes", ""),
+            ))
+
+        session.commit()
+
+    return result
 
 
 def _to_response(row: GymDetails) -> dict:

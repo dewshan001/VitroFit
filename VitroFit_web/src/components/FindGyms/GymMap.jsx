@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchGymDetails } from '../../api/gyms';
 import GymList from './GymList';
+import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
 import { SOURCE_LABELS } from './gymSourceLabels';
 import './GymMap.css';
 
@@ -146,6 +147,8 @@ export default function GymMap() {
   const [locationError, setLocationError] = useState(false);
   const [locating, setLocating] = useState(true);
   const [gymDetails, setGymDetails] = useState({});
+  const [workoutModalTarget, setWorkoutModalTarget] = useState(null);
+  const workoutCacheRef = useRef(new Map());
 
   const requestIdRef = useRef(0);
 
@@ -361,6 +364,18 @@ export default function GymMap() {
                           >
                             Directions &rarr;
                           </a>
+                          <button
+                            type="button"
+                            className="gym-place-popup-btn gym-place-popup-btn--workouts"
+                            onClick={() => setWorkoutModalTarget({
+                              placeId,
+                              name: placeName,
+                              equipment: gymDetails[placeId]?.data?.equipment || [],
+                              classes: gymDetails[placeId]?.data?.classes || [],
+                            })}
+                          >
+                            Find Possible Workouts
+                          </button>
                         </div>
                       </div>
                     </Popup>
@@ -422,6 +437,15 @@ export default function GymMap() {
         loadingPlaces={loadingPlaces}
         gymDetails={gymDetails}
         onLoadDetails={loadGymDetails}
+      />
+
+      <WorkoutSuggestionsModal
+        isOpen={!!workoutModalTarget}
+        onClose={() => setWorkoutModalTarget(null)}
+        gymName={workoutModalTarget?.name}
+        place={workoutModalTarget}
+        cachedResult={workoutModalTarget ? workoutCacheRef.current.get(workoutModalTarget.placeId) : null}
+        onResult={(placeId, data) => workoutCacheRef.current.set(placeId, data)}
       />
     </div>
   );

@@ -460,6 +460,8 @@
   margin-top: 0.4rem;
   padding-top: 0.6rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* ── EQUIPMENT / CLASSES SECTION ── */
@@ -521,7 +523,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  flex: 1;
   padding: 7px 12px;
   background: var(--accent);
   color: #111111 !important;
@@ -531,8 +533,16 @@
   letter-spacing: 1px;
   text-transform: uppercase;
   text-decoration: none;
+  border: none;
+  cursor: pointer;
   clip-path: polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%);
   transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.gym-place-popup-btn--workouts {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent) !important;
 }
 
 .gym-place-popup-btn:hover {

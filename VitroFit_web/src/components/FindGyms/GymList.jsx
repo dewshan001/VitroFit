@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SOURCE_LABELS } from './gymSourceLabels';
+import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
 import './GymList.css';
 
 // Space out detail requests so we never hammer the LLM enrichment
@@ -134,7 +135,7 @@ function GymContactBlock({ raw, website, agentData }) {
   );
 }
 
-function GymCard({ place, index, status }) {
+function GymCard({ place, index, status, onFindWorkouts }) {
   const props = place.properties || {};
   const coords = place.geometry?.coordinates;
   const [lng, lat] = coords || [];
@@ -144,6 +145,7 @@ function GymCard({ place, index, status }) {
   const address = props.formatted || props.address_line2 || '';
   const distance = props.distance != null ? (props.distance / 1000).toFixed(1) : null;
   const website = props.website || raw.website;
+  const placeId = props.place_id || `${lat}-${lng}`;
 
   return (
     <div className={`gl-card gl-fade-up gl-d${(index % 5) + 1}`}>
@@ -164,16 +166,30 @@ function GymCard({ place, index, status }) {
 
       <GymDetailsBody status={status} />
 
-      {lat != null && lng != null && (
-        <a
-          href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="gl-card-directions"
+      <div className="gl-card-actions">
+        {lat != null && lng != null && (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="gl-card-directions"
+          >
+            Directions <IconArrow />
+          </a>
+        )}
+        <button
+          type="button"
+          className="gl-card-workouts"
+          onClick={() => onFindWorkouts?.({
+            placeId,
+            name,
+            equipment: status?.data?.equipment || [],
+            classes: status?.data?.classes || [],
+          })}
         >
-          Directions <IconArrow />
-        </a>
-      )}
+          <IconDumbbell /> Find Possible Workouts
+        </button>
+      </div>
     </div>
   );
 }
@@ -191,6 +207,8 @@ function GymCardSkeleton({ index }) {
 
 export default function GymList({ places, userCoords, loadingPlaces, gymDetails, onLoadDetails }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [workoutModalTarget, setWorkoutModalTarget] = useState(null);
+  const workoutCacheRef = useRef(new Map());
 
   const sorted = useMemo(() => {
     return [...places].sort((a, b) => {
@@ -284,6 +302,7 @@ export default function GymList({ places, userCoords, loadingPlaces, gymDetails,
                   place={place}
                   index={idx}
                   status={gymDetails[placeId]}
+                  onFindWorkouts={setWorkoutModalTarget}
                 />
               );
             })}
@@ -301,6 +320,15 @@ export default function GymList({ places, userCoords, loadingPlaces, gymDetails,
           )}
         </>
       )}
+
+      <WorkoutSuggestionsModal
+        isOpen={!!workoutModalTarget}
+        onClose={() => setWorkoutModalTarget(null)}
+        gymName={workoutModalTarget?.name}
+        place={workoutModalTarget}
+        cachedResult={workoutModalTarget ? workoutCacheRef.current.get(workoutModalTarget.placeId) : null}
+        onResult={(placeId, data) => workoutCacheRef.current.set(placeId, data)}
+      />
     </div>
   );
 }
