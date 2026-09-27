@@ -3,6 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../models/timetable_slot.dart';
+import '../models/user_profile.dart';
+import '../models/workout.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_glow_background.dart';
@@ -50,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. HERO BANNER
-                _buildHeroSection(context),
+                _buildHeroSection(context, appState),
 
                 const SizedBox(height: 24),
 
@@ -81,109 +84,180 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeroSection(BuildContext context) {
-    return Stack(
-      children: [
-        // Hero Background Image
-        AspectRatio(
-          aspectRatio: 4 / 3,
-          child: Image.asset(
-            'assets/images/hero_athlete.png',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: AppColors.bgSecondary),
-          ),
-        ),
-        // Dark Overlay Gradients
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.bgPrimary.withOpacity(0.3),
-                  AppColors.bgPrimary.withOpacity(0.85),
-                  AppColors.bgPrimary,
-                ],
-                stops: const [0.0, 0.6, 1.0],
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return "GOOD MORNING";
+    if (hour < 17) return "GOOD AFTERNOON";
+    return "GOOD EVENING";
+  }
+
+  TimetableSlot? _nextUpSlot(AppState appState) {
+    return appState.timetableSlots.isNotEmpty ? appState.timetableSlots.first : null;
+  }
+
+  Widget _buildHeroSection(BuildContext context, AppState appState) {
+    final user = appState.currentUser;
+    final nextUp = _nextUpSlot(appState);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            // Background texture image
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/hero_athlete.png',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(color: AppColors.bgSecondary),
               ),
             ),
-          ),
-        ),
-        // Content
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Row(
+            // Dark overlay + border so it reads as a dashboard card
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.bgPrimary.withOpacity(0.92),
+                      AppColors.bgPrimary.withOpacity(0.75),
+                      AppColors.bgSecondary.withOpacity(0.55),
+                    ],
+                  ),
+                  border: Border.all(color: AppColors.borderAccent),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
+            // Content (drives the Stack's/card's size)
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 24,
-                    height: 3,
-                    color: AppColors.accent,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _greeting(),
+                              style: GoogleFonts.oswald(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2.5,
+                                color: AppColors.accent,
+                              ),
+                            )
+                                .animate()
+                                .fadeIn(duration: 400.ms)
+                                .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
+                            const SizedBox(height: 4),
+                            Text(
+                              user != null ? user.firstName : "WELCOME BACK",
+                              style: GoogleFonts.oswald(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                                height: 1.1,
+                                letterSpacing: 1.0,
+                                color: AppColors.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            )
+                                .animate(delay: 80.ms)
+                                .fadeIn(duration: 400.ms)
+                                .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => widget.onNavigateToTab(3),
+                        child: _Avatar(user: user)
+                            .animate()
+                            .fadeIn(duration: 400.ms)
+                            .scale(begin: const Offset(0.6, 0.6), curve: Curves.easeOutBack, duration: 450.ms),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "ELITE FITNESS STUDIO",
-                    style: GoogleFonts.oswald(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3.0,
-                      color: AppColors.accent,
-                    ),
-                  ),
+                  const SizedBox(height: 16),
+                  if (nextUp != null) ...[
+                    GestureDetector(
+                      onTap: () => widget.onNavigateToTab(2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.bgCard.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.bolt, color: AppColors.accent, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "NEXT UP · ${nextUp.day.shortLabel} ${nextUp.startTime.label}",
+                                    style: GoogleFonts.oswald(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                  Text(
+                                    nextUp.title,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+                          ],
+                        ),
+                      ),
+                    ).animate(delay: 180.ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+                    const SizedBox(height: 12),
+                  ],
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      SlantedButton(
+                        text: "BROWSE WORKOUTS",
+                        icon: Icons.arrow_forward,
+                        paddingVertical: 10,
+                        paddingHorizontal: 18,
+                        onPressed: () => widget.onNavigateToTab(1),
+                      ),
+                      SlantedButton(
+                        text: "MY TIMETABLE",
+                        isSecondary: true,
+                        paddingVertical: 10,
+                        paddingHorizontal: 18,
+                        onPressed: () => widget.onNavigateToTab(2),
+                      ),
+                    ],
+                  ).animate(delay: 260.ms).fadeIn(duration: 400.ms).slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
                 ],
               ),
-              const SizedBox(height: 12),
-              const OutlineText(text: "ACHIEVE MORE", fontSize: 32)
-                  .animate()
-                  .fadeIn(duration: 450.ms)
-                  .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
-              Text(
-                "THAN JUST FITNESS",
-                style: GoogleFonts.oswald(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  height: 1.1,
-                  letterSpacing: 1.5,
-                  color: AppColors.textPrimary,
-                ),
-              )
-                  .animate(delay: 80.ms)
-                  .fadeIn(duration: 450.ms)
-                  .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
-              const SizedBox(height: 12),
-              Text(
-                "Combine strength, flexibility, and endurance in a supportive community designed for constant growth.",
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.textSecondary,
-                ),
-              ).animate(delay: 180.ms).fadeIn(duration: 450.ms),
-              const SizedBox(height: 24),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SlantedButton(
-                    text: "START NOW",
-                    icon: Icons.arrow_forward,
-                    onPressed: () => widget.onNavigateToTab(1), // Go to Workouts tab
-                  ),
-                  SlantedButton(
-                    text: "FREE TRIAL",
-                    isSecondary: true,
-                    onPressed: () => widget.onNavigateToTab(2), // Go to Timetable tab
-                  ),
-                ],
-              ).animate(delay: 280.ms).fadeIn(duration: 450.ms).slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -295,6 +369,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
+                    const _AccentUnderline(),
+                    const SizedBox(height: 4),
                     Text(
                       "From the studio's live workout catalog",
                       style: GoogleFonts.inter(
@@ -345,25 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           )
         else
-          SizedBox(
-            height: 230,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              itemCount: featured.length,
-              itemBuilder: (context, index) {
-                final item = featured[index];
-                return Container(
-                  width: 240,
-                  margin: const EdgeInsets.only(right: 16),
-                  child: WorkoutCard(
-                    workout: item,
-                    onTap: () => WorkoutDetailSheet.show(context, item),
-                  ),
-                ).animate(delay: (index * 80).ms).fadeIn(duration: 350.ms).slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
-              },
-            ),
-          ),
+          _FeaturedWorkoutsCarousel(workouts: featured),
       ],
     );
   }
@@ -390,6 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.textPrimary,
             ),
           ),
+          const _AccentUnderline(),
           const SizedBox(height: 16),
           GridView.builder(
             shrinkWrap: true,
@@ -435,9 +494,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const OutlineText(text: "READY TO ELEVATE", fontSize: 22),
+          const OutlineText(text: "KEEP PUSHING", fontSize: 22),
           Text(
-            "YOUR FITNESS JOURNEY?",
+            "FORWARD, EVERY DAY",
             style: GoogleFonts.oswald(
               fontSize: 24,
               fontWeight: FontWeight.w900,
@@ -446,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            "Join VitroFit mobile today and gain unlimited access to elite coaching and personalized workouts.",
+            "Explore new classes and keep building your fitness journey with VitroFit.",
             style: GoogleFonts.inter(
               fontSize: 13,
               color: AppColors.textSecondary,
@@ -458,9 +517,9 @@ class _HomeScreenState extends State<HomeScreen> {
             runSpacing: 12,
             children: [
               SlantedButton(
-                text: "JOIN NOW FREE",
+                text: "BROWSE WORKOUTS",
                 icon: Icons.flash_on,
-                onPressed: () => widget.onNavigateToTab(3), // Go to Profile tab
+                onPressed: () => widget.onNavigateToTab(1), // Go to Workouts tab
               ),
               SlantedButton(
                 text: "ABOUT US",
@@ -475,6 +534,146 @@ class _HomeScreenState extends State<HomeScreen> {
         .animate()
         .fadeIn(duration: 500.ms)
         .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic);
+  }
+}
+
+/// A slim accent bar under a section headline that draws itself in on entrance.
+class _AccentUnderline extends StatelessWidget {
+  const _AccentUnderline();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: value,
+              child: Container(
+                height: 3,
+                width: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 8)],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Horizontal workout carousel where the card nearest the viewport center
+/// scales up slightly and dims the others, for a modern "focus" feel while scrolling.
+class _FeaturedWorkoutsCarousel extends StatefulWidget {
+  final List<Workout> workouts;
+
+  const _FeaturedWorkoutsCarousel({required this.workouts});
+
+  @override
+  State<_FeaturedWorkoutsCarousel> createState() => _FeaturedWorkoutsCarouselState();
+}
+
+class _FeaturedWorkoutsCarouselState extends State<_FeaturedWorkoutsCarousel> {
+  final _controller = ScrollController();
+  static const double _cardWidth = 240;
+  static const double _cardMargin = 16;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewportWidth = MediaQuery.of(context).size.width;
+    final offset = _controller.hasClients ? _controller.offset : 0.0;
+
+    return SizedBox(
+      height: 230,
+      child: ListView.builder(
+        controller: _controller,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: widget.workouts.length,
+        itemBuilder: (context, index) {
+          final item = widget.workouts[index];
+          final cardCenter = 20 + index * (_cardWidth + _cardMargin) + _cardWidth / 2;
+          final viewportCenter = offset + viewportWidth / 2;
+          final distance = (cardCenter - viewportCenter).abs();
+          final t = (1 - (distance / (viewportWidth * 0.7))).clamp(0.0, 1.0);
+          final scale = 0.92 + 0.08 * t;
+          final opacity = 0.65 + 0.35 * t;
+
+          return Container(
+            width: _cardWidth,
+            margin: const EdgeInsets.only(right: _cardMargin),
+            child: Opacity(
+              opacity: opacity,
+              child: Transform.scale(
+                scale: scale,
+                child: WorkoutCard(
+                  workout: item,
+                  onTap: () => WorkoutDetailSheet.show(context, item),
+                ),
+              ),
+            ),
+          ).animate(delay: (index * 80).ms).fadeIn(duration: 350.ms).slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
+        },
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  final UserProfile? user;
+
+  const _Avatar({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = user?.profileImageUrl;
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.accent.withOpacity(0.9), AppColors.accentDark],
+        ),
+        border: Border.all(color: AppColors.bgPrimary, width: 2),
+        boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 10, spreadRadius: 1)],
+        image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover) : null,
+      ),
+      alignment: Alignment.center,
+      child: imageUrl == null
+          ? Text(
+              user?.initials ?? "?",
+              style: GoogleFonts.oswald(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.bgPrimary,
+              ),
+            )
+          : null,
+    );
   }
 }
 
