@@ -126,6 +126,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         children: _pages,
       ),
       floatingActionButton: const ChatbotFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),

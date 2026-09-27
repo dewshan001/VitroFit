@@ -11,25 +11,56 @@ import '../../widgets/vitro_text_field.dart';
 
 /// Opens the create/edit form for a personal timetable slot.
 /// [presetWorkout] pre-selects a workout (from "Add to My Timetable").
+/// [presetDay] pre-selects a day when creating (e.g. from the currently viewed day tab).
 /// [editingSlot] switches the form into edit mode for an existing slot.
 Future<void> showTimetableSlotForm(
   BuildContext context, {
   Workout? presetWorkout,
+  ApiDay? presetDay,
   TimetableSlot? editingSlot,
 }) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => _TimetableSlotForm(presetWorkout: presetWorkout, editingSlot: editingSlot),
+    builder: (context) => _TimetableSlotForm(presetWorkout: presetWorkout, presetDay: presetDay, editingSlot: editingSlot),
   );
+}
+
+/// Shared "REMOVE SLOT?" confirmation dialog used by both the timetable list
+/// (swipe-to-delete) and the edit form's Delete button.
+Future<bool> confirmRemoveTimetableSlot(BuildContext context, String title) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.bgCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.error)),
+      title: Text("REMOVE SLOT?", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, color: AppColors.error)),
+      content: Text(
+        "Remove \"$title\" from your timetable?",
+        style: GoogleFonts.inter(color: AppColors.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text("CANCEL", style: GoogleFonts.oswald(color: AppColors.textMuted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text("REMOVE", style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
 }
 
 class _TimetableSlotForm extends StatefulWidget {
   final Workout? presetWorkout;
+  final ApiDay? presetDay;
   final TimetableSlot? editingSlot;
 
-  const _TimetableSlotForm({this.presetWorkout, this.editingSlot});
+  const _TimetableSlotForm({this.presetWorkout, this.presetDay, this.editingSlot});
 
   @override
   State<_TimetableSlotForm> createState() => _TimetableSlotFormState();
@@ -45,6 +76,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
   int? _workoutId;
 
   bool _saving = false;
+  bool _deleting = false;
   String? _error;
 
   bool get _isEditing => widget.editingSlot != null;
@@ -52,6 +84,11 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
   @override
   void initState() {
     super.initState();
+    // Keep the workout dropdown current - the catalog is admin-managed and
+    // may have changed since it was last loaded (mirrors the website's
+    // refreshWorkouts() on every form open).
+    context.read<AppState>().loadWorkouts();
+
     final slot = widget.editingSlot;
     if (slot != null) {
       _day = slot.day;
@@ -60,7 +97,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
       _workoutId = slot.workoutId;
       _titleController.text = slot.title;
     } else {
-      _day = ApiDay.monday;
+      _day = widget.presetDay ?? ApiDay.monday;
       _startTime = const TimeOfDay(hour: 18, minute: 0);
       _endTime = const TimeOfDay(hour: 19, minute: 0);
       _workoutId = widget.presetWorkout?.id;
@@ -158,6 +195,31 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
       setState(() => _error = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    final slot = widget.editingSlot;
+    if (slot == null) return;
+    final confirmed = await confirmRemoveTimetableSlot(context, slot.title);
+    if (!confirmed || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      await context.read<AppState>().deleteSlot(slot.id);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: AppColors.bgCard, content: Text("Slot removed.", style: GoogleFonts.inter())),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _deleting = false;
+          _error = e is ApiException ? e.message : 'Could not remove this slot. Please try again.';
+        });
+      }
     }
   }
 
@@ -289,9 +351,29 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                     text: _isEditing ? "SAVE CHANGES" : "ADD TO TIMETABLE",
                     icon: Icons.check,
                     isLoading: _saving,
+                    isDisabled: _deleting,
                     onPressed: _submit,
                   ),
                 ),
+                if (_isEditing) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: (_saving || _deleting) ? null : _delete,
+                      icon: _deleting
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.error)),
+                            )
+                          : const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                      label: Text(
+                        "DELETE SLOT",
+                        style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
               ],
             ),

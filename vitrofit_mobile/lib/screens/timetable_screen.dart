@@ -21,30 +21,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
   ApiDay _selectedDay = ApiDay.monday;
 
   Future<void> _confirmDelete(TimetableSlot slot) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.error)),
-        title: Text("REMOVE SLOT?", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, color: AppColors.error)),
-        content: Text(
-          "Remove \"${slot.title}\" from your timetable?",
-          style: GoogleFonts.inter(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text("CANCEL", style: GoogleFonts.oswald(color: AppColors.textMuted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text("REMOVE", style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+    final confirmed = await confirmRemoveTimetableSlot(context, slot.title);
 
-    if (confirmed == true && mounted) {
+    if (confirmed && mounted) {
       try {
         await context.read<AppState>().deleteSlot(slot.id);
       } catch (e) {
@@ -65,7 +44,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showTimetableSlotForm(context),
+        onPressed: () => showTimetableSlotForm(context, presetDay: _selectedDay),
         backgroundColor: AppColors.accent,
         foregroundColor: AppColors.bgPrimary,
         icon: const Icon(Icons.add),
@@ -243,22 +222,29 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(item.title, style: GoogleFonts.oswald(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                            ),
-                            BadgeChip(label: item.workoutCategory, isAccent: false),
-                          ],
+                        Text(
+                          item.title,
+                          style: GoogleFonts.oswald(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Row(
                           children: [
                             const Icon(Icons.fitness_center, size: 14, color: AppColors.textMuted),
                             const SizedBox(width: 4),
-                            Text(item.workoutName, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                            Expanded(
+                              child: Text(
+                                item.workoutName,
+                                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
+                        const SizedBox(height: 6),
+                        BadgeChip(label: item.workoutCategory, isAccent: false),
                       ],
                     ),
                   ),
