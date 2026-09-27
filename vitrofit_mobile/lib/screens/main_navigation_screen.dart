@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chatbot_fab.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'timetable_screen.dart';
@@ -124,6 +125,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _currentIndex,
         children: _pages,
       ),
+      floatingActionButton: const ChatbotFab(),
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
