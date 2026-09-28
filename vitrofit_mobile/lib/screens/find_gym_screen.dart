@@ -33,53 +33,152 @@ class FindGymScreen extends StatefulWidget {
   State<FindGymScreen> createState() => _FindGymScreenState();
 }
 
-class _FindGymScreenState extends State<FindGymScreen> {
+class _FindGymScreenState extends State<FindGymScreen>
+    with TickerProviderStateMixin {
   final _geoapifyApi = GeoapifyApi();
   final _gymAgentApi = GymAgentApi();
   final _mapController = MapController();
+  final _searchController = TextEditingController();
 
   LatLng? _userLocation;
   bool _locating = true;
   bool _usingFallback = false;
   bool _mapReady = false;
 
+  /// Why location resolution fell back, if it did - shown in the UI so this
+  /// is diagnosable without a console (permission/service/GPS all collapse
+  /// to the same "using fallback" state otherwise).
+  String? _locationIssue;
+  bool _locationPermissionBlocked = false;
+
+  /// Tracks the map's current camera ourselves (mirroring what we last
+  /// commanded via `.move()`) instead of reading `_mapController.camera`
+  /// back - that getter has proven unreliable to query from here.
+  LatLng _cameraCenter = _fallbackCenter;
+  double _cameraZoom = 12;
+
   List<Gym> _gyms = [];
   bool _searching = false;
   String? _searchError;
   int _visibleCount = _pageSize;
+  String _searchQuery = '';
 
   Timer? _panDebounce;
+  AnimationController? _panAnimController;
 
   final Map<String, GymDetails> _detailsCache = {};
   final Set<String> _detailsLoading = {};
+  final Set<String> _detailsFailed = {};
   final Map<String, WorkoutSuggestionsResult> _workoutCache = {};
 
   @override
   void initState() {
     super.initState();
-    _locateAndSearch();
+    // Defer to after the first frame: this screen is built immediately at
+    // app startup (it lives inside an IndexedStack that builds all tabs
+    // eagerly), and requesting the location permission before the Activity
+    // has settled can make the OS silently skip showing its dialog.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _locateAndSearch();
+    });
   }
 
   @override
   void dispose() {
     _panDebounce?.cancel();
+    _panAnimController?.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
+  /// Smoothly pans the map to [target] instead of snapping instantly.
+  ///
+  /// Never allowed to throw: a camera-animation failure must not be able to
+  /// break the caller's control flow (in particular `_locateAndSearch`,
+  /// where this is called unawaited right before the gym fetch).
+  void _animateCameraTo(LatLng target, double zoom) {
+    try {
+      if (!_mapReady) {
+        _mapController.move(target, zoom);
+        _cameraCenter = target;
+        _cameraZoom = zoom;
+        return;
+      }
+      _panAnimController?.dispose();
+      final controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 600),
+      );
+      final latTween = Tween<double>(
+        begin: _cameraCenter.latitude,
+        end: target.latitude,
+      );
+      final lngTween = Tween<double>(
+        begin: _cameraCenter.longitude,
+        end: target.longitude,
+      );
+      final zoomTween = Tween<double>(begin: _cameraZoom, end: zoom);
+      final curved = CurvedAnimation(
+        parent: controller,
+        curve: Curves.easeInOutCubic,
+      );
+      curved.addListener(() {
+        try {
+          _mapController.move(
+            LatLng(latTween.evaluate(curved), lngTween.evaluate(curved)),
+            zoomTween.evaluate(curved),
+          );
+        } catch (_) {
+          // Ignore mid-animation map errors (e.g. controller detached).
+        }
+      });
+      controller.addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _cameraCenter = target;
+          _cameraZoom = zoom;
+        }
+      });
+      _panAnimController = controller;
+      controller.forward();
+    } catch (_) {
+      // Fall back to an instant, best-effort move; never let a camera
+      // animation failure interrupt the caller.
+      try {
+        _mapController.move(target, zoom);
+        _cameraCenter = target;
+        _cameraZoom = zoom;
+      } catch (_) {
+        // Map not ready/attached - nothing more we can do here.
+      }
+    }
+  }
+
   Future<void> _locateAndSearch() async {
-    setState(() => _locating = true);
+    setState(() {
+      _locating = true;
+      _locationIssue = null;
+      _locationPermissionBlocked = false;
+    });
     LatLng center = _fallbackCenter;
     var fallback = true;
+    String? issue;
+    var permissionBlocked = false;
 
     try {
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission != LocationPermission.denied &&
-          permission != LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied) {
+        issue = "Location permission denied.";
+      } else if (permission == LocationPermission.deniedForever) {
+        issue = "Location permission blocked — enable it in Settings.";
+        permissionBlocked = true;
+      } else {
         final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (serviceEnabled) {
+        if (!serviceEnabled) {
+          issue = "Location services are turned off.";
+        } else {
           final position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.high,
@@ -92,6 +191,7 @@ class _FindGymScreenState extends State<FindGymScreen> {
       }
     } catch (_) {
       // Falls back to the default center below, same as the website's behavior.
+      issue = "Couldn't get your location.";
     }
 
     if (!mounted) return;
@@ -99,8 +199,14 @@ class _FindGymScreenState extends State<FindGymScreen> {
       _userLocation = fallback ? null : center;
       _usingFallback = fallback;
       _locating = false;
+      _locationIssue = fallback ? issue : null;
+      _locationPermissionBlocked = permissionBlocked;
     });
-    if (_mapReady) _mapController.move(center, 13);
+    try {
+      if (_mapReady) _animateCameraTo(center, 13);
+    } catch (_) {
+      // Camera animation is cosmetic; never let it block loading gyms.
+    }
     await _fetchGyms(center);
   }
 
@@ -154,9 +260,14 @@ class _FindGymScreenState extends State<FindGymScreen> {
     try {
       final details = await _gymAgentApi.getDetails(gym);
       if (!mounted) return;
-      setState(() => _detailsCache[gym.placeId] = details);
+      setState(() {
+        _detailsCache[gym.placeId] = details;
+        _detailsFailed.remove(gym.placeId);
+      });
     } catch (_) {
-      // Silently skip - the card/sheet just shows without enrichment.
+      // The gym-agent enrichment service is unreachable/unavailable - stop
+      // showing a loading skeleton that would otherwise shimmer forever.
+      if (mounted) setState(() => _detailsFailed.add(gym.placeId));
     } finally {
       _detailsLoading.remove(gym.placeId);
     }
@@ -204,16 +315,26 @@ class _FindGymScreenState extends State<FindGymScreen> {
   }
 
   void _showGymSheet(Gym gym) {
-    _ensureDetails(gym);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) {
+          // _ensureDetails updates the parent screen's state, not this
+          // sheet's - so explicitly refresh the sheet once it resolves.
+          // Safe to call every rebuild: _ensureDetails no-ops if a fetch
+          // for this gym is already cached, failed, or in flight.
+          if (!_detailsCache.containsKey(gym.placeId) &&
+              !_detailsFailed.contains(gym.placeId)) {
+            _ensureDetails(gym).then((_) {
+              if (context.mounted) setSheetState(() {});
+            });
+          }
           return _GymDetailSheet(
             gym: gym,
             details: _detailsCache[gym.placeId],
+            detailsFailed: _detailsFailed.contains(gym.placeId),
             onDirections: () => _openDirections(gym),
             onFindWorkouts: () => _showWorkoutSuggestions(gym),
           );
@@ -222,9 +343,19 @@ class _FindGymScreenState extends State<FindGymScreen> {
     );
   }
 
+  List<Gym> get _filteredGyms {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _gyms;
+    return _gyms.where((gym) {
+      return gym.name.toLowerCase().contains(query) ||
+          (gym.address?.toLowerCase().contains(query) ?? false);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final visible = _gyms.take(_visibleCount).toList();
+    final filtered = _filteredGyms;
+    final visible = filtered.take(_visibleCount).toList();
     final statusText = _locating
         ? "Detecting your location…"
         : _usingFallback
@@ -245,23 +376,36 @@ class _FindGymScreenState extends State<FindGymScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const OutlineText(text: "FIND YOUR", fontSize: 24),
-              Text(
-                "NEAREST GYM",
-                style: GoogleFonts.oswald(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "Discover fitness centres near you, with AI-suggested workouts for each one.",
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const OutlineText(text: "FIND YOUR", fontSize: 24),
+                  Text(
+                    "NEAREST GYM",
+                    style: GoogleFonts.oswald(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Discover fitness centres near you, with AI-suggested workouts for each one.",
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
+              const SizedBox(height: 16),
+              _GymSearchBar(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ).animate(delay: 60.ms).fadeIn(duration: 300.ms).slideY(
+                begin: 0.08,
+                end: 0,
               ),
               const SizedBox(height: 16),
               Row(
@@ -273,19 +417,25 @@ class _FindGymScreenState extends State<FindGymScreen> {
                               ? Icons.location_disabled
                               : Icons.location_on),
                     size: 14,
-                    color: AppColors.accent,
+                    color: (_usingFallback && _locationIssue != null)
+                        ? AppColors.error
+                        : AppColors.accent,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      statusText,
+                      (!_locating && _usingFallback && _locationIssue != null)
+                          ? _locationIssue!
+                          : statusText,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: (_usingFallback && _locationIssue != null)
+                            ? AppColors.error
+                            : AppColors.textSecondary,
                       ),
                     ),
                   ),
-                  if (_searching)
+                  if (_locating || _searching)
                     const SizedBox(
                       width: 12,
                       height: 12,
@@ -296,6 +446,23 @@ class _FindGymScreenState extends State<FindGymScreen> {
                     ),
                 ],
               ),
+              if (!_locating && _usingFallback && _locationIssue != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SlantedButton(
+                    text: _locationPermissionBlocked
+                        ? "OPEN SETTINGS"
+                        : "RETRY",
+                    isSecondary: true,
+                    paddingVertical: 8,
+                    paddingHorizontal: 18,
+                    onPressed: _locationPermissionBlocked
+                        ? () => Geolocator.openAppSettings()
+                        : _locateAndSearch,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _buildMap(),
               const SizedBox(height: 10),
@@ -311,7 +478,7 @@ class _FindGymScreenState extends State<FindGymScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildList(visible),
+              _buildList(visible, filtered.length),
             ],
           ),
         ),
@@ -334,45 +501,89 @@ class _FindGymScreenState extends State<FindGymScreen> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter: _fallbackCenter,
-          initialZoom: 12,
-          onMapReady: () {
-            _mapReady = true;
-            if (_userLocation != null) _mapController.move(_userLocation!, 13);
-          },
-          onPositionChanged: _onMapPositionChanged,
-        ),
+      child: Stack(
         children: [
-          TileLayer(
-            urlTemplate:
-                'https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${_geoapifyApiKeyForTiles()}',
-            userAgentPackageName: 'com.vitrofit.mobile',
-          ),
-          MarkerLayer(
-            markers: [
-              if (_userLocation != null)
-                Marker(
-                  point: _userLocation!,
-                  width: 40,
-                  height: 40,
-                  child: const _UserPulseMarker(),
-                ),
-              ..._gyms.map(
-                (gym) => Marker(
-                  point: LatLng(gym.lat, gym.lng),
-                  width: 36,
-                  height: 42,
-                  alignment: Alignment.topCenter,
-                  child: GestureDetector(
-                    onTap: () => _showGymSheet(gym),
-                    child: const _GymPin(),
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _fallbackCenter,
+              initialZoom: 12,
+              onMapReady: () {
+                _mapReady = true;
+                if (_userLocation != null) {
+                  _animateCameraTo(_userLocation!, 13);
+                }
+              },
+              onPositionChanged: _onMapPositionChanged,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${_geoapifyApiKeyForTiles()}',
+                userAgentPackageName: 'com.vitrofit.mobile',
+              ),
+              MarkerLayer(
+                markers: [
+                  if (_userLocation != null)
+                    Marker(
+                      point: _userLocation!,
+                      width: 40,
+                      height: 40,
+                      child: const _UserPulseMarker(),
+                    ),
+                  ..._gyms.asMap().entries.map(
+                    (entry) => Marker(
+                      point: LatLng(entry.value.lat, entry.value.lng),
+                      width: 36,
+                      height: 42,
+                      alignment: Alignment.topCenter,
+                      child: GestureDetector(
+                            onTap: () => _showGymSheet(entry.value),
+                            child: const _GymPin(),
+                          )
+                          .animate(delay: (entry.key * 30).ms)
+                          .scale(
+                            begin: const Offset(0, 0),
+                            end: const Offset(1, 1),
+                            duration: 260.ms,
+                            curve: Curves.easeOutBack,
+                          ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
+          ),
+          IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _locating ? 1 : 0,
+              child: Container(
+                color: AppColors.bgPrimary.withOpacity(0.65),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Locating you…",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -406,8 +617,8 @@ class _FindGymScreenState extends State<FindGymScreen> {
     );
   }
 
-  Widget _buildList(List<Gym> visible) {
-    if (_searching && _gyms.isEmpty) {
+  Widget _buildList(List<Gym> visible, int filteredCount) {
+    if ((_locating || _searching) && _gyms.isEmpty) {
       return Column(
         children: List.generate(
           3,
@@ -419,10 +630,26 @@ class _FindGymScreenState extends State<FindGymScreen> {
       );
     }
     if (_searchError != null && _gyms.isEmpty) {
-      return _emptyCard(Icons.wifi_off, _searchError!);
+      return _emptyCard(
+        Icons.wifi_off,
+        _searchError!,
+        retryLabel: "RETRY",
+        onRetry: () => _fetchGyms(_userLocation ?? _fallbackCenter),
+      );
     }
     if (_gyms.isEmpty) {
       return _emptyCard(Icons.location_off, "No gyms found nearby.");
+    }
+    if (filteredCount == 0) {
+      return _emptyCard(
+        Icons.search_off,
+        'No gyms match "$_searchQuery".',
+        retryLabel: "CLEAR SEARCH",
+        onRetry: () {
+          _searchController.clear();
+          setState(() => _searchQuery = '');
+        },
+      );
     }
 
     return Column(
@@ -435,6 +662,7 @@ class _FindGymScreenState extends State<FindGymScreen> {
                 _GymCard(
                       gym: gym,
                       details: _detailsCache[gym.placeId],
+                      detailsFailed: _detailsFailed.contains(gym.placeId),
                       onVisible: () =>
                           _ensureDetails(gym, delayMs: index * 600),
                       onDirections: () => _openDirections(gym),
@@ -446,7 +674,7 @@ class _FindGymScreenState extends State<FindGymScreen> {
                     .slideY(begin: 0.08, end: 0, curve: Curves.easeOut),
           );
         }),
-        if (_visibleCount < _gyms.length)
+        if (_visibleCount < filteredCount)
           SizedBox(
             width: double.infinity,
             child: SlantedButton(
@@ -459,32 +687,144 @@ class _FindGymScreenState extends State<FindGymScreen> {
     );
   }
 
-  Widget _emptyCard(IconData icon, String message) {
+  Widget _emptyCard(
+    IconData icon,
+    String message, {
+    String? retryLabel,
+    VoidCallback? onRetry,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(40),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 40, color: AppColors.textMuted),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: GoogleFonts.inter(color: AppColors.textSecondary),
-            textAlign: TextAlign.center,
+          padding: const EdgeInsets.all(40),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-    );
+          child: Column(
+            children: [
+              Icon(icon, size: 40, color: AppColors.textMuted),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: GoogleFonts.inter(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              if (onRetry != null) ...[
+                const SizedBox(height: 16),
+                SlantedButton(
+                  text: retryLabel ?? "RETRY",
+                  isSecondary: true,
+                  paddingVertical: 10,
+                  paddingHorizontal: 22,
+                  onPressed: onRetry,
+                ),
+              ],
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 300.ms)
+        .slideY(begin: 0.08, end: 0, curve: Curves.easeOut);
   }
 
   String _geoapifyApiKeyForTiles() => const String.fromEnvironment(
     'GEOAPIFY_API_KEY',
     defaultValue: 'df0e01be60a848199b726c73604f3280',
   );
+}
+
+/// A location/gym-name filter for the already-loaded gym list, styled to
+/// match the rest of the screen's liquid-glass surfaces.
+class _GymSearchBar extends StatefulWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _GymSearchBar({required this.controller, required this.onChanged});
+
+  @override
+  State<_GymSearchBar> createState() => _GymSearchBarState();
+}
+
+class _GymSearchBarState extends State<_GymSearchBar> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _focused ? AppColors.accent : AppColors.border,
+          width: _focused ? 1.4 : 1,
+        ),
+        boxShadow: _focused
+            ? const [
+                BoxShadow(
+                  color: AppColors.shadowAccent,
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ]
+            : const [],
+      ),
+      child: Focus(
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        child: Row(
+          children: [
+            const SizedBox(width: 14),
+            Icon(
+              Icons.location_on_outlined,
+              size: 18,
+              color: _focused ? AppColors.accent : AppColors.textMuted,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: widget.controller,
+                onChanged: widget.onChanged,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                ),
+                cursorColor: AppColors.accent,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  filled: false,
+                  hintText: "Search by gym name or area…",
+                  hintStyle: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 150),
+              opacity: widget.controller.text.isEmpty ? 0 : 1,
+              child: IgnorePointer(
+                ignoring: widget.controller.text.isEmpty,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: AppColors.textMuted,
+                  ),
+                  onPressed: () {
+                    widget.controller.clear();
+                    widget.onChanged('');
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _UserPulseMarker extends StatelessWidget {
@@ -575,6 +915,7 @@ class _PinTailPainter extends CustomPainter {
 class _GymCard extends StatefulWidget {
   final Gym gym;
   final GymDetails? details;
+  final bool detailsFailed;
   final VoidCallback onVisible;
   final VoidCallback onDirections;
   final VoidCallback onFindWorkouts;
@@ -583,6 +924,7 @@ class _GymCard extends StatefulWidget {
   const _GymCard({
     required this.gym,
     required this.details,
+    this.detailsFailed = false,
     required this.onVisible,
     required this.onDirections,
     required this.onFindWorkouts,
@@ -594,6 +936,8 @@ class _GymCard extends StatefulWidget {
 }
 
 class _GymCardState extends State<_GymCard> {
+  bool _isPressed = false;
+
   @override
   void initState() {
     super.initState();
@@ -607,7 +951,14 @@ class _GymCardState extends State<_GymCard> {
 
     return GestureDetector(
       onTap: widget.onTap,
-      child: LiquidGlassContainer(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: LiquidGlassContainer(
         padding: const EdgeInsets.all(16),
         borderRadius: BorderRadius.circular(14),
         blur: false,
@@ -650,9 +1001,10 @@ class _GymCardState extends State<_GymCard> {
               ),
             ],
             const SizedBox(height: 10),
-            if (details == null)
+            if (details == null && !widget.detailsFailed)
               const SkeletonBox(height: 22, borderRadius: 6)
-            else if (details.equipment.isNotEmpty || details.classes.isNotEmpty)
+            else if (details != null &&
+                (details.equipment.isNotEmpty || details.classes.isNotEmpty))
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -718,6 +1070,7 @@ class _GymCardState extends State<_GymCard> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -726,12 +1079,14 @@ class _GymCardState extends State<_GymCard> {
 class _GymDetailSheet extends StatelessWidget {
   final Gym gym;
   final GymDetails? details;
+  final bool detailsFailed;
   final VoidCallback onDirections;
   final VoidCallback onFindWorkouts;
 
   const _GymDetailSheet({
     required this.gym,
     required this.details,
+    this.detailsFailed = false,
     required this.onDirections,
     required this.onFindWorkouts,
   });
@@ -808,7 +1163,16 @@ class _GymDetailSheet extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 16),
-              if (details == null)
+              if (details == null && detailsFailed)
+                Text(
+                  "Couldn't load extra details for this gym.",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else if (details == null)
                 const SkeletonBox(height: 60, borderRadius: 10)
               else ...[
                 if (details!.equipment.isNotEmpty) ...[

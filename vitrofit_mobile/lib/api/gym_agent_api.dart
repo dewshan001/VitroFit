@@ -78,7 +78,14 @@ class GymAgentApi {
   String _messageFor(DioException e) {
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout) {
-      return 'Could not reach the gym service. Check your connection and try again.';
+      final host = Uri.tryParse(gymAgentBaseUrl)?.host ?? gymAgentBaseUrl;
+      if (host == '127.0.0.1' || host == 'localhost') {
+        return 'Could not reach the gym service at $gymAgentBaseUrl. '
+            'On a physical device, run `adb reverse tcp:8001 tcp:8001` '
+            '(separately from any other port you\'ve forwarded), or relaunch '
+            'with --dart-define=GYM_AGENT_API_URL=http://<your-PC-LAN-IP>:8001/api.';
+      }
+      return 'Could not reach the gym service at $gymAgentBaseUrl. Check your connection and try again.';
     }
     final data = e.response?.data;
     if (data is Map && data['detail'] is String)
