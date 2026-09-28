@@ -16,7 +16,8 @@ class BadgeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fillColor = color ?? (isAccent ? AppColors.accent : AppColors.bgCardHover);
+    final fillColor =
+        color ?? (isAccent ? AppColors.accent : AppColors.bgCardHover);
     final useDarkText = color != null || isAccent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -29,7 +30,7 @@ class BadgeChip extends StatelessWidget {
                   color: fillColor.withOpacity(0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
-                )
+                ),
               ]
             : [],
       ),

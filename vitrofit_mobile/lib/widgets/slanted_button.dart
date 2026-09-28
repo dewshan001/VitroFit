@@ -39,14 +39,18 @@ class _SlantedButtonState extends State<SlantedButton> {
     return Opacity(
       opacity: widget.isDisabled ? 0.5 : 1.0,
       child: GestureDetector(
-        onTapDown: _interactive ? (_) => setState(() => _isPressed = true) : null,
+        onTapDown: _interactive
+            ? (_) => setState(() => _isPressed = true)
+            : null,
         onTapUp: _interactive
             ? (_) {
                 setState(() => _isPressed = false);
                 widget.onPressed();
               }
             : null,
-        onTapCancel: _interactive ? () => setState(() => _isPressed = false) : null,
+        onTapCancel: _interactive
+            ? () => setState(() => _isPressed = false)
+            : null,
         child: AnimatedScale(
           scale: _isPressed ? 0.96 : (widget.isLoading ? 0.99 : 1.0),
           duration: const Duration(milliseconds: 120),
@@ -57,7 +61,9 @@ class _SlantedButtonState extends State<SlantedButton> {
                   ? []
                   : [
                       BoxShadow(
-                        color: AppColors.accent.withOpacity(widget.isLoading ? 0.5 : 0.35),
+                        color: AppColors.accent.withOpacity(
+                          widget.isLoading ? 0.5 : 0.35,
+                        ),
                         blurRadius: widget.isLoading ? 22 : 16,
                         spreadRadius: 1,
                         offset: const Offset(0, 4),
@@ -74,13 +80,10 @@ class _SlantedButtonState extends State<SlantedButton> {
                 ),
                 decoration: BoxDecoration(
                   color: widget.isSecondary
-                      ? Colors.transparent
+                      ? AppColors.bgCard.withOpacity(0.55)
                       : AppColors.accent,
                   border: widget.isSecondary
-                      ? Border.all(
-                          color: AppColors.accent,
-                          width: 2,
-                        )
+                      ? Border.all(color: AppColors.accent, width: 2)
                       : null,
                 ),
                 child: AnimatedSwitcher(
@@ -93,36 +96,42 @@ class _SlantedButtonState extends State<SlantedButton> {
                   ),
                   child: widget.isLoading
                       ? Row(
-                          key: const ValueKey('loading'),
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  widget.isSecondary ? AppColors.accent : AppColors.bgPrimary,
+                              key: const ValueKey('loading'),
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      widget.isSecondary
+                                          ? AppColors.accent
+                                          : AppColors.bgPrimary,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "PLEASE WAIT",
-                              style: GoogleFonts.oswald(
-                                color: widget.isSecondary ? AppColors.accent : AppColors.bgPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ).animate(onPlay: (c) => c.repeat(reverse: true)).fadeOut(
-                            duration: 700.ms,
-                            curve: Curves.easeInOut,
-                            begin: 1.0,
-                          )
+                                const SizedBox(width: 10),
+                                Text(
+                                  "PLEASE WAIT",
+                                  style: GoogleFonts.oswald(
+                                    color: widget.isSecondary
+                                        ? AppColors.accent
+                                        : AppColors.bgPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                              ],
+                            )
+                            .animate(onPlay: (c) => c.repeat(reverse: true))
+                            .fadeOut(
+                              duration: 700.ms,
+                              curve: Curves.easeInOut,
+                              begin: 1.0,
+                            )
                       : Row(
                           key: const ValueKey('content'),
                           mainAxisSize: MainAxisSize.min,

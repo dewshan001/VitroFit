@@ -21,7 +21,11 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
 
   Future<void> _pickAndUploadPhoto() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 85);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
     if (picked == null || !mounted) return;
 
     final appState = context.read<AppState>();
@@ -32,7 +36,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.success,
-            content: Text("Profile photo updated.", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            content: Text(
+              "Profile photo updated.",
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+            ),
           ),
         );
       }
@@ -56,7 +63,13 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.bgPrimary,
         elevation: 0,
-        title: Text("PERSONAL DETAILS", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        title: Text(
+          "PERSONAL DETAILS",
+          style: GoogleFonts.oswald(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(
@@ -73,11 +86,18 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                       border: Border.all(color: AppColors.accent, width: 2),
                       color: AppColors.bgCard,
                       image: user?.profileImageUrl != null
-                          ? DecorationImage(image: NetworkImage(user!.profileImageUrl!), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: NetworkImage(user!.profileImageUrl!),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     child: user?.profileImageUrl == null
-                        ? Icon(Icons.person, size: 40, color: AppColors.textMuted)
+                        ? Icon(
+                            Icons.person,
+                            size: 40,
+                            color: AppColors.textMuted,
+                          )
                         : null,
                   ),
                   Positioned(
@@ -87,14 +107,24 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                       onTap: _uploading ? null : _pickAndUploadPhoto,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(
+                          color: AppColors.accent,
+                          shape: BoxShape.circle,
+                        ),
                         child: _uploading
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.bgPrimary),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.bgPrimary,
+                                ),
                               )
-                            : const Icon(Icons.camera_alt, size: 16, color: AppColors.bgPrimary),
+                            : const Icon(
+                                Icons.camera_alt,
+                                size: 16,
+                                color: AppColors.bgPrimary,
+                              ),
                       ),
                     ),
                   ),
@@ -105,7 +135,12 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
             _detailRow("FIRST NAME", user?.firstName ?? '-'),
             _detailRow("LAST NAME", user?.lastName ?? '-'),
             _detailRow("EMAIL ADDRESS", user?.email ?? '-'),
-            _detailRow("PHONE NUMBER", (user?.phone?.isNotEmpty ?? false) ? user!.phone! : 'Not provided'),
+            _detailRow(
+              "PHONE NUMBER",
+              (user?.phone?.isNotEmpty ?? false)
+                  ? user!.phone!
+                  : 'Not provided',
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(14),
@@ -116,13 +151,20 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: AppColors.textMuted, size: 18),
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       "Name, email and phone are set at registration and can't be edited here yet. "
                       "Contact support if these need to change.",
-                      style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.textMuted),
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
                 ],
@@ -148,10 +190,21 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
         children: [
           Text(
             label,
-            style: GoogleFonts.oswald(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textMuted),
+            style: GoogleFonts.oswald(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.inter(fontSize: 15, color: AppColors.textPrimary)),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ],
       ),
     );

@@ -24,13 +24,18 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final categories = ['ALL', ...{for (final w in appState.workouts) w.category}];
+    final categories = [
+      'ALL',
+      ...{for (final w in appState.workouts) w.category},
+    ];
     if (!categories.contains(_selectedCategory)) _selectedCategory = 'ALL';
 
     final filtered = appState.workouts.where((w) {
-      final matchesSearch = w.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+      final matchesSearch =
+          w.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           w.category.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesCategory = _selectedCategory == 'ALL' || w.category == _selectedCategory;
+      final matchesCategory =
+          _selectedCategory == 'ALL' || w.category == _selectedCategory;
       return matchesSearch && matchesCategory;
     }).toList();
 
@@ -39,20 +44,30 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       backgroundColor: AppColors.bgCard,
       onRefresh: () => context.read<AppState>().loadWorkouts(),
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        padding: const EdgeInsets.all(20),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const OutlineText(text: "EXPLORE OUR", fontSize: 24),
             Text(
               "WORKOUT CATALOG",
-              style: GoogleFonts.oswald(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.accent),
+              style: GoogleFonts.oswald(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                color: AppColors.accent,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               "Browse every workout in the studio's catalog and add the ones you want to your personal timetable.",
-              style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -64,11 +79,20 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 prefixIcon: const Icon(Icons.search, color: AppColors.accent),
                 filled: true,
                 fillColor: AppColors.bgCard,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppColors.accent,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -81,14 +105,28 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: FilterChip(
-                      label: Text(cat, style: GoogleFonts.oswald(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? AppColors.bgPrimary : AppColors.textPrimary)),
+                      label: Text(
+                        cat,
+                        style: GoogleFonts.oswald(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? AppColors.bgPrimary
+                              : AppColors.textPrimary,
+                        ),
+                      ),
                       selected: isSelected,
-                      onSelected: (selected) => setState(() => _selectedCategory = cat),
+                      onSelected: (selected) =>
+                          setState(() => _selectedCategory = cat),
                       selectedColor: AppColors.accent,
                       backgroundColor: AppColors.bgCard,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: isSelected ? AppColors.accent : AppColors.border),
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppColors.accent
+                              : AppColors.border,
+                        ),
                       ),
                     ),
                   );
@@ -106,19 +144,28 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   Widget _buildBody(AppState appState, List<Workout> filtered) {
     if (appState.workoutsLoading && appState.workouts.isEmpty) {
       return Column(
-        children: List.generate(4, (i) => const Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child: SkeletonBox(height: 150, borderRadius: 12),
-            )),
+        children: List.generate(
+          4,
+          (i) => const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: SkeletonBox(height: 150, borderRadius: 12),
+          ),
+        ),
       );
     }
 
     if (appState.workoutsError != null && appState.workouts.isEmpty) {
-      return _messageBox(Icons.wifi_off, "Couldn't load workouts. Pull down to try again.\n${appState.workoutsError}");
+      return _messageBox(
+        Icons.wifi_off,
+        "Couldn't load workouts. Pull down to try again.\n${appState.workoutsError}",
+      );
     }
 
     if (filtered.isEmpty) {
-      return _messageBox(Icons.fitness_center_sharp, "No workouts found matching your criteria.");
+      return _messageBox(
+        Icons.fitness_center_sharp,
+        "No workouts found matching your criteria.",
+      );
     }
 
     return Column(
@@ -127,7 +174,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           alignment: Alignment.centerLeft,
           child: Text(
             "SHOWING ${filtered.length} WORKOUTS",
-            style: GoogleFonts.oswald(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textMuted),
+            style: GoogleFonts.oswald(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              color: AppColors.textMuted,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -138,12 +190,15 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           itemBuilder: (context, index) {
             final item = filtered[index];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: WorkoutCard(
-                workout: item,
-                onTap: () => WorkoutDetailSheet.show(context, item),
-              ),
-            ).animate(delay: (index * 60).ms).fadeIn(duration: 350.ms).slideY(begin: 0.12, end: 0, curve: Curves.easeOut);
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: WorkoutCard(
+                    workout: item,
+                    onTap: () => WorkoutDetailSheet.show(context, item),
+                  ),
+                )
+                .animate(delay: (index * 60).ms)
+                .fadeIn(duration: 350.ms)
+                .slideY(begin: 0.12, end: 0, curve: Curves.easeOut);
           },
         ),
       ],
@@ -159,7 +214,11 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         children: [
           Icon(icon, size: 48, color: AppColors.textMuted),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: GoogleFonts.inter(color: AppColors.textSecondary)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: AppColors.textSecondary),
+          ),
         ],
       ),
     );

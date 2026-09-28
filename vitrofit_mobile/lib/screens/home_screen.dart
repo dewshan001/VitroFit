@@ -9,6 +9,7 @@ import '../models/workout.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_glow_background.dart';
+import '../widgets/liquid_glass.dart';
 import '../widgets/outline_text.dart';
 import '../widgets/skeleton_box.dart';
 import '../widgets/slanted_button.dart';
@@ -18,10 +19,7 @@ import 'workout_detail_sheet.dart';
 class HomeScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
 
-  const HomeScreen({
-    super.key,
-    required this.onNavigateToTab,
-  });
+  const HomeScreen({super.key, required this.onNavigateToTab});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -41,14 +39,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final appState = context.watch<AppState>();
     return Stack(
       children: [
-        Positioned.fill(child: AmbientGlowBackground(scrollController: _scrollController)),
+        Positioned.fill(
+          child: AmbientGlowBackground(scrollController: _scrollController),
+        ),
         RefreshIndicator(
           color: AppColors.accent,
           backgroundColor: AppColors.bgCard,
           onRefresh: () => appState.loadWorkouts(),
           child: SingleChildScrollView(
             controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -75,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // 5. BOTTOM CTA BANNER
                 _buildCtaBanner(context),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 110),
               ],
             ),
           ),
@@ -92,7 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   TimetableSlot? _nextUpSlot(AppState appState) {
-    return appState.timetableSlots.isNotEmpty ? appState.timetableSlots.first : null;
+    return appState.timetableSlots.isNotEmpty
+        ? appState.timetableSlots.first
+        : null;
   }
 
   Widget _buildHeroSection(BuildContext context, AppState appState) {
@@ -110,7 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Image.asset(
                 'assets/images/hero_athlete.png',
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(color: AppColors.bgSecondary),
+                errorBuilder: (context, error, stackTrace) =>
+                    Container(color: AppColors.bgSecondary),
               ),
             ),
             // Dark overlay + border so it reads as a dashboard card
@@ -146,112 +151,145 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _greeting(),
-                              style: GoogleFonts.oswald(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2.5,
-                                color: AppColors.accent,
-                              ),
-                            )
+                                  _greeting(),
+                                  style: GoogleFonts.oswald(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 2.5,
+                                    color: AppColors.accent,
+                                  ),
+                                )
                                 .animate()
                                 .fadeIn(duration: 400.ms)
-                                .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
+                                .slideX(
+                                  begin: -0.1,
+                                  end: 0,
+                                  curve: Curves.easeOutCubic,
+                                ),
                             const SizedBox(height: 4),
                             Text(
-                              user != null ? user.firstName : "WELCOME BACK",
-                              style: GoogleFonts.oswald(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                                height: 1.1,
-                                letterSpacing: 1.0,
-                                color: AppColors.textPrimary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            )
+                                  user != null
+                                      ? user.firstName
+                                      : "WELCOME BACK",
+                                  style: GoogleFonts.oswald(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.1,
+                                    letterSpacing: 1.0,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                )
                                 .animate(delay: 80.ms)
                                 .fadeIn(duration: 400.ms)
-                                .slideX(begin: -0.1, end: 0, curve: Curves.easeOutCubic),
+                                .slideX(
+                                  begin: -0.1,
+                                  end: 0,
+                                  curve: Curves.easeOutCubic,
+                                ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 12),
                       GestureDetector(
-                        onTap: () => widget.onNavigateToTab(4), // Go to Profile tab
+                        onTap: () =>
+                            widget.onNavigateToTab(4), // Go to Profile tab
                         child: _Avatar(user: user)
                             .animate()
                             .fadeIn(duration: 400.ms)
-                            .scale(begin: const Offset(0.6, 0.6), curve: Curves.easeOutBack, duration: 450.ms),
+                            .scale(
+                              begin: const Offset(0.6, 0.6),
+                              curve: Curves.easeOutBack,
+                              duration: 450.ms,
+                            ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (nextUp != null) ...[
                     GestureDetector(
-                      onTap: () => widget.onNavigateToTab(2),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgCard.withOpacity(0.85),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.bolt, color: AppColors.accent, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "NEXT UP · ${nextUp.day.shortLabel} ${nextUp.startTime.label}",
-                                    style: GoogleFonts.oswald(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.0,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                  Text(
-                                    nextUp.title,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
+                          onTap: () => widget.onNavigateToTab(2),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
                             ),
-                            const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
-                          ],
-                        ),
-                      ),
-                    ).animate(delay: 180.ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+                            decoration: BoxDecoration(
+                              color: AppColors.bgCard.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.bolt,
+                                  color: AppColors.accent,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "NEXT UP · ${nextUp.day.shortLabel} ${nextUp.startTime.label}",
+                                        style: GoogleFonts.oswald(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                      Text(
+                                        nextUp.title,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.textMuted,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .animate(delay: 180.ms)
+                        .fadeIn(duration: 400.ms)
+                        .slideX(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 12),
                   ],
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      SlantedButton(
-                        text: "BROWSE WORKOUTS",
-                        icon: Icons.arrow_forward,
-                        paddingVertical: 10,
-                        paddingHorizontal: 18,
-                        onPressed: () => widget.onNavigateToTab(1),
-                      ),
-                      SlantedButton(
-                        text: "MY TIMETABLE",
-                        isSecondary: true,
-                        paddingVertical: 10,
-                        paddingHorizontal: 18,
-                        onPressed: () => widget.onNavigateToTab(2),
-                      ),
-                    ],
-                  ).animate(delay: 260.ms).fadeIn(duration: 400.ms).slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          SlantedButton(
+                            text: "BROWSE WORKOUTS",
+                            icon: Icons.arrow_forward,
+                            paddingVertical: 10,
+                            paddingHorizontal: 18,
+                            onPressed: () => widget.onNavigateToTab(1),
+                          ),
+                          SlantedButton(
+                            text: "MY TIMETABLE",
+                            isSecondary: true,
+                            paddingVertical: 10,
+                            paddingHorizontal: 18,
+                            onPressed: () => widget.onNavigateToTab(2),
+                          ),
+                        ],
+                      )
+                      .animate(delay: 260.ms)
+                      .fadeIn(duration: 400.ms)
+                      .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
                 ],
               ),
             ),
@@ -270,76 +308,76 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderAccent),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.shadowAccent,
-            blurRadius: 15,
-            spreadRadius: 1,
-          )
-        ],
-      ),
-      child: Row(
-        children: List.generate(stats.length, (i) {
-          final s = stats[i];
-          return Expanded(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          child: LiquidGlassContainer(
+            borderRadius: BorderRadius.circular(16),
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+            border: Border.all(color: AppColors.borderAccent),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.shadowAccent,
+                blurRadius: 15,
+                spreadRadius: 1,
+              ),
+            ],
             child: Row(
-              children: [
-                if (i > 0)
-                  Container(
-                    width: 1,
-                    height: 28,
-                    color: AppColors.border,
-                  ),
-                Expanded(
-                  child: Column(
+              children: List.generate(stats.length, (i) {
+                final s = stats[i];
+                return Expanded(
+                  child: Row(
                     children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: s['val'] as double),
-                        duration: Duration(milliseconds: 900 + i * 150),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, child) {
-                          final isDecimalFree = value == value.roundToDouble();
-                          return FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              '${isDecimalFree ? value.round() : value.toStringAsFixed(0)}${s['suffix']}',
-                              style: GoogleFonts.oswald(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.accent,
+                      if (i > 0)
+                        Container(
+                          width: 1,
+                          height: 28,
+                          color: AppColors.border,
+                        ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: s['val'] as double),
+                              duration: Duration(milliseconds: 900 + i * 150),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) {
+                                final isDecimalFree =
+                                    value == value.roundToDouble();
+                                return FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '${isDecimalFree ? value.round() : value.toStringAsFixed(0)}${s['suffix']}',
+                                    style: GoogleFonts.oswald(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                s['label'] as String,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textSecondary,
+                                ),
+                                maxLines: 1,
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 2),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          s['label'] as String,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
-                          ),
-                          maxLines: 1,
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                );
+              }),
             ),
-          );
-        }),
-      ),
-    )
+          ),
+        )
         .animate()
         .fadeIn(duration: 500.ms, delay: 150.ms)
         .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic);
@@ -428,10 +466,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildWhyUsSection() {
     final features = [
-      {'icon': Icons.fitness_center, 'title': 'Modern Equipment', 'desc': 'State of the art resistance & cardio machinery.'},
-      {'icon': Icons.military_tech, 'title': 'Elite Trainers', 'desc': 'Certified coaches dedicated to your success.'},
-      {'icon': Icons.bolt, 'title': 'Customized Programs', 'desc': 'Tailored workouts for your specific goals.'},
-      {'icon': Icons.groups, 'title': 'Dynamic Community', 'desc': 'Supportive atmosphere that motivates daily.'},
+      {
+        'icon': Icons.fitness_center,
+        'title': 'Modern Equipment',
+        'desc': 'State of the art resistance & cardio machinery.',
+      },
+      {
+        'icon': Icons.military_tech,
+        'title': 'Elite Trainers',
+        'desc': 'Certified coaches dedicated to your success.',
+      },
+      {
+        'icon': Icons.bolt,
+        'title': 'Customized Programs',
+        'desc': 'Tailored workouts for your specific goals.',
+      },
+      {
+        'icon': Icons.groups,
+        'title': 'Dynamic Community',
+        'desc': 'Supportive atmosphere that motivates daily.',
+      },
     ];
 
     return Padding(
@@ -463,10 +517,10 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final f = features[index];
               return _WhyUsCard(
-                icon: f['icon'] as IconData,
-                title: f['title'] as String,
-                desc: f['desc'] as String,
-              )
+                    icon: f['icon'] as IconData,
+                    title: f['title'] as String,
+                    desc: f['desc'] as String,
+                  )
                   .animate(delay: (index * 90).ms)
                   .fadeIn(duration: 400.ms)
                   .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic);
@@ -479,58 +533,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCtaBanner(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderAccent),
-        image: const DecorationImage(
-          image: AssetImage('assets/images/strength_training.png'),
-          fit: BoxFit.cover,
-          opacity: 0.15,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const OutlineText(text: "KEEP PUSHING", fontSize: 22),
-          Text(
-            "FORWARD, EVERY DAY",
-            style: GoogleFonts.oswald(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: AppColors.accent,
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/strength_training.png',
+                    fit: BoxFit.cover,
+                    opacity: const AlwaysStoppedAnimation(0.3),
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: AppColors.bgSecondary),
+                  ),
+                ),
+                LiquidGlassContainer(
+                  borderRadius: BorderRadius.circular(16),
+                  padding: const EdgeInsets.all(24),
+                  tint: AppColors.bgSecondary,
+                  border: Border.all(color: AppColors.borderAccent),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const OutlineText(text: "KEEP PUSHING", fontSize: 22),
+                      Text(
+                        "FORWARD, EVERY DAY",
+                        style: GoogleFonts.oswald(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "Explore new classes and keep building your fitness journey with VitroFit.",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          SlantedButton(
+                            text: "BROWSE WORKOUTS",
+                            icon: Icons.flash_on,
+                            onPressed: () =>
+                                widget.onNavigateToTab(1), // Go to Workouts tab
+                          ),
+                          SlantedButton(
+                            text: "ABOUT US",
+                            isSecondary: true,
+                            onPressed: () => context.push('/main/about'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            "Explore new classes and keep building your fitness journey with VitroFit.",
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SlantedButton(
-                text: "BROWSE WORKOUTS",
-                icon: Icons.flash_on,
-                onPressed: () => widget.onNavigateToTab(1), // Go to Workouts tab
-              ),
-              SlantedButton(
-                text: "ABOUT US",
-                isSecondary: true,
-                onPressed: () => context.push('/main/about'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    )
+        )
         .animate()
         .fadeIn(duration: 500.ms)
         .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic);
@@ -560,7 +626,9 @@ class _AccentUnderline extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.accent,
                   borderRadius: BorderRadius.circular(2),
-                  boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 8)],
+                  boxShadow: const [
+                    BoxShadow(color: AppColors.shadowAccent, blurRadius: 8),
+                  ],
                 ),
               ),
             ),
@@ -579,7 +647,8 @@ class _FeaturedWorkoutsCarousel extends StatefulWidget {
   const _FeaturedWorkoutsCarousel({required this.workouts});
 
   @override
-  State<_FeaturedWorkoutsCarousel> createState() => _FeaturedWorkoutsCarouselState();
+  State<_FeaturedWorkoutsCarousel> createState() =>
+      _FeaturedWorkoutsCarouselState();
 }
 
 class _FeaturedWorkoutsCarouselState extends State<_FeaturedWorkoutsCarousel> {
@@ -613,7 +682,8 @@ class _FeaturedWorkoutsCarouselState extends State<_FeaturedWorkoutsCarousel> {
         itemCount: widget.workouts.length,
         itemBuilder: (context, index) {
           final item = widget.workouts[index];
-          final cardCenter = 20 + index * (_cardWidth + _cardMargin) + _cardWidth / 2;
+          final cardCenter =
+              20 + index * (_cardWidth + _cardMargin) + _cardWidth / 2;
           final viewportCenter = offset + viewportWidth / 2;
           final distance = (cardCenter - viewportCenter).abs();
           final t = (1 - (distance / (viewportWidth * 0.7))).clamp(0.0, 1.0);
@@ -621,19 +691,22 @@ class _FeaturedWorkoutsCarouselState extends State<_FeaturedWorkoutsCarousel> {
           final opacity = 0.65 + 0.35 * t;
 
           return Container(
-            width: _cardWidth,
-            margin: const EdgeInsets.only(right: _cardMargin),
-            child: Opacity(
-              opacity: opacity,
-              child: Transform.scale(
-                scale: scale,
-                child: WorkoutCard(
-                  workout: item,
-                  onTap: () => WorkoutDetailSheet.show(context, item),
+                width: _cardWidth,
+                margin: const EdgeInsets.only(right: _cardMargin),
+                child: Opacity(
+                  opacity: opacity,
+                  child: Transform.scale(
+                    scale: scale,
+                    child: WorkoutCard(
+                      workout: item,
+                      onTap: () => WorkoutDetailSheet.show(context, item),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ).animate(delay: (index * 80).ms).fadeIn(duration: 350.ms).slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
+              )
+              .animate(delay: (index * 80).ms)
+              .fadeIn(duration: 350.ms)
+              .slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
         },
       ),
     );
@@ -659,8 +732,16 @@ class _Avatar extends StatelessWidget {
           colors: [AppColors.accent.withOpacity(0.9), AppColors.accentDark],
         ),
         border: Border.all(color: AppColors.bgPrimary, width: 2),
-        boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 10, spreadRadius: 1)],
-        image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover) : null,
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadowAccent,
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
+        ],
+        image: imageUrl != null
+            ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+            : null,
       ),
       alignment: Alignment.center,
       child: imageUrl == null
@@ -682,7 +763,11 @@ class _WhyUsCard extends StatefulWidget {
   final String title;
   final String desc;
 
-  const _WhyUsCard({required this.icon, required this.title, required this.desc});
+  const _WhyUsCard({
+    required this.icon,
+    required this.title,
+    required this.desc,
+  });
 
   @override
   State<_WhyUsCard> createState() => _WhyUsCardState();
@@ -703,51 +788,66 @@ class _WhyUsCardState extends State<_WhyUsCard> {
         curve: Curves.easeOut,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.bgCard,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _pressed ? AppColors.borderAccent : AppColors.border),
-            boxShadow: _pressed
-                ? const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 14, spreadRadius: 1)]
-                : [],
+            border: Border.all(
+              color: _pressed ? AppColors.accent : Colors.transparent,
+              width: _pressed ? 1.5 : 0,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.accent.withOpacity(0.22), AppColors.accent.withOpacity(0.06)],
+          child: LiquidGlassContainer(
+            borderRadius: BorderRadius.circular(14),
+            padding: const EdgeInsets.all(14),
+            blur: false,
+            boxShadow: _pressed
+                ? const [
+                    BoxShadow(
+                      color: AppColors.shadowAccent,
+                      blurRadius: 14,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : const [],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.accent.withOpacity(0.22),
+                        AppColors.accent.withOpacity(0.06),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  child: Icon(widget.icon, color: AppColors.accent, size: 22),
                 ),
-                child: Icon(widget.icon, color: AppColors.accent, size: 22),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                widget.title,
-                style: GoogleFonts.oswald(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(height: 12),
+                Text(
+                  widget.title,
+                  style: GoogleFonts.oswald(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.desc,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
+                const SizedBox(height: 4),
+                Text(
+                  widget.desc,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -77,7 +77,8 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Future<void> resendVerification(String email) => _authApi.resendVerification(email);
+  Future<void> resendVerification(String email) =>
+      _authApi.resendVerification(email);
 
   Future<void> verifyEmail({required String email, required String otp}) async {
     final result = await _authApi.verifyEmail(email: email, otp: otp);
@@ -90,7 +91,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _applyAuthResult(AuthResult result) async {
-    await TokenStorage.instance.save(accessToken: result.accessToken, refreshToken: result.refreshToken);
+    await TokenStorage.instance.save(
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    );
     currentUser = result.user;
     authStatus = AuthStatus.authenticated;
     notifyListeners();
@@ -106,14 +110,28 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> changePassword({required String currentPassword, required String newPassword}) {
-    return _authApi.changePassword(currentPassword: currentPassword, newPassword: newPassword);
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _authApi.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
   }
 
   Future<void> forgotPassword(String email) => _authApi.forgotPassword(email);
 
-  Future<void> resetPassword({required String email, required String otp, required String newPassword}) {
-    return _authApi.resetPassword(email: email, otp: otp, newPassword: newPassword);
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) {
+    return _authApi.resetPassword(
+      email: email,
+      otp: otp,
+      newPassword: newPassword,
+    );
   }
 
   Future<void> uploadPhoto(String filePath) async {
@@ -154,7 +172,9 @@ class AppState extends ChangeNotifier {
     try {
       final slots = await _timetableApi.list();
       slots.sort((a, b) {
-        final dayCompare = ApiDay.weekOrder.indexOf(a.day).compareTo(ApiDay.weekOrder.indexOf(b.day));
+        final dayCompare = ApiDay.weekOrder
+            .indexOf(a.day)
+            .compareTo(ApiDay.weekOrder.indexOf(b.day));
         if (dayCompare != 0) return dayCompare;
         return a.startTime.compareTo(b.startTime);
       });
@@ -183,7 +203,9 @@ class AppState extends ChangeNotifier {
     );
     timetableSlots = [...timetableSlots, slot]
       ..sort((a, b) {
-        final dayCompare = ApiDay.weekOrder.indexOf(a.day).compareTo(ApiDay.weekOrder.indexOf(b.day));
+        final dayCompare = ApiDay.weekOrder
+            .indexOf(a.day)
+            .compareTo(ApiDay.weekOrder.indexOf(b.day));
         if (dayCompare != 0) return dayCompare;
         return a.startTime.compareTo(b.startTime);
       });
@@ -206,7 +228,9 @@ class AppState extends ChangeNotifier {
       title: title,
       workoutId: workoutId,
     );
-    timetableSlots = timetableSlots.map((s) => s.id == id ? updated : s).toList();
+    timetableSlots = timetableSlots
+        .map((s) => s.id == id ? updated : s)
+        .toList();
     notifyListeners();
   }
 

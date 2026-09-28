@@ -38,14 +38,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
     try {
       await context.read<AppState>().changePassword(
-            currentPassword: _currentController.text,
-            newPassword: _newController.text,
-          );
+        currentPassword: _currentController.text,
+        newPassword: _newController.text,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.success,
-            content: Text("Password updated successfully.", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            content: Text(
+              "Password updated successfully.",
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+            ),
           ),
         );
         context.pop();
@@ -64,7 +67,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.bgPrimary,
         elevation: 0,
-        title: Text("CHANGE PASSWORD", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        title: Text(
+          "CHANGE PASSWORD",
+          style: GoogleFonts.oswald(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -81,9 +90,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.errorGlow,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.5),
+                      ),
                     ),
-                    child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 12.5)),
+                    child: Text(
+                      _error!,
+                      style: GoogleFonts.inter(
+                        color: AppColors.error,
+                        fontSize: 12.5,
+                      ),
+                    ),
                   ).animate().shake(hz: 4, duration: 350.ms),
                 VitroTextField(
                   label: "CURRENT PASSWORD",
@@ -91,7 +108,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   hint: "••••••••",
                   icon: Icons.lock_outline,
                   obscureText: true,
-                  validator: (v) => Validators.required(v, label: 'Current password'),
+                  validator: (v) =>
+                      Validators.required(v, label: 'Current password'),
                 ),
                 const SizedBox(height: 16),
                 VitroTextField(

@@ -6,6 +6,7 @@ import '../../models/timetable_slot.dart';
 import '../../models/workout.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/liquid_glass.dart';
 import '../../widgets/slanted_button.dart';
 import '../../widgets/vitro_text_field.dart';
 
@@ -23,19 +24,35 @@ Future<void> showTimetableSlotForm(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => _TimetableSlotForm(presetWorkout: presetWorkout, presetDay: presetDay, editingSlot: editingSlot),
+    builder: (context) => _TimetableSlotForm(
+      presetWorkout: presetWorkout,
+      presetDay: presetDay,
+      editingSlot: editingSlot,
+    ),
   );
 }
 
 /// Shared "REMOVE SLOT?" confirmation dialog used by both the timetable list
 /// (swipe-to-delete) and the edit form's Delete button.
-Future<bool> confirmRemoveTimetableSlot(BuildContext context, String title) async {
+Future<bool> confirmRemoveTimetableSlot(
+  BuildContext context,
+  String title,
+) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       backgroundColor: AppColors.bgCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.error)),
-      title: Text("REMOVE SLOT?", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, color: AppColors.error)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.error),
+      ),
+      title: Text(
+        "REMOVE SLOT?",
+        style: GoogleFonts.oswald(
+          fontWeight: FontWeight.bold,
+          color: AppColors.error,
+        ),
+      ),
       content: Text(
         "Remove \"$title\" from your timetable?",
         style: GoogleFonts.inter(color: AppColors.textSecondary),
@@ -43,11 +60,20 @@ Future<bool> confirmRemoveTimetableSlot(BuildContext context, String title) asyn
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text("CANCEL", style: GoogleFonts.oswald(color: AppColors.textMuted)),
+          child: Text(
+            "CANCEL",
+            style: GoogleFonts.oswald(color: AppColors.textMuted),
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
-          child: Text("REMOVE", style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold)),
+          child: Text(
+            "REMOVE",
+            style: GoogleFonts.oswald(
+              color: AppColors.error,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     ),
@@ -60,7 +86,11 @@ class _TimetableSlotForm extends StatefulWidget {
   final ApiDay? presetDay;
   final TimetableSlot? editingSlot;
 
-  const _TimetableSlotForm({this.presetWorkout, this.presetDay, this.editingSlot});
+  const _TimetableSlotForm({
+    this.presetWorkout,
+    this.presetDay,
+    this.editingSlot,
+  });
 
   @override
   State<_TimetableSlotForm> createState() => _TimetableSlotFormState();
@@ -92,8 +122,14 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
     final slot = widget.editingSlot;
     if (slot != null) {
       _day = slot.day;
-      _startTime = TimeOfDay(hour: slot.startTime.hour, minute: slot.startTime.minute);
-      _endTime = TimeOfDay(hour: slot.endTime.hour, minute: slot.endTime.minute);
+      _startTime = TimeOfDay(
+        hour: slot.startTime.hour,
+        minute: slot.startTime.minute,
+      );
+      _endTime = TimeOfDay(
+        hour: slot.endTime.hour,
+        minute: slot.endTime.minute,
+      );
       _workoutId = slot.workoutId;
       _titleController.text = slot.title;
     } else {
@@ -183,7 +219,9 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
           SnackBar(
             backgroundColor: AppColors.success,
             content: Text(
-              _isEditing ? "Timetable slot updated." : "Added to your timetable!",
+              _isEditing
+                  ? "Timetable slot updated."
+                  : "Added to your timetable!",
               style: GoogleFonts.inter(fontWeight: FontWeight.bold),
             ),
           ),
@@ -210,14 +248,19 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppColors.bgCard, content: Text("Slot removed.", style: GoogleFonts.inter())),
+          SnackBar(
+            backgroundColor: AppColors.bgCard,
+            content: Text("Slot removed.", style: GoogleFonts.inter()),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _deleting = false;
-          _error = e is ApiException ? e.message : 'Could not remove this slot. Please try again.';
+          _error = e is ApiException
+              ? e.message
+              : 'Could not remove this slot. Please try again.';
         });
       }
     }
@@ -228,14 +271,17 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
     final workouts = context.watch<AppState>().workouts;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bgPrimary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: AppColors.accent, width: 2)),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: LiquidGlassContainer(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        tint: AppColors.bgPrimary,
+        tintOpacity: 0.75,
+        blur: false,
+        border: const Border(
+          top: BorderSide(color: AppColors.accent, width: 2),
         ),
-        clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Form(
@@ -249,12 +295,19 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                     width: 40,
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(color: AppColors.textMuted, borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(
+                      color: AppColors.textMuted,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
                 Text(
                   _isEditing ? "EDIT TIMETABLE SLOT" : "ADD TO MY TIMETABLE",
-                  style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.accent),
+                  style: GoogleFonts.oswald(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 if (_error != null)
@@ -264,9 +317,17 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                     decoration: BoxDecoration(
                       color: AppColors.errorGlow,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.5),
+                      ),
                     ),
-                    child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 12.5)),
+                    child: Text(
+                      _error!,
+                      style: GoogleFonts.inter(
+                        color: AppColors.error,
+                        fontSize: 12.5,
+                      ),
+                    ),
                   ),
                 _fieldLabel("WORKOUT"),
                 const SizedBox(height: 6),
@@ -280,19 +341,34 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
                       isExpanded: true,
-                      value: workouts.any((w) => w.id == _workoutId) ? _workoutId : null,
-                      hint: Text("Select a workout", style: GoogleFonts.inter(color: AppColors.textMuted)),
+                      value: workouts.any((w) => w.id == _workoutId)
+                          ? _workoutId
+                          : null,
+                      hint: Text(
+                        "Select a workout",
+                        style: GoogleFonts.inter(color: AppColors.textMuted),
+                      ),
                       dropdownColor: AppColors.bgCard,
                       style: GoogleFonts.inter(color: AppColors.textPrimary),
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.accent),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: AppColors.accent,
+                      ),
                       items: workouts
-                          .map((w) => DropdownMenuItem(value: w.id, child: Text("${w.name} (${w.category})")))
+                          .map(
+                            (w) => DropdownMenuItem(
+                              value: w.id,
+                              child: Text("${w.name} (${w.category})"),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) {
                         setState(() {
                           _workoutId = val;
                           if (_titleController.text.isEmpty && val != null) {
-                            _titleController.text = workouts.firstWhere((w) => w.id == val).name;
+                            _titleController.text = workouts
+                                .firstWhere((w) => w.id == val)
+                                .name;
                           }
                         });
                       },
@@ -318,18 +394,27 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                     return GestureDetector(
                       onTap: () => setState(() => _day = d),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: selected ? AppColors.accent : AppColors.bgCard,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: selected ? AppColors.accent : AppColors.border),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.accent
+                                : AppColors.border,
+                          ),
                         ),
                         child: Text(
                           d.shortLabel,
                           style: GoogleFonts.oswald(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: selected ? AppColors.bgPrimary : AppColors.textPrimary,
+                            color: selected
+                                ? AppColors.bgPrimary
+                                : AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -339,9 +424,21 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Expanded(child: _timeField("START TIME", _startTime, () => _pickTime(isStart: true))),
+                    Expanded(
+                      child: _timeField(
+                        "START TIME",
+                        _startTime,
+                        () => _pickTime(isStart: true),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _timeField("END TIME", _endTime, () => _pickTime(isStart: false))),
+                    Expanded(
+                      child: _timeField(
+                        "END TIME",
+                        _endTime,
+                        () => _pickTime(isStart: false),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -364,12 +461,25 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                           ? const SizedBox(
                               width: 14,
                               height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.error)),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  AppColors.error,
+                                ),
+                              ),
                             )
-                          : const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                          : const Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: AppColors.error,
+                            ),
                       label: Text(
                         "DELETE SLOT",
-                        style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                        style: GoogleFonts.oswald(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
                       ),
                     ),
                   ),
@@ -386,7 +496,12 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
   Widget _fieldLabel(String label) {
     return Text(
       label,
-      style: GoogleFonts.oswald(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textPrimary),
+      style: GoogleFonts.oswald(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.0,
+        color: AppColors.textPrimary,
+      ),
     );
   }
 
@@ -407,9 +522,16 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.access_time, size: 16, color: AppColors.accent),
+                const Icon(
+                  Icons.access_time,
+                  size: 16,
+                  color: AppColors.accent,
+                ),
                 const SizedBox(width: 8),
-                Text(time.format(context), style: GoogleFonts.inter(color: AppColors.textPrimary)),
+                Text(
+                  time.format(context),
+                  style: GoogleFonts.inter(color: AppColors.textPrimary),
+                ),
               ],
             ),
           ),

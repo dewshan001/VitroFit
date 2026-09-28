@@ -58,7 +58,10 @@ class VitroTextField extends StatelessWidget {
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: AppColors.bgCard,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
             errorStyle: GoogleFonts.inter(color: AppColors.error, fontSize: 11),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -108,7 +111,8 @@ class Validators {
   }
 
   static String? otp(String? value) {
-    if (value == null || value.trim().length != 6) return 'Enter the 6-digit code.';
+    if (value == null || value.trim().length != 6)
+      return 'Enter the 6-digit code.';
     return null;
   }
 }

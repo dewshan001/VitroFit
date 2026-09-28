@@ -18,14 +18,18 @@ class SplashScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 14,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.accent,
-                borderRadius: BorderRadius.circular(3),
-                boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 20)],
-              ),
-            ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleY(
+                  width: 14,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.shadowAccent, blurRadius: 20),
+                    ],
+                  ),
+                )
+                .animate(onPlay: (c) => c.repeat(reverse: true))
+                .scaleY(
                   begin: 0.6,
                   end: 1.0,
                   duration: 700.ms,

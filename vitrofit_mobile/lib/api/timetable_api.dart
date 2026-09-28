@@ -10,7 +10,9 @@ class TimetableApi {
     try {
       final response = await _dio.get('/timetable');
       final data = response.data as List;
-      return data.map((e) => TimetableSlot.fromJson(e as Map<String, dynamic>)).toList();
+      return data
+          .map((e) => TimetableSlot.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
@@ -24,13 +26,16 @@ class TimetableApi {
     required int workoutId,
   }) async {
     try {
-      final response = await _dio.post('/timetable', data: {
-        'day': day.netValue,
-        'startTime': startTime.toApiString(),
-        'endTime': endTime.toApiString(),
-        'title': title,
-        'workoutId': workoutId,
-      });
+      final response = await _dio.post(
+        '/timetable',
+        data: {
+          'day': day.netValue,
+          'startTime': startTime.toApiString(),
+          'endTime': endTime.toApiString(),
+          'title': title,
+          'workoutId': workoutId,
+        },
+      );
       return TimetableSlot.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
@@ -46,13 +51,16 @@ class TimetableApi {
     required int workoutId,
   }) async {
     try {
-      final response = await _dio.put('/timetable/$id', data: {
-        'day': day.netValue,
-        'startTime': startTime.toApiString(),
-        'endTime': endTime.toApiString(),
-        'title': title,
-        'workoutId': workoutId,
-      });
+      final response = await _dio.put(
+        '/timetable/$id',
+        data: {
+          'day': day.netValue,
+          'startTime': startTime.toApiString(),
+          'endTime': endTime.toApiString(),
+          'title': title,
+          'workoutId': workoutId,
+        },
+      );
       return TimetableSlot.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);

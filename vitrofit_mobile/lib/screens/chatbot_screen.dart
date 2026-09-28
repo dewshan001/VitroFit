@@ -4,11 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../api/chatbot_api.dart';
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
+import '../widgets/liquid_glass.dart';
 
 final ChatMessage _welcomeMessage = ChatMessage(
   id: 'welcome',
   role: ChatRole.bot,
-  text: "Hey there! \u{1F4AA} I'm **VitroBot**, your personal AI fitness assistant.\n\n"
+  text:
+      "Hey there! \u{1F4AA} I'm **VitroBot**, your personal AI fitness assistant.\n\n"
       "Ask me anything about workouts, personalized diets, gym locations, or your VitroFit membership!",
   timestamp: DateTime.now(),
 );
@@ -25,7 +27,10 @@ class ChatbotScreen extends StatefulWidget {
 
   static void show(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(fullscreenDialog: true, builder: (_) => const ChatbotScreen()),
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const ChatbotScreen(),
+      ),
     );
   }
 
@@ -69,12 +74,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _inputController.clear();
     setState(() {
       _error = null;
-      _messages.add(ChatMessage(
-        id: 'user-${DateTime.now().microsecondsSinceEpoch}',
-        role: ChatRole.user,
-        text: query,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        ChatMessage(
+          id: 'user-${DateTime.now().microsecondsSinceEpoch}',
+          role: ChatRole.user,
+          text: query,
+          timestamp: DateTime.now(),
+        ),
+      );
       _loading = true;
     });
     _scrollToBottom();
@@ -89,10 +96,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           _loading = false;
           if (botId == null) {
             botId = 'bot-${DateTime.now().microsecondsSinceEpoch}';
-            _messages.add(ChatMessage(id: botId!, role: ChatRole.bot, text: botText, timestamp: DateTime.now()));
+            _messages.add(
+              ChatMessage(
+                id: botId!,
+                role: ChatRole.bot,
+                text: botText,
+                timestamp: DateTime.now(),
+              ),
+            );
           } else {
             final idx = _messages.indexWhere((m) => m.id == botId);
-            if (idx != -1) _messages[idx] = _messages[idx].copyWith(text: botText);
+            if (idx != -1)
+              _messages[idx] = _messages[idx].copyWith(text: botText);
           }
         });
         _scrollToBottom();
@@ -100,12 +115,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       if (botId == null && myTurn == _turn) {
         setState(() {
           _loading = false;
-          _messages.add(ChatMessage(
-            id: 'bot-${DateTime.now().microsecondsSinceEpoch}',
-            role: ChatRole.bot,
-            text: 'Sorry, I got an empty response.',
-            timestamp: DateTime.now(),
-          ));
+          _messages.add(
+            ChatMessage(
+              id: 'bot-${DateTime.now().microsecondsSinceEpoch}',
+              role: ChatRole.bot,
+              text: 'Sorry, I got an empty response.',
+              timestamp: DateTime.now(),
+            ),
+          );
         });
       }
     } on ChatbotException catch (e) {
@@ -113,12 +130,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       setState(() {
         _loading = false;
         _error = e.message;
-        _messages.add(ChatMessage(
-          id: 'bot-${DateTime.now().microsecondsSinceEpoch}',
-          role: ChatRole.bot,
-          text: '⚠️ Something went wrong. Please try again in a moment.',
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          ChatMessage(
+            id: 'bot-${DateTime.now().microsecondsSinceEpoch}',
+            role: ChatRole.bot,
+            text: '⚠️ Something went wrong. Please try again in a moment.',
+            timestamp: DateTime.now(),
+          ),
+        );
       });
     } finally {
       if (myTurn == _turn && mounted) setState(() => _loading = false);
@@ -159,11 +178,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               children: [
                 Text(
                   "VITROBOT",
-                  style: GoogleFonts.oswald(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: AppColors.textPrimary),
+                  style: GoogleFonts.oswald(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 Text(
                   "AI Fitness Assistant",
-                  style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -171,7 +198,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: AppColors.textSecondary,
+            ),
             tooltip: 'Clear chat',
             onPressed: _clearChat,
           ),
@@ -203,14 +233,31 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 16),
+                    const Icon(
+                      Icons.error_outline,
+                      color: AppColors.error,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 12)),
+                      child: Text(
+                        _error!,
+                        style: GoogleFonts.inter(
+                          color: AppColors.error,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                     GestureDetector(
                       onTap: () => setState(() => _error = null),
-                      child: Text("DISMISS", style: GoogleFonts.oswald(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        "DISMISS",
+                        style: GoogleFonts.oswald(
+                          color: AppColors.error,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -223,22 +270,34 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: _quickPrompts
-                    .map((q) => GestureDetector(
-                          onTap: () => _send(q),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.bgCard,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Text(q, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                    .map(
+                      (q) => GestureDetector(
+                        onTap: () => _send(q),
+                        child: LiquidGlassContainer(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        ))
+                          borderRadius: BorderRadius.circular(20),
+                          blur: false,
+                          child: Text(
+                            q,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
                     .toList(),
               ).animate().fadeIn(duration: 300.ms),
             ),
-          _InputBar(controller: _inputController, loading: _loading, onSend: _send),
+          _InputBar(
+            controller: _inputController,
+            loading: _loading,
+            onSend: _send,
+          ),
         ],
       ),
     );
@@ -263,10 +322,20 @@ class _BotAvatar extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [AppColors.accent, AppColors.accentDark],
             ),
-            boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 10, spreadRadius: 1)],
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.shadowAccent,
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+            ],
           ),
           alignment: Alignment.center,
-          child: Icon(Icons.smart_toy_outlined, size: size * 0.55, color: AppColors.bgPrimary),
+          child: Icon(
+            Icons.smart_toy_outlined,
+            size: size * 0.55,
+            color: AppColors.bgPrimary,
+          ),
         ),
         Positioned(
           right: 0,
@@ -296,51 +365,63 @@ class _MessageBubble extends StatelessWidget {
     final time = TimeOfDay.fromDateTime(message.timestamp).format(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: isBot ? MainAxisAlignment.start : MainAxisAlignment.end,
-        children: [
-          if (isBot) ...[
-            const _BotAvatar(size: 28),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isBot ? AppColors.bgCard : AppColors.accent,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isBot ? 4 : 16),
-                  bottomRight: Radius.circular(isBot ? 16 : 4),
-                ),
-                border: isBot ? Border.all(color: AppColors.border) : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  FormattedChatText(
-                    text: message.text,
-                    color: isBot ? AppColors.textPrimary : AppColors.bgPrimary,
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: isBot
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.end,
+            children: [
+              if (isBot) ...[
+                const _BotAvatar(size: 28),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    time,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: isBot ? AppColors.textMuted : AppColors.bgPrimary.withOpacity(0.6),
+                  decoration: BoxDecoration(
+                    color: isBot ? AppColors.bgCard : AppColors.accent,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isBot ? 4 : 16),
+                      bottomRight: Radius.circular(isBot ? 16 : 4),
                     ),
+                    border: isBot ? Border.all(color: AppColors.border) : null,
                   ),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FormattedChatText(
+                        text: message.text,
+                        color: isBot
+                            ? AppColors.textPrimary
+                            : AppColors.bgPrimary,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        time,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: isBot
+                              ? AppColors.textMuted
+                              : AppColors.bgPrimary.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 220.ms).slideY(begin: 0.08, end: 0, curve: Curves.easeOut);
+        )
+        .animate()
+        .fadeIn(duration: 220.ms)
+        .slideY(begin: 0.08, end: 0, curve: Curves.easeOut);
   }
 }
 
@@ -371,12 +452,18 @@ class _TypingIndicator extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: List.generate(3, (i) {
                 return Container(
-                  margin: EdgeInsets.only(right: i == 2 ? 0 : 5),
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(color: AppColors.textMuted, shape: BoxShape.circle),
-                )
-                    .animate(onPlay: (c) => c.repeat(reverse: true), delay: (i * 150).ms)
+                      margin: EdgeInsets.only(right: i == 2 ? 0 : 5),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.textMuted,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                    .animate(
+                      onPlay: (c) => c.repeat(reverse: true),
+                      delay: (i * 150).ms,
+                    )
                     .fadeIn(duration: 500.ms, begin: 0.3)
                     .scaleXY(begin: 0.7, end: 1.0, duration: 500.ms);
               }),
@@ -393,7 +480,11 @@ class _InputBar extends StatefulWidget {
   final bool loading;
   final ValueChanged<String?> onSend;
 
-  const _InputBar({required this.controller, required this.loading, required this.onSend});
+  const _InputBar({
+    required this.controller,
+    required this.loading,
+    required this.onSend,
+  });
 
   @override
   State<_InputBar> createState() => _InputBarState();
@@ -430,28 +521,36 @@ class _InputBarState extends State<_InputBar> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Container(
+              child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 110),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.bgCard,
+                child: LiquidGlassContainer(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: TextField(
-                  controller: widget.controller,
-                  minLines: 1,
-                  maxLines: 5,
-                  maxLength: 1000,
-                  enabled: !widget.loading,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (v) => widget.onSend(null),
-                  style: GoogleFonts.inter(color: AppColors.textPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    counterText: '',
-                    hintText: "Ask me about workouts, nutrition…",
-                    hintStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 14),
+                  blur: false,
+                  child: TextField(
+                    controller: widget.controller,
+                    minLines: 1,
+                    maxLines: 5,
+                    maxLength: 1000,
+                    enabled: !widget.loading,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (v) => widget.onSend(null),
+                    style: GoogleFonts.inter(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                      hintText: "Ask me about workouts, nutrition…",
+                      hintStyle: GoogleFonts.inter(
+                        color: AppColors.textMuted,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -466,9 +565,20 @@ class _InputBarState extends State<_InputBar> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: canSend ? AppColors.accent : AppColors.bgCardHover,
-                  boxShadow: canSend ? const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 12, spreadRadius: 1)] : [],
+                  boxShadow: canSend
+                      ? const [
+                          BoxShadow(
+                            color: AppColors.shadowAccent,
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : [],
                 ),
-                child: Icon(Icons.arrow_upward_rounded, color: canSend ? AppColors.bgPrimary : AppColors.textMuted),
+                child: Icon(
+                  Icons.arrow_upward_rounded,
+                  color: canSend ? AppColors.bgPrimary : AppColors.textMuted,
+                ),
               ),
             ),
           ],
@@ -492,9 +602,16 @@ class FormattedChatText extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: lines.map((line) {
-        final isListItem = line.trimLeft().startsWith('- ') || line.trimLeft().startsWith('• ');
-        final content = isListItem ? line.trimLeft().replaceFirst(RegExp(r'^[-•]\s+'), '') : line;
-        final span = _parseInline(content, GoogleFonts.inter(color: color, fontSize: 14, height: 1.4));
+        final isListItem =
+            line.trimLeft().startsWith('- ') ||
+            line.trimLeft().startsWith('• ');
+        final content = isListItem
+            ? line.trimLeft().replaceFirst(RegExp(r'^[-•]\s+'), '')
+            : line;
+        final span = _parseInline(
+          content,
+          GoogleFonts.inter(color: color, fontSize: 14, height: 1.4),
+        );
         if (line.isEmpty) return const SizedBox(height: 6);
         if (isListItem) {
           return Padding(
@@ -502,7 +619,10 @@ class FormattedChatText extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('•  ', style: GoogleFonts.inter(color: color, fontSize: 14)),
+                Text(
+                  '•  ',
+                  style: GoogleFonts.inter(color: color, fontSize: 14),
+                ),
                 Expanded(child: RichText(text: span)),
               ],
             ),
@@ -523,18 +643,38 @@ class FormattedChatText extends StatelessWidget {
 
     for (final match in pattern.allMatches(input)) {
       if (match.start > lastEnd) {
-        children.add(TextSpan(text: input.substring(lastEnd, match.start), style: baseStyle));
+        children.add(
+          TextSpan(
+            text: input.substring(lastEnd, match.start),
+            style: baseStyle,
+          ),
+        );
       }
       final token = match.group(0)!;
       if (token.startsWith('**')) {
-        children.add(TextSpan(text: token.substring(2, token.length - 2), style: baseStyle.copyWith(fontWeight: FontWeight.bold)));
+        children.add(
+          TextSpan(
+            text: token.substring(2, token.length - 2),
+            style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+          ),
+        );
       } else if (token.startsWith('`')) {
-        children.add(TextSpan(
-          text: token.substring(1, token.length - 1),
-          style: baseStyle.copyWith(fontFamily: 'monospace', backgroundColor: AppColors.bgCardHover),
-        ));
+        children.add(
+          TextSpan(
+            text: token.substring(1, token.length - 1),
+            style: baseStyle.copyWith(
+              fontFamily: 'monospace',
+              backgroundColor: AppColors.bgCardHover,
+            ),
+          ),
+        );
       } else {
-        children.add(TextSpan(text: token.substring(1, token.length - 1), style: baseStyle.copyWith(fontStyle: FontStyle.italic)));
+        children.add(
+          TextSpan(
+            text: token.substring(1, token.length - 1),
+            style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
       }
       lastEnd = match.end;
     }

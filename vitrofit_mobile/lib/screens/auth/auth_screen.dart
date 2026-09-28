@@ -39,7 +39,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.accent,
                       borderRadius: BorderRadius.circular(2),
-                      boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 10)],
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.shadowAccent,
+                          blurRadius: 10,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -132,7 +137,11 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: GoogleFonts.inter(color: AppColors.error, fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(
+                color: AppColors.error,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -171,9 +180,9 @@ class _SignInFormState extends State<_SignInForm> {
     });
     try {
       await context.read<AppState>().login(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
       // Router redirect handles navigation to /main once authStatus flips.
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -194,12 +203,19 @@ class _SignInFormState extends State<_SignInForm> {
           const OutlineText(text: "WELCOME BACK", fontSize: 24),
           Text(
             "SIGN IN TO VITROFIT",
-            style: GoogleFonts.oswald(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.accent),
+            style: GoogleFonts.oswald(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             "Enter your account credentials to access your fitness dashboard.",
-            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 20),
           if (_error != null) _ErrorBanner(message: _error!),
@@ -220,7 +236,10 @@ class _SignInFormState extends State<_SignInForm> {
             obscureText: _obscure,
             validator: (v) => Validators.required(v, label: 'Password'),
             suffixIcon: IconButton(
-              icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
+              icon: Icon(
+                _obscure ? Icons.visibility_off : Icons.visibility,
+                color: AppColors.textMuted,
+              ),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
           ),
@@ -230,7 +249,11 @@ class _SignInFormState extends State<_SignInForm> {
               onPressed: () => context.push('/forgot-password'),
               child: Text(
                 "FORGOT PASSWORD?",
-                style: GoogleFonts.oswald(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.bold),
+                style: GoogleFonts.oswald(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -287,12 +310,12 @@ class _RegisterFormState extends State<_RegisterForm> {
     final email = _emailController.text.trim();
     try {
       await context.read<AppState>().register(
-            firstName: _firstNameController.text.trim(),
-            lastName: _lastNameController.text.trim(),
-            email: email,
-            phone: _phoneController.text.trim(),
-            password: _passwordController.text,
-          );
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: email,
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+      );
       if (mounted) context.push('/verify-email', extra: email);
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -313,12 +336,19 @@ class _RegisterFormState extends State<_RegisterForm> {
           const OutlineText(text: "JOIN THE CLUB", fontSize: 24),
           Text(
             "CREATE ACCOUNT",
-            style: GoogleFonts.oswald(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.accent),
+            style: GoogleFonts.oswald(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             "Register with VitroFit to build your personal training timetable.",
-            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 20),
           if (_error != null) _ErrorBanner(message: _error!),
@@ -372,7 +402,10 @@ class _RegisterFormState extends State<_RegisterForm> {
             obscureText: _obscure,
             validator: Validators.password,
             suffixIcon: IconButton(
-              icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
+              icon: Icon(
+                _obscure ? Icons.visibility_off : Icons.visibility,
+                color: AppColors.textMuted,
+              ),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
           ),

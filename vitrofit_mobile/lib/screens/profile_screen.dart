@@ -8,6 +8,7 @@ import '../models/user_profile.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/badge_chip.dart';
+import '../widgets/liquid_glass.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -28,8 +29,10 @@ class ProfileScreen extends StatelessWidget {
       backgroundColor: AppColors.bgCard,
       onRefresh: () => appState.refreshAll(),
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        padding: const EdgeInsets.all(20),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -37,24 +40,76 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               "MY UPCOMING SESSIONS",
-              style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textMuted),
+              style: GoogleFonts.oswald(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: 10),
             _buildUpcomingSessions(context, appState),
             const SizedBox(height: 24),
             Text(
               "ACCOUNT & PREFERENCES",
-              style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textMuted),
+              style: GoogleFonts.oswald(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: 10),
-            _buildSettingOption(context, Icons.person_outline, "Personal Details", () => context.push('/main/personal-details')),
-            _buildSettingOption(context, Icons.lock_outline, "Change Password", () => context.push('/main/change-password')),
-            _buildSettingOption(context, Icons.credit_card, "Payment & Billing", () => context.push('/main/billing')),
-            _buildSettingOption(context, Icons.notifications_none, "Notification Settings", () => context.push('/main/notifications')),
-            _buildSettingOption(context, Icons.help_outline, "Customer Support", () => context.push('/main/support')),
-            _buildSettingOption(context, Icons.info_outline, "About VitroFit", () => context.push('/main/about')),
-            _buildSettingOption(context, Icons.logout, "Sign Out", () => appState.logout(), isDanger: false),
-            _buildSettingOption(context, Icons.delete_forever_outlined, "Delete Account", () => _confirmDeleteAccount(context, appState), isDanger: true),
+            _buildSettingOption(
+              context,
+              Icons.person_outline,
+              "Personal Details",
+              () => context.push('/main/personal-details'),
+            ),
+            _buildSettingOption(
+              context,
+              Icons.lock_outline,
+              "Change Password",
+              () => context.push('/main/change-password'),
+            ),
+            _buildSettingOption(
+              context,
+              Icons.credit_card,
+              "Payment & Billing",
+              () => context.push('/main/billing'),
+            ),
+            _buildSettingOption(
+              context,
+              Icons.notifications_none,
+              "Notification Settings",
+              () => context.push('/main/notifications'),
+            ),
+            _buildSettingOption(
+              context,
+              Icons.help_outline,
+              "Customer Support",
+              () => context.push('/main/support'),
+            ),
+            _buildSettingOption(
+              context,
+              Icons.info_outline,
+              "About VitroFit",
+              () => context.push('/main/about'),
+            ),
+            _buildSettingOption(
+              context,
+              Icons.logout,
+              "Sign Out",
+              () => appState.logout(),
+              isDanger: false,
+            ),
+            _buildSettingOption(
+              context,
+              Icons.delete_forever_outlined,
+              "Delete Account",
+              () => _confirmDeleteAccount(context, appState),
+              isDanger: true,
+            ),
             const SizedBox(height: 30),
           ],
         ),
@@ -63,14 +118,13 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProfileBanner(UserProfile user) {
-    return Container(
+    return LiquidGlassContainer(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderAccent),
-        boxShadow: const [BoxShadow(color: AppColors.shadowAccent, blurRadius: 16)],
-      ),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.borderAccent),
+      boxShadow: const [
+        BoxShadow(color: AppColors.shadowAccent, blurRadius: 16),
+      ],
       child: Row(
         children: [
           Container(
@@ -81,14 +135,21 @@ class ProfileScreen extends StatelessWidget {
               border: Border.all(color: AppColors.accent, width: 2),
               color: AppColors.bgSecondary,
               image: user.profileImageUrl != null
-                  ? DecorationImage(image: NetworkImage(user.profileImageUrl!), fit: BoxFit.cover)
+                  ? DecorationImage(
+                      image: NetworkImage(user.profileImageUrl!),
+                      fit: BoxFit.cover,
+                    )
                   : null,
             ),
             child: user.profileImageUrl == null
                 ? Center(
                     child: Text(
                       user.initials,
-                      style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.accent),
+                      style: GoogleFonts.oswald(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.accent,
+                      ),
                     ),
                   )
                 : null,
@@ -105,13 +166,24 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       user.fullName,
-                      style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      style: GoogleFonts.oswald(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                    if (user.role != UserRole.user) BadgeChip(label: user.role.name.toUpperCase()),
+                    if (user.role != UserRole.user)
+                      BadgeChip(label: user.role.name.toUpperCase()),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(user.email, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
+                Text(
+                  user.email,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                  ),
+                ),
               ],
             ),
           ),
@@ -122,12 +194,16 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildUpcomingSessions(BuildContext context, AppState appState) {
     if (appState.timetableLoading && appState.timetableSlots.isEmpty) {
-      return Text("Loading your timetable…", style: GoogleFonts.inter(color: AppColors.textMuted));
+      return Text(
+        "Loading your timetable…",
+        style: GoogleFonts.inter(color: AppColors.textMuted),
+      );
     }
     if (appState.timetableSlots.isEmpty) {
-      return Container(
+      return LiquidGlassContainer(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+        borderRadius: BorderRadius.circular(10),
+        blurSigma: 16,
         child: Row(
           children: [
             const Icon(Icons.event_note, color: AppColors.textMuted),
@@ -135,7 +211,10 @@ class ProfileScreen extends StatelessWidget {
             Expanded(
               child: Text(
                 "No sessions yet. Add workouts to your timetable from the WORKOUTS tab.",
-                style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.textSecondary),
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ],
@@ -157,56 +236,114 @@ class ProfileScreen extends StatelessWidget {
   Widget _buildSessionItem(TimetableSlot slot) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-      child: Row(
-        children: [
-          const Icon(Icons.event_available, color: AppColors.accent, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(slot.title, style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                Text(
-                  "${slot.day.label} • ${slot.startTime.label} - ${slot.endTime.label}",
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          Text(slot.workoutCategory, style: GoogleFonts.inter(fontSize: 11, color: AppColors.accent, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingOption(BuildContext context, IconData icon, String label, VoidCallback onTap, {bool isDanger = false}) {
-    final color = isDanger ? AppColors.error : AppColors.textPrimary;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-      child: Material(
-        color: Colors.transparent,
+      child: LiquidGlassContainer(
+        padding: const EdgeInsets.all(14),
         borderRadius: BorderRadius.circular(10),
-        child: ListTile(
-          onTap: onTap,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          leading: Icon(icon, color: color, size: 20),
-          title: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
-          trailing: Icon(Icons.arrow_forward_ios, size: 14, color: isDanger ? AppColors.error : AppColors.textMuted),
+        blur: false,
+        child: Row(
+          children: [
+            const Icon(
+              Icons.event_available,
+              color: AppColors.accent,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    slot.title,
+                    style: GoogleFonts.oswald(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    "${slot.day.label} • ${slot.startTime.label} - ${slot.endTime.label}",
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              slot.workoutCategory,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: AppColors.accent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Future<void> _confirmDeleteAccount(BuildContext context, AppState appState) async {
+  Widget _buildSettingOption(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool isDanger = false,
+  }) {
+    final color = isDanger ? AppColors.error : AppColors.textPrimary;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: LiquidGlassContainer(
+        borderRadius: BorderRadius.circular(10),
+        blur: false,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: ListTile(
+            onTap: onTap,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            leading: Icon(icon, color: color, size: 20),
+            title: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: isDanger ? AppColors.error : AppColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    AppState appState,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.error)),
-        title: Text("DELETE ACCOUNT?", style: GoogleFonts.oswald(fontWeight: FontWeight.bold, color: AppColors.error)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.error),
+        ),
+        title: Text(
+          "DELETE ACCOUNT?",
+          style: GoogleFonts.oswald(
+            fontWeight: FontWeight.bold,
+            color: AppColors.error,
+          ),
+        ),
         content: Text(
           "This permanently deletes your VitroFit account and timetable. This cannot be undone.",
           style: GoogleFonts.inter(color: AppColors.textSecondary),
@@ -214,11 +351,20 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text("CANCEL", style: GoogleFonts.oswald(color: AppColors.textMuted)),
+            child: Text(
+              "CANCEL",
+              style: GoogleFonts.oswald(color: AppColors.textMuted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text("DELETE", style: GoogleFonts.oswald(color: AppColors.error, fontWeight: FontWeight.bold)),
+            child: Text(
+              "DELETE",
+              style: GoogleFonts.oswald(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -230,7 +376,10 @@ class ProfileScreen extends StatelessWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: AppColors.error, content: Text(e.toString())),
+            SnackBar(
+              backgroundColor: AppColors.error,
+              content: Text(e.toString()),
+            ),
           );
         }
       }

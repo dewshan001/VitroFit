@@ -36,14 +36,14 @@ enum ApiDay {
 
   /// Ordered starting on Monday, for a more natural weekly view.
   static List<ApiDay> get weekOrder => const [
-        ApiDay.monday,
-        ApiDay.tuesday,
-        ApiDay.wednesday,
-        ApiDay.thursday,
-        ApiDay.friday,
-        ApiDay.saturday,
-        ApiDay.sunday,
-      ];
+    ApiDay.monday,
+    ApiDay.tuesday,
+    ApiDay.wednesday,
+    ApiDay.thursday,
+    ApiDay.friday,
+    ApiDay.saturday,
+    ApiDay.sunday,
+  ];
 }
 
 /// A time-of-day value, since the backend sends/expects TimeSpan as "HH:mm:ss".
@@ -55,7 +55,10 @@ class ApiTime implements Comparable<ApiTime> {
 
   factory ApiTime.fromApiString(String value) {
     final parts = value.split(':');
-    return ApiTime(int.parse(parts[0]), parts.length > 1 ? int.parse(parts[1]) : 0);
+    return ApiTime(
+      int.parse(parts[0]),
+      parts.length > 1 ? int.parse(parts[1]) : 0,
+    );
   }
 
   String toApiString() =>

@@ -22,7 +22,9 @@ class WorkoutSuggestion {
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 30,
       difficulty: (json['difficulty'] as String?) ?? 'All levels',
       description: (json['description'] as String?) ?? '',
-      equipmentUsed: (json['equipment_used'] as List? ?? const []).map((e) => e.toString()).toList(),
+      equipmentUsed: (json['equipment_used'] as List? ?? const [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 }
@@ -38,6 +40,9 @@ class WorkoutSuggestionsResult {
         .map((e) => WorkoutSuggestion.fromJson(e as Map<String, dynamic>))
         .toList();
     final notes = json['notes'] as String?;
-    return WorkoutSuggestionsResult(workouts: list, notes: (notes != null && notes.isNotEmpty) ? notes : null);
+    return WorkoutSuggestionsResult(
+      workouts: list,
+      notes: (notes != null && notes.isNotEmpty) ? notes : null,
+    );
   }
 }

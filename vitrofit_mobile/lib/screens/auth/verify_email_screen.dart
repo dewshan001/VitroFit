@@ -39,7 +39,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       _info = null;
     });
     try {
-      await context.read<AppState>().verifyEmail(email: widget.email, otp: _otpController.text.trim());
+      await context.read<AppState>().verifyEmail(
+        email: widget.email,
+        otp: _otpController.text.trim(),
+      );
       // Router redirect handles navigation to /main once authStatus flips.
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -84,12 +87,19 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 const OutlineText(text: "ALMOST THERE", fontSize: 24),
                 Text(
                   "VERIFY YOUR EMAIL",
-                  style: GoogleFonts.oswald(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.accent),
+                  style: GoogleFonts.oswald(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   "We sent a 6-digit code to ${widget.email}. Enter it below to activate your account.",
-                  style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 if (_error != null)
@@ -99,9 +109,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.errorGlow,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.5),
+                      ),
                     ),
-                    child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 12.5)),
+                    child: Text(
+                      _error!,
+                      style: GoogleFonts.inter(
+                        color: AppColors.error,
+                        fontSize: 12.5,
+                      ),
+                    ),
                   ).animate().shake(hz: 4, duration: 350.ms),
                 if (_info != null)
                   Container(
@@ -110,9 +128,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.successGlow,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.success.withOpacity(0.5)),
+                      border: Border.all(
+                        color: AppColors.success.withOpacity(0.5),
+                      ),
                     ),
-                    child: Text(_info!, style: GoogleFonts.inter(color: AppColors.success, fontSize: 12.5)),
+                    child: Text(
+                      _info!,
+                      style: GoogleFonts.inter(
+                        color: AppColors.success,
+                        fontSize: 12.5,
+                      ),
+                    ),
                   ).animate().fadeIn(duration: 200.ms),
                 VitroTextField(
                   label: "VERIFICATION CODE",
@@ -138,7 +164,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     onPressed: _resending ? null : _resend,
                     child: Text(
                       _resending ? "SENDING..." : "RESEND CODE",
-                      style: GoogleFonts.oswald(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                      style: GoogleFonts.oswald(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
                 ),

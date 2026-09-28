@@ -19,7 +19,8 @@ class GymDetails {
   });
 
   factory GymDetails.fromJson(Map<String, dynamic> json) {
-    List<String> strList(dynamic v) => (v as List? ?? const []).map((e) => e.toString()).toList();
+    List<String> strList(dynamic v) =>
+        (v as List? ?? const []).map((e) => e.toString()).toList();
     return GymDetails(
       placeId: (json['place_id'] as String?) ?? '',
       source: (json['source'] as String?) ?? 'ai-generic',

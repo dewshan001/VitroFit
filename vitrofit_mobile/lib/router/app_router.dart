@@ -34,7 +34,10 @@ GoRouter buildRouter(AppState appState) {
     refreshListenable: appState,
     redirect: (context, state) {
       final loc = state.matchedLocation;
-      final onAuthFlow = loc.startsWith('/auth') || loc == '/verify-email' || loc == '/forgot-password';
+      final onAuthFlow =
+          loc.startsWith('/auth') ||
+          loc == '/verify-email' ||
+          loc == '/forgot-password';
 
       if (appState.authStatus == AuthStatus.initial) {
         return loc == '/' ? null : '/';
@@ -47,26 +50,47 @@ GoRouter buildRouter(AppState appState) {
       return null;
     },
     routes: [
-      GoRoute(path: '/', pageBuilder: (context, state) => _fadeThroughPage(state, const SplashScreen())),
-      GoRoute(path: '/auth', pageBuilder: (context, state) => _fadeThroughPage(state, const AuthScreen())),
+      GoRoute(
+        path: '/',
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const SplashScreen()),
+      ),
+      GoRoute(
+        path: '/auth',
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const AuthScreen()),
+      ),
       GoRoute(
         path: '/verify-email',
-        pageBuilder: (context, state) =>
-            _fadeThroughPage(state, VerifyEmailScreen(email: (state.extra as String?) ?? '')),
+        pageBuilder: (context, state) => _fadeThroughPage(
+          state,
+          VerifyEmailScreen(email: (state.extra as String?) ?? ''),
+        ),
       ),
       GoRoute(
         path: '/forgot-password',
-        pageBuilder: (context, state) => _fadeThroughPage(state, const ForgotPasswordScreen()),
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const ForgotPasswordScreen()),
       ),
-      GoRoute(path: '/main', pageBuilder: (context, state) => _fadeThroughPage(state, const MainNavigationScreen())),
-      GoRoute(path: '/main/about', pageBuilder: (context, state) => _fadeThroughPage(state, const AboutScreen())),
+      GoRoute(
+        path: '/main',
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const MainNavigationScreen()),
+      ),
+      GoRoute(
+        path: '/main/about',
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const AboutScreen()),
+      ),
       GoRoute(
         path: '/main/change-password',
-        pageBuilder: (context, state) => _fadeThroughPage(state, const ChangePasswordScreen()),
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const ChangePasswordScreen()),
       ),
       GoRoute(
         path: '/main/personal-details',
-        pageBuilder: (context, state) => _fadeThroughPage(state, const PersonalDetailsScreen()),
+        pageBuilder: (context, state) =>
+            _fadeThroughPage(state, const PersonalDetailsScreen()),
       ),
       GoRoute(
         path: '/main/notifications',
@@ -75,7 +99,8 @@ GoRouter buildRouter(AppState appState) {
           const InfoScreen(
             title: 'NOTIFICATION SETTINGS',
             icon: Icons.notifications_none,
-            body: 'Choose what VitroFit can notify you about. These preferences are stored on this '
+            body:
+                'Choose what VitroFit can notify you about. These preferences are stored on this '
                 'device only.',
             isTogglesDemo: true,
           ),
@@ -88,7 +113,8 @@ GoRouter buildRouter(AppState appState) {
           const InfoScreen(
             title: 'PAYMENT & BILLING',
             icon: Icons.credit_card,
-            body: 'VitroFit does not process payments in this app yet. For billing questions about '
+            body:
+                'VitroFit does not process payments in this app yet. For billing questions about '
                 'your membership, reach out to our support team and we will help you directly.',
           ),
         ),
@@ -100,7 +126,8 @@ GoRouter buildRouter(AppState appState) {
           const InfoScreen(
             title: 'CUSTOMER SUPPORT',
             icon: Icons.help_outline,
-            body: 'Need a hand? Email support@vitrofit.com or visit any VitroFit studio front desk and '
+            body:
+                'Need a hand? Email support@vitrofit.com or visit any VitroFit studio front desk and '
                 'our team will sort you out.',
           ),
         ),

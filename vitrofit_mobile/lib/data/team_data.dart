@@ -24,7 +24,8 @@ class TeamData {
     TeamMember(
       name: 'Alexandra Rodriguez',
       role: 'Head HIIT & Endurance Coach',
-      bio: 'Former Olympic athlete with 10+ years coaching elite performers in high-intensity functional conditioning.',
+      bio:
+          'Former Olympic athlete with 10+ years coaching elite performers in high-intensity functional conditioning.',
       image: 'assets/images/about_trainer_1.png',
       specialty: 'HIIT & Endurance',
       experienceYears: 10,
@@ -32,7 +33,8 @@ class TeamData {
     TeamMember(
       name: 'David Chen',
       role: 'Master Yoga & Mobility Instructor',
-      bio: 'Certified Ashtanga & Vinyasa master specializing in spinal alignment, mobility restoration, and breathwork.',
+      bio:
+          'Certified Ashtanga & Vinyasa master specializing in spinal alignment, mobility restoration, and breathwork.',
       image: 'assets/images/about_trainer_2.png',
       specialty: 'Yoga & Mindfulness',
       experienceYears: 8,
@@ -40,7 +42,8 @@ class TeamData {
     TeamMember(
       name: 'Mark Johnson',
       role: 'Head Strength & Hypertrophy Coach',
-      bio: 'Powerlifting champion and strength strategist focused on progressive overload and biomechanical safety.',
+      bio:
+          'Powerlifting champion and strength strategist focused on progressive overload and biomechanical safety.',
       image: 'assets/images/about_trainer_3.png',
       specialty: 'Strength & Powerlifting',
       experienceYears: 12,
@@ -48,7 +51,8 @@ class TeamData {
     TeamMember(
       name: 'Emily Turner',
       role: 'Combat & Kickboxing Specialist',
-      bio: 'Black belt martial artist creating explosive strike routines that boost cardiovascular endurance and reflexes.',
+      bio:
+          'Black belt martial artist creating explosive strike routines that boost cardiovascular endurance and reflexes.',
       image: 'assets/images/about_trainer_4.png',
       specialty: 'Kickboxing & Cardio',
       experienceYears: 7,
@@ -56,7 +60,8 @@ class TeamData {
     TeamMember(
       name: 'Sophie Nguyen',
       role: 'Pilates & Mobility Specialist',
-      bio: 'Physiotherapist & Pilates practitioner dedicated to rehabilitation, injury prevention, and core stability.',
+      bio:
+          'Physiotherapist & Pilates practitioner dedicated to rehabilitation, injury prevention, and core stability.',
       image: 'assets/images/about_trainer_5.png',
       specialty: 'Pilates & Recovery',
       experienceYears: 6,
@@ -64,7 +69,8 @@ class TeamData {
     TeamMember(
       name: 'Dr. Maya Patel',
       role: 'Sports Scientist & Functional Coach',
-      bio: 'PhD in Biomechanics and Certified CrossFit Level 3 trainer pushing human limits through evidence-based protocols.',
+      bio:
+          'PhD in Biomechanics and Certified CrossFit Level 3 trainer pushing human limits through evidence-based protocols.',
       image: 'assets/images/about_trainer_6.png',
       specialty: 'Functional Fitness',
       experienceYears: 9,

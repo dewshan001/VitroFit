@@ -25,7 +25,8 @@ class WorkoutDetailSheet extends StatelessWidget {
     final rootContext = Navigator.of(sheetContext, rootNavigator: true).context;
     Navigator.of(sheetContext).pop();
     Future.microtask(() {
-      if (rootContext.mounted) showTimetableSlotForm(rootContext, presetWorkout: workout);
+      if (rootContext.mounted)
+        showTimetableSlotForm(rootContext, presetWorkout: workout);
     });
   }
 
@@ -45,7 +46,10 @@ class WorkoutDetailSheet extends StatelessWidget {
             margin: const EdgeInsets.only(top: 12, bottom: 8),
             width: 40,
             height: 4,
-            decoration: BoxDecoration(color: AppColors.textMuted, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(
+              color: AppColors.textMuted,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -63,7 +67,11 @@ class WorkoutDetailSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: AppColors.borderAccent),
                         ),
-                        child: Icon(iconForCategory(workout.category), color: AppColors.accent, size: 32),
+                        child: Icon(
+                          iconForCategory(workout.category),
+                          color: AppColors.accent,
+                          size: 32,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -72,7 +80,11 @@ class WorkoutDetailSheet extends StatelessWidget {
                           children: [
                             Text(
                               workout.name,
-                              style: GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              style: GoogleFonts.oswald(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             BadgeChip(label: workout.category),
@@ -84,14 +96,23 @@ class WorkoutDetailSheet extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text(
                     "OVERVIEW",
-                    style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textPrimary),
+                    style: GoogleFonts.oswald(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     (workout.description?.isNotEmpty ?? false)
                         ? workout.description!
                         : "No description has been added for this workout yet — check back soon.",
-                    style: GoogleFonts.inter(fontSize: 14, height: 1.6, color: AppColors.textSecondary),
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),

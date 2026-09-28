@@ -46,7 +46,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _error = null;
     });
     try {
-      await context.read<AppState>().forgotPassword(_emailController.text.trim());
+      await context.read<AppState>().forgotPassword(
+        _emailController.text.trim(),
+      );
       setState(() {
         _otpSent = true;
         _info = 'If that email is registered, a code has been sent.';
@@ -66,10 +68,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
     try {
       await context.read<AppState>().resetPassword(
-            email: _emailController.text.trim(),
-            otp: _otpController.text.trim(),
-            newPassword: _newPasswordController.text,
-          );
+        email: _emailController.text.trim(),
+        otp: _otpController.text.trim(),
+        newPassword: _newPasswordController.text,
+      );
       if (mounted) context.go('/auth');
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -92,7 +94,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const OutlineText(text: "RESET ACCESS", fontSize: 22),
               Text(
                 "FORGOT PASSWORD",
-                style: GoogleFonts.oswald(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.accent),
+                style: GoogleFonts.oswald(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.accent,
+                ),
               ),
               const SizedBox(height: 20),
               if (_error != null)
@@ -104,7 +110,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.error.withOpacity(0.5)),
                   ),
-                  child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 12.5)),
+                  child: Text(
+                    _error!,
+                    style: GoogleFonts.inter(
+                      color: AppColors.error,
+                      fontSize: 12.5,
+                    ),
+                  ),
                 ).animate().shake(hz: 4, duration: 350.ms),
               if (_info != null)
                 Container(
@@ -113,14 +125,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.successGlow,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.success.withOpacity(0.5)),
+                    border: Border.all(
+                      color: AppColors.success.withOpacity(0.5),
+                    ),
                   ),
-                  child: Text(_info!, style: GoogleFonts.inter(color: AppColors.success, fontSize: 12.5)),
+                  child: Text(
+                    _info!,
+                    style: GoogleFonts.inter(
+                      color: AppColors.success,
+                      fontSize: 12.5,
+                    ),
+                  ),
                 ),
               if (!_otpSent) ...[
                 Text(
                   "Enter your account email and we'll send you a reset code.",
-                  style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Form(
@@ -147,7 +170,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ] else ...[
                 Text(
                   "Enter the code we sent and choose a new password.",
-                  style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Form(

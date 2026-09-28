@@ -19,8 +19,12 @@ class AuthResult {
     return AuthResult(
       accessToken: json['accessToken'] as String,
       refreshToken: json['refreshToken'] as String,
-      accessTokenExpiresAt: DateTime.parse(json['accessTokenExpiresAt'] as String),
-      refreshTokenExpiresAt: DateTime.parse(json['refreshTokenExpiresAt'] as String),
+      accessTokenExpiresAt: DateTime.parse(
+        json['accessTokenExpiresAt'] as String,
+      ),
+      refreshTokenExpiresAt: DateTime.parse(
+        json['refreshTokenExpiresAt'] as String,
+      ),
       user: UserProfile.fromJson(json['user'] as Map<String, dynamic>),
     );
   }

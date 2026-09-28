@@ -10,7 +10,10 @@ import 'package:dio/dio.dart';
 /// Override at build/run time, e.g.:
 ///   flutter run --dart-define=CHATBOT_API_URL=http://192.168.1.20:8000
 const String _defaultChatbotBaseUrl = 'http://127.0.0.1:8000';
-const String chatbotBaseUrl = String.fromEnvironment('CHATBOT_API_URL', defaultValue: _defaultChatbotBaseUrl);
+const String chatbotBaseUrl = String.fromEnvironment(
+  'CHATBOT_API_URL',
+  defaultValue: _defaultChatbotBaseUrl,
+);
 
 class ChatbotException implements Exception {
   final String message;
@@ -21,11 +24,13 @@ class ChatbotException implements Exception {
 }
 
 class ChatbotApi {
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: chatbotBaseUrl,
-    connectTimeout: const Duration(seconds: 12),
-    receiveTimeout: const Duration(minutes: 2),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: chatbotBaseUrl,
+      connectTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(minutes: 2),
+    ),
+  );
 
   /// Streams incremental text chunks for a single stateless turn, matching
   /// the website's SSE contract: lines of `data: {"content": "..."}`,
@@ -36,7 +41,10 @@ class ChatbotApi {
       response = await _dio.post<ResponseBody>(
         '/api/chat',
         data: {'query': query},
-        options: Options(responseType: ResponseType.stream, headers: {'Accept': 'text/event-stream'}),
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {'Accept': 'text/event-stream'},
+        ),
       );
     } on DioException catch (e) {
       throw ChatbotException(await _messageForDioError(e));
@@ -51,7 +59,9 @@ class ChatbotApi {
       buffer = events.removeLast();
 
       for (final event in events) {
-        final dataLine = event.split('\n').firstWhere((l) => l.startsWith('data: '), orElse: () => '');
+        final dataLine = event
+            .split('\n')
+            .firstWhere((l) => l.startsWith('data: '), orElse: () => '');
         if (dataLine.isEmpty) continue;
 
         final payload = dataLine.substring(6).trim();
@@ -76,13 +86,17 @@ class ChatbotApi {
   }
 
   Future<String> _messageForDioError(DioException e) async {
-    if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout) {
       return 'Could not reach VitroBot. Check your connection and try again.';
     }
     final data = e.response?.data;
     if (data is ResponseBody) {
       try {
-        final bytes = await data.stream.fold<List<int>>([], (acc, chunk) => acc..addAll(chunk));
+        final bytes = await data.stream.fold<List<int>>(
+          [],
+          (acc, chunk) => acc..addAll(chunk),
+        );
         final decoded = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
         final detail = decoded['detail'];
         if (detail is String && detail.isNotEmpty) return detail;

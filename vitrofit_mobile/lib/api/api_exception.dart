@@ -32,10 +32,15 @@ class ApiException implements Exception {
     }
     if (error.type == DioExceptionType.connectionError ||
         error.type == DioExceptionType.connectionTimeout) {
-      return const ApiException('Could not reach the server. Check your connection and try again.');
+      return const ApiException(
+        'Could not reach the server. Check your connection and try again.',
+      );
     }
     if (response != null) {
-      return ApiException('Server error (${response.statusCode}). Please try again.', statusCode: response.statusCode);
+      return ApiException(
+        'Server error (${response.statusCode}). Please try again.',
+        statusCode: response.statusCode,
+      );
     }
     return const ApiException('Something went wrong. Please try again.');
   }

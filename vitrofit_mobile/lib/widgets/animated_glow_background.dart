@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -30,7 +28,8 @@ class AmbientGlowBackground extends StatefulWidget {
   State<AmbientGlowBackground> createState() => _AmbientGlowBackgroundState();
 }
 
-class _AmbientGlowBackgroundState extends State<AmbientGlowBackground> with TickerProviderStateMixin {
+class _AmbientGlowBackgroundState extends State<AmbientGlowBackground>
+    with TickerProviderStateMixin {
   late final List<AnimationController> _controllers;
   late final List<Animation<Alignment>> _alignments;
   double _scrollOffset = 0;
@@ -101,7 +100,10 @@ class _AmbientGlowBackgroundState extends State<AmbientGlowBackground> with Tick
           child: Stack(
             children: List.generate(_orbs.length, (i) {
               final spec = _orbs[i];
-              final parallaxShift = (_scrollOffset * spec.parallax).clamp(-45.0, 45.0);
+              final parallaxShift = (_scrollOffset * spec.parallax).clamp(
+                -45.0,
+                45.0,
+              );
               return AnimatedBuilder(
                 animation: _controllers[i],
                 builder: (context, child) {
@@ -113,19 +115,21 @@ class _AmbientGlowBackgroundState extends State<AmbientGlowBackground> with Tick
                     ),
                   );
                 },
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 55, sigmaY: 55),
-                  child: Container(
-                    width: spec.size,
-                    height: spec.size,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          spec.color.withOpacity(0.22),
-                          spec.color.withOpacity(0.0),
-                        ],
-                      ),
+                // A RadialGradient alone already fades to nothing smoothly -
+                // no BackdropFilter/ImageFiltered blur needed, which is far
+                // cheaper to composite every frame than a real GPU blur.
+                child: Container(
+                  width: spec.size,
+                  height: spec.size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        spec.color.withOpacity(0.20),
+                        spec.color.withOpacity(0.08),
+                        spec.color.withOpacity(0.0),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
                     ),
                   ),
                 ),

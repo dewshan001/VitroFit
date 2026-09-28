@@ -9,23 +9,33 @@ const String _geoapifyApiKey = String.fromEnvironment(
 );
 
 class GeoapifyApi {
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'https://api.geoapify.com',
-    connectTimeout: const Duration(seconds: 12),
-    receiveTimeout: const Duration(seconds: 12),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://api.geoapify.com',
+      connectTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(seconds: 12),
+    ),
+  );
 
   /// Mirrors the website's query exactly: fitness places within 50km,
   /// biased/sorted by distance from the given point.
-  Future<List<Gym>> searchNearby({required double lat, required double lng}) async {
-    final response = await _dio.get('/v2/places', queryParameters: {
-      'categories': 'sport.fitness',
-      'filter': 'circle:$lng,$lat,50000',
-      'bias': 'proximity:$lng,$lat',
-      'limit': 80,
-      'apiKey': _geoapifyApiKey,
-    });
+  Future<List<Gym>> searchNearby({
+    required double lat,
+    required double lng,
+  }) async {
+    final response = await _dio.get(
+      '/v2/places',
+      queryParameters: {
+        'categories': 'sport.fitness',
+        'filter': 'circle:$lng,$lat,50000',
+        'bias': 'proximity:$lng,$lat',
+        'limit': 80,
+        'apiKey': _geoapifyApiKey,
+      },
+    );
     final features = (response.data['features'] as List? ?? const []);
-    return features.map((f) => Gym.fromFeature(f as Map<String, dynamic>)).toList();
+    return features
+        .map((f) => Gym.fromFeature(f as Map<String, dynamic>))
+        .toList();
   }
 }

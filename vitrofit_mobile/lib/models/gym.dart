@@ -25,10 +25,15 @@ class Gym {
   });
 
   factory Gym.fromFeature(Map<String, dynamic> feature) {
-    final props = (feature['properties'] as Map?)?.cast<String, dynamic>() ?? {};
-    final geometry = (feature['geometry'] as Map?)?.cast<String, dynamic>() ?? {};
+    final props =
+        (feature['properties'] as Map?)?.cast<String, dynamic>() ?? {};
+    final geometry =
+        (feature['geometry'] as Map?)?.cast<String, dynamic>() ?? {};
     final coords = (geometry['coordinates'] as List?) ?? const [0.0, 0.0];
-    final raw = (((props['datasource'] as Map?)?['raw'] as Map?))?.cast<String, dynamic>() ?? {};
+    final raw =
+        (((props['datasource'] as Map?)?['raw'] as Map?))
+            ?.cast<String, dynamic>() ??
+        {};
 
     String? str(dynamic v) => v is String && v.isNotEmpty ? v : null;
 

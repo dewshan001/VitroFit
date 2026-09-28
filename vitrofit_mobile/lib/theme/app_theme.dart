@@ -6,15 +6,15 @@ class AppColors {
   static const Color bgSecondary = Color(0xFF1A1A1A);
   static const Color bgCard = Color(0xFF1E1E1E);
   static const Color bgCardHover = Color(0xFF252525);
-  
+
   static const Color accent = Color(0xFFC8F000); // Electric Lime
   static const Color accentDark = Color(0xFF9AB800);
   static const Color accentGlow = Color(0x4DC8F000);
-  
+
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFB0B0B0);
   static const Color textMuted = Color(0xFF6B6B6B);
-  
+
   static const Color border = Color(0x1AFFFFFF);
   static const Color borderAccent = Color(0x66C8F000);
 

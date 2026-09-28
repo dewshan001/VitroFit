@@ -34,7 +34,13 @@ class _InfoScreenState extends State<InfoScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.bgPrimary,
         elevation: 0,
-        title: Text(widget.title, style: GoogleFonts.oswald(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        title: Text(
+          widget.title,
+          style: GoogleFonts.oswald(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(
@@ -55,7 +61,11 @@ class _InfoScreenState extends State<InfoScreen> {
                   Expanded(
                     child: Text(
                       widget.body,
-                      style: GoogleFonts.inter(fontSize: 13.5, height: 1.5, color: AppColors.textSecondary),
+                      style: GoogleFonts.inter(
+                        fontSize: 13.5,
+                        height: 1.5,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -63,12 +73,24 @@ class _InfoScreenState extends State<InfoScreen> {
             ),
             if (widget.isTogglesDemo) ...[
               const SizedBox(height: 20),
-              _toggleRow("Class reminders", "Alerts before your scheduled sessions", _classReminders,
-                  (v) => setState(() => _classReminders = v)),
-              _toggleRow("New workouts", "When the studio adds a new workout to the catalog", _newWorkouts,
-                  (v) => setState(() => _newWorkouts = v)),
-              _toggleRow("Product updates", "News and announcements from VitroFit", _productUpdates,
-                  (v) => setState(() => _productUpdates = v)),
+              _toggleRow(
+                "Class reminders",
+                "Alerts before your scheduled sessions",
+                _classReminders,
+                (v) => setState(() => _classReminders = v),
+              ),
+              _toggleRow(
+                "New workouts",
+                "When the studio adds a new workout to the catalog",
+                _newWorkouts,
+                (v) => setState(() => _newWorkouts = v),
+              ),
+              _toggleRow(
+                "Product updates",
+                "News and announcements from VitroFit",
+                _productUpdates,
+                (v) => setState(() => _productUpdates = v),
+              ),
             ],
           ],
         ),
@@ -76,7 +98,12 @@ class _InfoScreenState extends State<InfoScreen> {
     );
   }
 
-  Widget _toggleRow(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+  Widget _toggleRow(
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -90,8 +117,18 @@ class _InfoScreenState extends State<InfoScreen> {
         onChanged: onChanged,
         activeColor: AppColors.accent,
         activeTrackColor: AppColors.accentGlow,
-        title: Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-        subtitle: Text(subtitle, style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.textMuted)),
+        title: Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.textMuted),
+        ),
         contentPadding: EdgeInsets.zero,
       ),
     );
