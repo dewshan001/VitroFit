@@ -121,6 +121,7 @@ class ProfileScreen extends StatelessWidget {
     return LiquidGlassContainer(
       padding: const EdgeInsets.all(20),
       borderRadius: BorderRadius.circular(16),
+      blur: false,
       border: Border.all(color: AppColors.borderAccent),
       boxShadow: const [
         BoxShadow(color: AppColors.shadowAccent, blurRadius: 16),
@@ -203,7 +204,7 @@ class ProfileScreen extends StatelessWidget {
       return LiquidGlassContainer(
         padding: const EdgeInsets.all(16),
         borderRadius: BorderRadius.circular(10),
-        blurSigma: 16,
+        blur: false,
         child: Row(
           children: [
             const Icon(Icons.event_note, color: AppColors.textMuted),

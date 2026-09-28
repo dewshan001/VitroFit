@@ -116,8 +116,14 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
     super.initState();
     // Keep the workout dropdown current - the catalog is admin-managed and
     // may have changed since it was last loaded (mirrors the website's
-    // refreshWorkouts() on every form open).
-    context.read<AppState>().loadWorkouts();
+    // refreshWorkouts() on every form open). Deferred to after this frame:
+    // loadWorkouts() notifies listeners synchronously before its first
+    // await, and calling it directly from initState (while this sheet's
+    // own widget tree is still being built) crashes GoRouter's
+    // refreshListenable, which can't rebuild mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().loadWorkouts();
+    });
 
     final slot = widget.editingSlot;
     if (slot != null) {

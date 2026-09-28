@@ -312,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: LiquidGlassContainer(
             borderRadius: BorderRadius.circular(16),
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+            blur: false,
             border: Border.all(color: AppColors.borderAccent),
             boxShadow: const [
               BoxShadow(
@@ -551,6 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   padding: const EdgeInsets.all(24),
                   tint: AppColors.bgSecondary,
+                  blur: false,
                   border: Border.all(color: AppColors.borderAccent),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

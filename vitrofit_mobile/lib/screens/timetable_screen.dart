@@ -49,17 +49,23 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () =>
-            showTimetableSlotForm(context, presetDay: _selectedDay),
-        backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.bgPrimary,
-        icon: const Icon(Icons.add),
-        label: Text(
-          "ADD SLOT",
-          style: GoogleFonts.oswald(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(
+          bottom: 90 + MediaQuery.of(context).padding.bottom,
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () =>
+              showTimetableSlotForm(context, presetDay: _selectedDay),
+          backgroundColor: AppColors.accent,
+          foregroundColor: AppColors.bgPrimary,
+          icon: const Icon(Icons.add),
+          label: Text(
+            "ADD SLOT",
+            style: GoogleFonts.oswald(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
           ),
         ),
       ),

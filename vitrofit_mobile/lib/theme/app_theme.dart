@@ -6,6 +6,7 @@ class AppColors {
   static const Color bgSecondary = Color(0xFF1A1A1A);
   static const Color bgCard = Color(0xFF1E1E1E);
   static const Color bgCardHover = Color(0xFF252525);
+  static const Color bgElevated = Color(0xFF232323);
 
   static const Color accent = Color(0xFFC8F000); // Electric Lime
   static const Color accentDark = Color(0xFF9AB800);
@@ -15,7 +16,7 @@ class AppColors {
   static const Color textSecondary = Color(0xFFB0B0B0);
   static const Color textMuted = Color(0xFF6B6B6B);
 
-  static const Color border = Color(0x1AFFFFFF);
+  static const Color border = Color(0x12FFFFFF);
   static const Color borderAccent = Color(0x66C8F000);
 
   static const Color shadowAccent = Color(0x26C8F000);
@@ -60,7 +61,53 @@ class AppTheme {
         primary: AppColors.accent,
         secondary: AppColors.accentDark,
         surface: AppColors.bgCard,
+        onSurface: AppColors.textPrimary,
         background: AppColors.bgPrimary,
+        surfaceContainer: AppColors.bgCard,
+        surfaceContainerHigh: AppColors.bgElevated,
+        surfaceContainerHighest: AppColors.bgCardHover,
+        outline: AppColors.border,
+        error: AppColors.error,
+        onError: AppColors.textPrimary,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: AppColors.bgCard,
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.bgPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      snackBarTheme: const SnackBarThemeData(backgroundColor: AppColors.bgCard),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: AppColors.bgCard,
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: const CardThemeData(
+        color: AppColors.bgCard,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerTheme: const DividerThemeData(color: AppColors.border),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.bgCard,
+      ),
+      chipTheme: const ChipThemeData(
+        backgroundColor: AppColors.bgCard,
+        selectedColor: AppColors.accent,
+        surfaceTintColor: Colors.transparent,
+      ),
+      datePickerTheme: const DatePickerThemeData(
+        backgroundColor: AppColors.bgCard,
+        surfaceTintColor: Colors.transparent,
+      ),
+      timePickerTheme: const TimePickerThemeData(
+        backgroundColor: AppColors.bgCard,
       ),
       fontFamily: GoogleFonts.inter().fontFamily,
       textTheme: TextTheme(
