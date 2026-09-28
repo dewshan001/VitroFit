@@ -11,6 +11,7 @@ import 'find_gym_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'timetable_screen.dart';
+import '../features/adaptive_fitness/fitness_screen.dart';
 import 'workouts_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -84,91 +85,72 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
-      extendBodyBehindAppBar: false,
-      extendBody: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: LiquidGlassContainer(
-          borderRadius: BorderRadius.zero,
-          tint: AppColors.bgPrimary,
-          tintOpacity: 0.78,
-          blur: false,
-          border: const Border(
-            bottom: BorderSide(color: AppColors.border, width: 1),
-          ),
-          boxShadow: const [],
-          child: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            titleSpacing: 20,
-            title: Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: const [
-                      BoxShadow(color: AppColors.shadowAccent, blurRadius: 10),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  "VITROFIT",
-                  style: GoogleFonts.oswald(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.5,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: AppColors.textPrimary,
-                    ),
-                    onPressed: () => _showNotifications(context),
-                  ),
-                  if (hasUpcoming)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.accent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
+      // App Header
+      appBar: AppBar(
+        backgroundColor: AppColors.bgPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 20,
+        title: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.shadowAccent,
+                    blurRadius: 10,
+                  )
                 ],
               ),
-              const SizedBox(width: 10),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "VITROFIT",
+              style: GoogleFonts.oswald(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2.5,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                color: AppColors.accent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.bgCard,
+                  content: Text(
+                    "No new notifications",
+                    style: GoogleFonts.inter(color: AppColors.textPrimary),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 10),
+        ],
       ),
-      body: NotificationListener<UserScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: IndexedStack(index: _currentIndex, children: _pages),
+
+      // Body (IndexedStack preserves tab scroll states)
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
       ),
       floatingActionButton: const ChatbotFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

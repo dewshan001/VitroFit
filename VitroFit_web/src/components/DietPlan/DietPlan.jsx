@@ -1,82 +1,34 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import DietPlanPreferenceForm from './DietPlanPreferenceForm';
 import DietPlanResult from './DietPlanResult';
+import {
+  generateDietPlan,
+  confirmDietPlan,
+  updateDietPlan,
+  deleteDietPlan,
+  fetchSavedDietPlans,
+} from '../../api/dietPlan';
 import './DietPlan.css';
-
-/* ──────────────────────────────────────────────
-   MOCK DATA  (replace with Agentic AI backend later)
-   ────────────────────────────────────────────── */
-
-// Mock "menu" pools keyed by category so generated plans look realistic.
-const FOOD_POOL = {
-  protein: [
-    { name: 'Grilled Chicken Breast', unit: '150g', kcal: 248 },
-    { name: 'Baked Salmon Fillet', unit: '140g', kcal: 290 },
-    { name: 'Lean Beef Sirloin', unit: '150g', kcal: 330 },
-    { name: 'Tofu', unit: '200g', kcal: 190 },
-    { name: 'Chickpeas', unit: '180g', kcal: 320 },
-    { name: 'Egg Whites', unit: '160g', kcal: 85 },
-    { name: 'Turkey Breast', unit: '160g', kcal: 220 },
-  ],
-  carbohydrate: [
-    { name: 'Brown Rice', unit: '150g cooked', kcal: 216 },
-    { name: 'Sweet Potato', unit: '200g', kcal: 180 },
-    { name: 'Wholegrain Pasta', unit: '120g cooked', kcal: 220 },
-    { name: 'Quinoa', unit: '140g cooked', kcal: 230 },
-    { name: 'Oats', unit: '60g dry', kcal: 220 },
-    { name: 'Wholewheat Bread', unit: '2 slices', kcal: 160 },
-  ],
-  vegetable: [
-    { name: 'Fresh Salad Greens', unit: '150g', kcal: 30 },
-    { name: 'Steamed Broccoli', unit: '150g', kcal: 55 },
-    { name: 'Roasted Vegetables', unit: '200g', kcal: 90 },
-    { name: 'Spinach & Kale', unit: '120g', kcal: 34 },
-    { name: 'Mixed Veggie Bowl', unit: '180g', kcal: 80 },
-  ],
-  fruit: [
-    { name: 'Banana', unit: '1 medium', kcal: 105 },
-    { name: 'Apple', unit: '1 medium', kcal: 95 },
-    { name: 'Blueberries', unit: '100g', kcal: 57 },
-    { name: 'Orange', unit: '1 medium', kcal: 62 },
-  ],
-  dairy: [
-    { name: 'Greek Yoghurt', unit: '150g', kcal: 130 },
-    { name: 'Low-fat Milk', unit: '250ml', kcal: 120 },
-    { name: 'Cottage Cheese', unit: '120g', kcal: 95 },
-  ],
-  fat: [
-    { name: 'Extra Virgin Olive Oil', unit: '1 tbsp', kcal: 120 },
-    { name: 'Avocado', unit: '75g', kcal: 120 },
-    { name: 'Almonds', unit: '28g', kcal: 164 },
-    { name: 'Peanut Butter', unit: '1 tbsp', kcal: 94 },
-  ],
-  snack: [
-    { name: 'Mixed Nuts', unit: '30g', kcal: 180 },
-    { name: 'Protein Shake', unit: '1 scoop', kcal: 120 },
-    { name: 'Rice Cakes with Cottage Cheese', unit: '2 pieces', kcal: 130 },
-    { name: 'Carrot & Hummus', unit: '1 serving', kcal: 140 },
-  ],
-};
 
 // Real hero for the page banner.
 const HERO_IMG =
   'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=2000&q=80';
 
-const ACTIVITY_FACTORS = {
-  sedentary: 1.2,
-  light: 1.375,
-  moderate: 1.55,
-  active: 1.725,
-};
-
 export default function DietPlan() {
   const { auth, getFullName } = useAuth();
   const user = auth?.user ?? {};
 
-  // phase: 'empty' | 'form' | 'loading' | 'result'
-  const [phase, setPhase] = useState('empty');
+  // phase: 'loading-plans' | 'browse' | 'empty' | 'form' | 'loading' | 'result' | 'error' | 'view'
+  const [phase, setPhase] = useState('loading-plans');
   const [plan, setPlan] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
+  const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
+  const [savedPlans, setSavedPlans] = useState([]);
+  const [viewingPlan, setViewingPlan] = useState(null);
+  const [editingPlanId, setEditingPlanId] = useState(null);
 
   // Prefill from existing profile where available (goal + level).
   const initialPrefs = {
@@ -89,9 +41,13 @@ export default function DietPlan() {
     mealFrequency: '3Meals',
     restrictions: [],
     dislikes: user.dislikes ?? '',
+    budgetTier: 'medium',
+    budgetCustomAmount: null,
+    medicalConditions: [],
+    cookingTime: 'moderate',
   };
 
-  // Remembers the most recently used preferences for Regenerate.
+  // Remembers the most recently used preferences for Regenerate/Confirm.
   const [lastPrefs, setLastPrefs] = useState(initialPrefs);
 
   useEffect(() => {
@@ -108,36 +64,127 @@ export default function DietPlan() {
       .forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [phase]);
-/**
-   * Simulated "Generating..." step with a timeout to make the loader visible.
-   * Later this becomes a real call to the Agentic AI backend generating an
-   * individualised meal plan from the supplied preferences.
-   */
-  const handleGenerate = (prefs) => {
-    setPhase('loading');
 
-    // TODO: connect to Agentic AI backend.
-    // Expected request shape:
-    //   { userId, goal, age, gender, heightCm, weightKg,
-    //     activityLevel, mealFrequency, restrictions[], dislikes }
-    // Expected response shape:
-    //   { totalCalories, macros: { protein, carbs, fat },
-    //     meals: [{ type, label, items: [{ name, portion, calories, macros }] }] }
-    setTimeout(() => {
-      setPlan(generateMockPlan(prefs));
+  const refreshSavedPlans = async () => {
+    if (!auth) return [];
+    try {
+      const plans = await fetchSavedDietPlans();
+      setSavedPlans(plans);
+      return plans;
+    } catch {
+      return savedPlans;
+    }
+  };
+
+  // Initial load: once the saved plans come back, land on Browse (if any exist)
+  // or Empty (first-time user). Later refreshes (after confirm/update/delete)
+  // don't re-navigate — they just keep the list current.
+  useEffect(() => {
+    if (!auth) return;
+    let cancelled = false;
+    (async () => {
+      const plans = await refreshSavedPlans();
+      if (cancelled) return;
+      setPhase((prev) => (prev === 'loading-plans' ? (plans.length > 0 ? 'browse' : 'empty') : prev));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth]);
+
+  const handleGenerate = async (prefs) => {
+    setPhase('loading');
+    setConfirmStatus('idle');
+    try {
+      const result = await generateDietPlan(toApiPrefs(prefs));
+      setPlan(result);
       setPhase('result');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 1600);
+    } catch (err) {
+      setErrorMessage(err.message || 'Something went wrong while generating your diet plan.');
+      setPhase('error');
+    }
   };
 
   const handleEdit = () => setPhase('form');
+
+  const handleCancelEdit = () => {
+    if (editingPlanId) {
+      setEditingPlanId(null);
+      setPhase('browse');
+    } else {
+      setPhase('result');
+    }
+  };
 
   const runGenerate = (prefs) => {
     setLastPrefs(prefs);
     handleGenerate(prefs);
   };
 
-  const startForm = () => setPhase('form');
+  const handleConfirm = async () => {
+    if (!plan) return;
+    if (!auth) {
+      setConfirmErrorMessage('Please log in to save your plan.');
+      setConfirmStatus('error');
+      return;
+    }
+    setConfirmStatus('saving');
+    try {
+      if (editingPlanId) {
+        await updateDietPlan(editingPlanId, toApiPrefs(lastPrefs), plan);
+      } else {
+        await confirmDietPlan(toApiPrefs(lastPrefs), plan);
+      }
+      setConfirmStatus('saved');
+      setConfirmErrorMessage('');
+      await refreshSavedPlans();
+    } catch (err) {
+      setConfirmErrorMessage(err.message || "Couldn't save your plan. Please try again.");
+      setConfirmStatus('error');
+    }
+  };
+
+  const handleCreateNew = () => {
+    setPlan(null);
+    setEditingPlanId(null);
+    setLastPrefs(initialPrefs);
+    setConfirmStatus('idle');
+    setConfirmErrorMessage('');
+    setPhase('form');
+  };
+
+  const handleViewPlan = (savedPlan) => {
+    setViewingPlan(savedPlan);
+    setPhase('view');
+  };
+
+  const handleEditSavedPlan = (savedPlan) => {
+    setEditingPlanId(savedPlan.id);
+    setLastPrefs(savedPlan.inputs || initialPrefs);
+    setPlan(null);
+    setConfirmStatus('idle');
+    setConfirmErrorMessage('');
+    setPhase('form');
+  };
+
+  const handleBackToBrowse = () => {
+    setViewingPlan(null);
+    setPhase(savedPlans.length > 0 ? 'browse' : 'empty');
+  };
+
+  const handleDeletePlan = async (planId) => {
+    if (!window.confirm('Delete this diet plan? This cannot be undone.')) return;
+    try {
+      await deleteDietPlan(planId);
+      const plans = await refreshSavedPlans();
+      if (viewingPlan?.id === planId) setViewingPlan(null);
+      setPhase(plans.length > 0 ? 'browse' : 'empty');
+    } catch {
+      window.alert("Couldn't delete this plan. Please try again.");
+    }
+  };
 
   return (
     <div className="diet-plan-page">
@@ -167,17 +214,80 @@ export default function DietPlan() {
 
       <section className="dp-section">
         <div className="container">
-          {phase === 'empty' && <DietPlanResult state="empty" onGenerate={startForm} />}
-          {phase === 'form' && (
-            <DietPlanPreferenceForm initialPrefs={initialPrefs} onSubmit={runGenerate} />
+          {!auth && (
+            <div className="dp-empty dp-fade-up">
+              <div className="dp-empty-icon">🔒</div>
+              <h2 className="dp-empty-title">Log In to Build Your Diet Plan</h2>
+              <p className="dp-empty-desc">
+                Create an account or log in so we can generate and save a personalised
+                nutrition plan under your profile.
+              </p>
+              <Link to="/login" className="btn-primary">Log In</Link>
+            </div>
           )}
-          {phase === 'loading' && <DietPlanResult state="loading" />}
-          {phase === 'result' && plan && (
+
+          {auth && phase === 'loading-plans' && (
+            <div className="dp-loading dp-fade-up">
+              <div className="dp-loading-top">
+                <span className="dp-loader" />
+                <h3 className="dp-loading-title">Loading your plans…</h3>
+              </div>
+            </div>
+          )}
+
+          {auth && phase === 'browse' && (
+            <DietPlanResult
+              state="browse"
+              savedPlans={savedPlans}
+              onCreateNew={handleCreateNew}
+              onViewPlan={handleViewPlan}
+              onEditPlan={handleEditSavedPlan}
+              onDeletePlan={handleDeletePlan}
+            />
+          )}
+
+          {auth && phase === 'empty' && <DietPlanResult state="empty" onGenerate={handleCreateNew} />}
+
+          {auth && phase === 'form' && (
+            <DietPlanPreferenceForm
+              initialPrefs={lastPrefs}
+              onSubmit={runGenerate}
+              onCancel={(plan || editingPlanId) ? handleCancelEdit : undefined}
+            />
+          )}
+
+          {auth && phase === 'loading' && <DietPlanResult state="loading" />}
+
+          {auth && phase === 'error' && (
+            <DietPlanResult
+              state="error"
+              errorMessage={errorMessage}
+              onEdit={handleEdit}
+              onRegenerate={() => runGenerate(lastPrefs)}
+            />
+          )}
+
+          {auth && phase === 'result' && plan && (
             <DietPlanResult
               state="result"
               plan={plan}
+              hasMedicalConditions={(lastPrefs.medicalConditions || []).length > 0}
+              confirmStatus={confirmStatus}
+              confirmErrorMessage={confirmErrorMessage}
               onEdit={handleEdit}
-              onRegenerate={() => runGenerate(lastPrefs)}
+              onConfirm={handleConfirm}
+              onBack={handleBackToBrowse}
+            />
+          )}
+
+          {auth && phase === 'view' && viewingPlan && (
+            <DietPlanResult
+              state="view"
+              plan={viewingPlan}
+              hasMedicalConditions={(viewingPlan.inputs?.medicalConditions || []).length > 0}
+              onBack={handleBackToBrowse}
+              onEdit={() => handleEditSavedPlan(viewingPlan)}
+              onDelete={() => handleDeletePlan(viewingPlan.id)}
             />
           )}
         </div>
@@ -201,18 +311,13 @@ export default function DietPlan() {
             Combine your personalised meal plan with your workout schedule and
             partner gyms on VitroFit — sustain your energy wherever you train.
           </p>
-          <div className="mt-4">
-            <button className="btn-primary" onClick={startForm}>
-              Build My Plan
-            </button>
-          </div>
         </div>
       </section>
     </div>
   );
 }
 /* ──────────────────────────────────────────────
-   HELPERS  (mock generation logic)
+   HELPERS
 ────────────────────────────────────────────── */
 
 /** Map an existing profile `level` to an activity factor key (reuse profile data). */
@@ -225,129 +330,21 @@ function mapActivityFromLevel(level) {
   return null;
 }
 
-function pick(arr) {
-  if (!arr.length) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// Approx macros (grams) per 100 kcal, keyed by goal — purely illustrative.
-const MACRO_SPLIT = {
-  'weight loss': { p: 12, c: 9, f: 3 },
-  'muscle gain': { p: 14, c: 11, f: 3 },
-  maintenance:   { p: 11, c: 13, f: 3 },
-  endurance:     { p: 11, c: 15, f: 3 },
-};
-
-/** Rough per-item macro estimate from calories + goal split. */
-function macrosFor(kcal, goal) {
-  const split = MACRO_SPLIT[goal] ?? MACRO_SPLIT['maintenance'];
+/** Maps the form's preference shape to DietPlanService's expected request body. */
+function toApiPrefs(prefs) {
   return {
-    protein: Math.round((split.p / 100) * kcal),
-    carbs: Math.round((split.c / 100) * kcal),
-    fat: Math.round((split.f / 100) * kcal),
-  };
-}
-
-/** Daily macro totals (grams) derived from the calorie target. */
-function splitMacros(target, goal) {
-  const split = MACRO_SPLIT[goal] ?? MACRO_SPLIT['maintenance'];
-  return {
-    protein: Math.round((split.p / 100) * target),
-    carbs: Math.round((split.c / 100) * target),
-    fat: Math.round((split.f / 100) * target),
-  };
-}
-
-/**
- * Build a deterministic-looking mock plan from the supplied preferences.
- * This simulates the future Agentic AI response until wired to the backend.
- */
-function generateMockPlan(prefs) {
-  const { gender, age, heightCm, weightKg, activityLevel, goal, mealFrequency } = prefs;
-
-  // Naive BMR (Mifflin-St Jeor) + activity multiplier to derive a target.
-  const base =
-    gender === 'female'
-      ? 10 * weightKg + 6.25 * heightCm - 5 * age - 161
-      : 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
-  const factor = ACTIVITY_FACTORS[activityLevel] ?? 1.55;
-  let target = Math.round(base * factor);
-  if (goal === 'weight loss') target = Math.round(target * 0.85);
-  else if (goal === 'muscle gain') target = Math.round(target * 1.12);
-  else if (goal === 'endurance') target = Math.round(target * 1.05);
-
-  const vegan = prefs.restrictions.includes('vegan');
-  const vegetarian = prefs.restrictions.includes('vegetarian');
-
-  // Pick a plant-based protein when vegan/vegetarian.
-  const proteinPool = (vegan || vegetarian)
-    ? FOOD_POOL.protein.filter((x) => x.name === 'Tofu' || x.name === 'Chickpeas')
-    : FOOD_POOL.protein;
-
-  function addItem(food) {
-    if (!food) return null;
-    return { name: food.name, portion: food.unit, calories: food.kcal, macros: macrosFor(food.kcal, goal) };
-  }
-
-  function buildMeal(label, count) {
-    const items = [];
-    const foods = [
-      pick(proteinPool),
-      pick(FOOD_POOL.carbohydrate),
-      pick(FOOD_POOL.vegetable),
-      pick([...FOOD_POOL.fruit, ...FOOD_POOL.fat, ...FOOD_POOL.dairy]),
-    ];
-    for (let i = 0; i < count && foods[i]; i += 1) items.push(addItem(foods[i]));
-    return { type: label.toLowerCase(), label, items };
-  }
-
-  let meals;
-  if (mealFrequency === 'intermittent') {
-    meals = [
-      { type: 'breakfast', label: 'Breakfast (12:00 PM)', items: [
-          addItem(pick(proteinPool)),
-          addItem(pick(FOOD_POOL.carbohydrate)),
-          addItem(pick(FOOD_POOL.vegetable)),
-        ].filter(Boolean) },
-      { type: 'lunch', label: 'Lunch (3:00 PM)', items: [
-        addItem(pick(proteinPool)),
-        addItem(pick(FOOD_POOL.carbohydrate)),
-        addItem(pick(FOOD_POOL.vegetable)),
-        addItem(pick(FOOD_POOL.fat)),
-      ].filter(Boolean) },
-      { type: 'dinner', label: 'Dinner (7:00 PM)', items: [
-        addItem(pick(proteinPool)),
-        addItem(pick(FOOD_POOL.carbohydrate)),
-        addItem(pick(FOOD_POOL.vegetable)),
-      ].filter(Boolean) },
-    ];
-  } else if (mealFrequency === '5Meals') {
-    meals = [
-      buildMeal('Breakfast', 3),
-      { type: 'snack', label: 'Morning Snack', items: [addItem(pick(FOOD_POOL.fruit))].filter(Boolean) },
-      buildMeal('Lunch', 4),
-      { type: 'snack', label: 'Afternoon Snack', items: [addItem(pick(FOOD_POOL.snack))].filter(Boolean) },
-      buildMeal('Dinner', 4),
-    ];
-  } else if (mealFrequency === '4Meals') {
-    meals = [
-      buildMeal('Breakfast', 3),
-      buildMeal('Lunch', 4),
-      buildMeal('Snack', 1),
-      buildMeal('Dinner', 4),
-    ];
-  } else {
-    meals = [
-      buildMeal('Breakfast', 3),
-      buildMeal('Lunch', 4),
-      buildMeal('Snack', 1),
-      buildMeal('Dinner', 4),
-    ];
-  }
-
-  return {
-    totalCalories: target,
-    macros: splitMacros(target, goal),
-    meals,
+    age: prefs.age,
+    gender: prefs.gender,
+    heightCm: prefs.heightCm,
+    weightKg: prefs.weightKg,
+    activityLevel: prefs.activityLevel,
+    goal: prefs.goal,
+    mealFrequency: prefs.mealFrequency,
+    restrictions: prefs.restrictions,
+    dislikes: prefs.dislikes,
+    budgetTier: prefs.budgetTier,
+    budgetCustomAmount: prefs.budgetTier === 'custom' ? prefs.budgetCustomAmount : null,
+    medicalConditions: prefs.medicalConditions,
+    cookingTime: prefs.cookingTime,
   };
 }
