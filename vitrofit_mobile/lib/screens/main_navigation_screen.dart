@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -21,6 +22,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  bool _navBarVisible = true;
 
   late final List<Widget> _pages;
 
@@ -30,7 +32,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _pages = [
       HomeScreen(
         onNavigateToTab: (index) {
-          setState(() => _currentIndex = index);
+          setState(() {
+            _currentIndex = index;
+            _navBarVisible = true;
+          });
         },
       ),
       const WorkoutsScreen(),
@@ -38,6 +43,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       const FindGymScreen(),
       const ProfileScreen(),
     ];
+  }
+
+  bool _handleScrollNotification(UserScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final direction = notification.direction;
+    if (direction == ScrollDirection.reverse && _navBarVisible) {
+      setState(() => _navBarVisible = false);
+    } else if (direction == ScrollDirection.forward && !_navBarVisible) {
+      setState(() => _navBarVisible = true);
+    }
+    return false;
   }
 
   void _showNotifications(BuildContext context) {
@@ -150,12 +166,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
         ),
       ),
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: NotificationListener<UserScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: IndexedStack(index: _currentIndex, children: _pages),
+      ),
       floatingActionButton: const ChatbotFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: FloatingNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+      bottomNavigationBar: IgnorePointer(
+        ignoring: !_navBarVisible,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+          offset: _navBarVisible ? Offset.zero : const Offset(0, 1),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            opacity: _navBarVisible ? 1 : 0,
+            child: FloatingNavBar(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() {
+                _currentIndex = index;
+                _navBarVisible = true;
+              }),
+            ),
+          ),
+        ),
       ),
     );
   }
