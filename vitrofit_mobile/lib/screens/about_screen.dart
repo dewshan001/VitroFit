@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/fitness_data.dart';
+import '../data/team_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/outline_text.dart';
 import '../widgets/trainer_card.dart';
@@ -11,10 +12,30 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final values = [
-      {'icon': Icons.psychology, 'title': 'Science-Driven', 'desc': 'Evidence-based training protocols engineered for maximum physiological results.'},
-      {'icon': Icons.bolt, 'title': 'High Energy', 'desc': 'Electric studio atmosphere pushing you to break past your perceived limits.'},
-      {'icon': Icons.groups_3, 'title': 'Community First', 'desc': 'Join an inclusive network of supportive members uplifting each other daily.'},
-      {'icon': Icons.workspace_premium, 'title': 'Elite Standard', 'desc': 'Uncompromising quality in coaching, cleanliness, and equipment.'},
+      {
+        'icon': Icons.psychology,
+        'title': 'Science-Driven',
+        'desc':
+            'Evidence-based training protocols engineered for maximum physiological results.',
+      },
+      {
+        'icon': Icons.bolt,
+        'title': 'High Energy',
+        'desc':
+            'Electric studio atmosphere pushing you to break past your perceived limits.',
+      },
+      {
+        'icon': Icons.groups_3,
+        'title': 'Community First',
+        'desc':
+            'Join an inclusive network of supportive members uplifting each other daily.',
+      },
+      {
+        'icon': Icons.workspace_premium,
+        'title': 'Elite Standard',
+        'desc':
+            'Uncompromising quality in coaching, cleanliness, and equipment.',
+      },
     ];
 
     return SingleChildScrollView(
@@ -33,7 +54,8 @@ class AboutScreen extends StatelessWidget {
                   child: Image.asset(
                     'assets/images/about_hero_bg.png',
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(color: AppColors.bgSecondary),
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: AppColors.bgSecondary),
                   ),
                 ),
               ),
@@ -103,10 +125,22 @@ class AboutScreen extends StatelessWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _buildGalleryImage('assets/images/about_gallery_1.png', "Modern Training Zone"),
-                _buildGalleryImage('assets/images/about_gallery_2.png', "Spin & Cardio Studio"),
-                _buildGalleryImage('assets/images/strength_training.png', "Free Weights Arena"),
-                _buildGalleryImage('assets/images/yoga_flexibility.png', "Mindfulness Lounge"),
+                _buildGalleryImage(
+                  'assets/images/about_gallery_1.png',
+                  "Modern Training Zone",
+                ),
+                _buildGalleryImage(
+                  'assets/images/about_gallery_2.png',
+                  "Spin & Cardio Studio",
+                ),
+                _buildGalleryImage(
+                  'assets/images/strength_training.png',
+                  "Free Weights Arena",
+                ),
+                _buildGalleryImage(
+                  'assets/images/yoga_flexibility.png',
+                  "Mindfulness Lounge",
+                ),
               ],
             ),
           ),
@@ -145,7 +179,11 @@ class AboutScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(v['icon'] as IconData, color: AppColors.accent, size: 26),
+                    Icon(
+                      v['icon'] as IconData,
+                      color: AppColors.accent,
+                      size: 26,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       v['title'] as String,
@@ -187,9 +225,12 @@ class AboutScreen extends StatelessWidget {
             height: 350,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: SampleData.trainers.length,
+              itemCount: TeamData.members.length,
               itemBuilder: (context, index) {
-                return TrainerCard(trainer: SampleData.trainers[index]);
+                return TrainerCard(trainer: TeamData.members[index])
+                    .animate(delay: (index * 80).ms)
+                    .fadeIn(duration: 350.ms)
+                    .slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
               },
             ),
           ),
@@ -216,7 +257,8 @@ class AboutScreen extends StatelessWidget {
             width: 260,
             height: 180,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: AppColors.bgCard),
+            errorBuilder: (context, error, stackTrace) =>
+                Container(color: AppColors.bgCard),
           ),
           Positioned.fill(
             child: Container(

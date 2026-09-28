@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import 'about_screen.dart';
-import 'classes_screen.dart';
+import '../widgets/chatbot_fab.dart';
+import '../widgets/floating_nav_bar.dart';
+import '../widgets/liquid_glass.dart';
+import 'find_gym_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'timetable_screen.dart';
 import '../features/adaptive_fitness/fitness_screen.dart';
+import 'workouts_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -17,6 +23,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  bool _navBarVisible = true;
 
   late final List<Widget> _pages;
 
@@ -24,18 +31,58 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _pages = [
-      HomeScreen(onNavigateToTab: (index) {
-        setState(() => _currentIndex = index);
-      }),
-      const ClassesScreen(),
+      HomeScreen(
+        onNavigateToTab: (index) {
+          setState(() {
+            _currentIndex = index;
+            _navBarVisible = true;
+          });
+        },
+      ),
+      const WorkoutsScreen(),
       const TimetableScreen(),
-      const AboutScreen(),
+      const FindGymScreen(),
       const ProfileScreen(),
     ];
   }
 
+  bool _handleScrollNotification(UserScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final direction = notification.direction;
+    if (direction == ScrollDirection.reverse && _navBarVisible) {
+      setState(() => _navBarVisible = false);
+    } else if (direction == ScrollDirection.forward && !_navBarVisible) {
+      setState(() => _navBarVisible = true);
+    }
+    return false;
+  }
+
+  void _showNotifications(BuildContext context) {
+    final appState = context.read<AppState>();
+    final upcoming = appState.timetableSlots.isNotEmpty
+        ? appState.timetableSlots.first
+        : null;
+    final message = upcoming == null
+        ? "No upcoming sessions on your timetable."
+        : "Next up: ${upcoming.title} — ${upcoming.day.label} @ ${upcoming.startTime.label}";
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.bgCard,
+        content: Text(
+          message,
+          style: GoogleFonts.inter(color: AppColors.textPrimary),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasUpcoming = context.select<AppState, bool>(
+      (s) => s.timetableSlots.isNotEmpty,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       // App Header
@@ -83,13 +130,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Adaptive fitness',
-            icon: const Icon(Icons.auto_awesome),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const FitnessScreen()),
-            ),
-          ),
-          IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -112,58 +152,26 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _currentIndex,
         children: _pages,
       ),
-
-      // Bottom Navigation Bar
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bgSecondary,
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 1.0),
+      floatingActionButton: const ChatbotFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: IgnorePointer(
+        ignoring: !_navBarVisible,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+          offset: _navBarVisible ? Offset.zero : const Offset(0, 1),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            opacity: _navBarVisible ? 1 : 0,
+            child: FloatingNavBar(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() {
+                _currentIndex = index;
+                _navBarVisible = true;
+              }),
+            ),
           ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          backgroundColor: AppColors.bgSecondary,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.accent,
-          unselectedItemColor: AppColors.textMuted,
-          selectedLabelStyle: GoogleFonts.oswald(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
-          unselectedLabelStyle: GoogleFonts.oswald(
-            fontSize: 11,
-            letterSpacing: 1.0,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home, color: AppColors.accent),
-              label: 'HOME',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center_outlined),
-              activeIcon: Icon(Icons.fitness_center, color: AppColors.accent),
-              label: 'CLASSES',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
-              activeIcon: Icon(Icons.calendar_month, color: AppColors.accent),
-              label: 'TIMETABLE',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.info_outline),
-              activeIcon: Icon(Icons.info, color: AppColors.accent),
-              label: 'ABOUT',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person, color: AppColors.accent),
-              label: 'PROFILE',
-            ),
-          ],
         ),
       ),
     );

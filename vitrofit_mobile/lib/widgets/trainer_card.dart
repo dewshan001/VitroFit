@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/fitness_data.dart';
+import '../data/team_data.dart';
 import '../theme/app_theme.dart';
 import 'badge_chip.dart';
 
 class TrainerCard extends StatelessWidget {
-  final TrainerItem trainer;
+  final TeamMember trainer;
 
-  const TrainerCard({
-    super.key,
-    required this.trainer,
-  });
+  const TrainerCard({super.key, required this.trainer});
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +33,11 @@ class TrainerCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: AppColors.bgSecondary,
-                    child: const Icon(Icons.person, size: 50, color: AppColors.accent),
+                    child: const Icon(
+                      Icons.person,
+                      size: 50,
+                      color: AppColors.accent,
+                    ),
                   ),
                 ),
               ),
@@ -96,7 +97,10 @@ class TrainerCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.bgSecondary,
                         borderRadius: BorderRadius.circular(4),
