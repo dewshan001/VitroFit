@@ -36,8 +36,10 @@ async def generate(request: GenerateRequest):
     try:
         connection, saver = await open_checkpointer()
         try:
-            return await asyncio.wait_for(execute(request, record, checkpointer=saver), timeout=110)
+            return await asyncio.wait_for(execute(request, record, checkpointer=saver), timeout=150)
         finally:
             await connection.__aexit__(None, None, None)
-    except Exception:
-        raise HTTPException(503, "Workflow interrupted; no plan activated") from None
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(503, f"Workflow interrupted: {type(exc).__name__}: {exc}") from None

@@ -245,6 +245,8 @@ Check any service with `GET http://localhost:<port>/health`.
 
 A dedicated Python FastAPI/LangGraph service proposes beginner workout schedules. The web app calls `VitroFit.API`, which calls this agent; browsers never call it directly. It listens on `127.0.0.1:8002`.
 
+After the four beginner schedules, the agent works in progressive blocks of **3 or 4 workout days**. The three-month cycle is an analysis period, not a generated 90-day calendar. Every block day has exercises; rest-only and recovery-only days are not returned. Sessions target about 100–120 minutes according to the user's availability. Members record performance, effort, pain, and affected areas before the next block is generated. The app asks about current condition, pain or discomfort, injuries or restrictions, goals, available days and time, and equipment at each cycle boundary. Pain records adapt affected exercises while allowing suitable workouts for other areas; significant, worsening, or persistent pain should prompt qualified professional guidance.
+
 ### Prerequisites
 
 - Python 3.12+
@@ -292,7 +294,7 @@ The fitness feature uses the existing PostgreSQL database in a separate `fitness
 dotnet ef database update --context FitnessDbContext
 ```
 
-This migration is separate from the API's normal startup migrations. Do not apply it to a shared or deployed database without review.
+These migrations are separate from the API's normal startup migrations and add the cycle analysis table and recorded pain areas. Do not apply them to a shared or deployed database without review.
 
 ### Start the services
 

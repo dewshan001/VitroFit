@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Sockets;
 using System.Text;
@@ -121,6 +121,9 @@ using (var scope = app.Services.CreateScope())
     // Apply any pending EF Core migrations automatically (creates the DB on first run).
     context.Database.Migrate();
 
+    var fitnessContext = scope.ServiceProvider.GetRequiredService<FitnessDbContext>();
+    fitnessContext.Database.Migrate();
+
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     
     if (!context.Users.Any(u => u.Email == "admin@gmail.com"))
@@ -148,7 +151,7 @@ foreach (var (serviceName, relativeDir, port, customArgs) in new (string, string
     ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server"),
 })
 {
-    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port, customArgs);
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, builder.Environment.ContentRootPath, serviceName, relativeDir, port, customArgs);
     if (process != null)
     {
         sidecarProcesses.Add(process);
@@ -176,7 +179,7 @@ app.Run();
 /// </summary>
 static class PythonServiceSidecar
 {
-    public static Process? StartIfAvailable(ILogger logger, string serviceName, string relativeDir, int port, string? customArgs = null)
+    public static Process? StartIfAvailable(ILogger logger, string apiProjectDir, string serviceName, string relativeDir, int port, string? customArgs = null)
     {
         if (IsPortInUse(port))
         {
@@ -184,19 +187,22 @@ static class PythonServiceSidecar
             return null;
         }
 
-        var apiProjectDir = Directory.GetCurrentDirectory();
         var serviceDir = Path.GetFullPath(Path.Combine(apiProjectDir, "..", relativeDir));
         var pythonExe = OperatingSystem.IsWindows()
-            ? Path.Combine(serviceDir, "venv", "Scripts", "python.exe")
-            : Path.Combine(serviceDir, "venv", "bin", "python");
+            ? (File.Exists(Path.Combine(serviceDir, ".venv", "Scripts", "python.exe"))
+                ? Path.Combine(serviceDir, ".venv", "Scripts", "python.exe")
+                : Path.Combine(serviceDir, "venv", "Scripts", "python.exe"))
+            : (File.Exists(Path.Combine(serviceDir, ".venv", "bin", "python"))
+                ? Path.Combine(serviceDir, ".venv", "bin", "python")
+                : Path.Combine(serviceDir, "venv", "bin", "python"));
 
         if (!File.Exists(pythonExe))
         {
             logger.LogWarning(
                 "{ServiceName} venv not found at {PythonExe} - skipping auto-start. " +
-                "Set it up with: cd BackendAPI/{RelativeDir} && python -m venv venv && " +
+                "Set it up in {ServiceDir} with a Python venv and install requirements.txt. " +
                 "venv/Scripts/pip install -r requirements.txt (see .env.example for required settings).",
-                serviceName, pythonExe, relativeDir);
+                serviceName, pythonExe, serviceDir);
             return null;
         }
 
@@ -209,9 +215,29 @@ static class PythonServiceSidecar
                 WorkingDirectory = serviceDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
 
             var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                logger.LogWarning("Failed to start {ServiceName} sidecar: no process was created.", serviceName);
+                return null;
+            }
+
+            process.OutputDataReceived += (_, eventArgs) =>
+            {
+                if (eventArgs.Data is not null)
+                    logger.LogInformation("{ServiceName}: {Output}", serviceName, eventArgs.Data);
+            };
+            process.ErrorDataReceived += (_, eventArgs) =>
+            {
+                if (eventArgs.Data is not null)
+                    logger.LogWarning("{ServiceName}: {Output}", serviceName, eventArgs.Data);
+            };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             logger.LogInformation("Started {ServiceName} sidecar (pid {Pid}) on port {Port}.", serviceName, process?.Id, port);
             return process;
         }

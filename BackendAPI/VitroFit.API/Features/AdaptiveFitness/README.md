@@ -12,7 +12,7 @@ This feature adds an internal Python LangGraph workflow, public ASP.NET Core end
    dotnet user-secrets set 'FitnessAgent:BaseUrl' 'http://127.0.0.1:8002'
    ```
 
-3. From `BackendAPI/FitnessAgentService`, create a Python virtual environment, install `requirements.txt`, then run `python -m app.server`. Both services must be running. The runner selects the Windows event loop required by psycopg's async PostgreSQL driver.
+3. From `BackendAPI/FitnessAgentService`, create a Python virtual environment and install `requirements.txt`. When started from `BackendAPI/VitroFit.API`, the backend starts the agent as a child process with `python -m app.server` if port `8002` is free, and stops that child when the API shuts down. The runner selects the Windows event loop required by psycopg's async PostgreSQL driver. To run the agent manually for debugging, start it from `BackendAPI/FitnessAgentService` with `python -m app.server`.
 4. Apply the feature migration explicitly to your local database:
 
    ```powershell
@@ -25,7 +25,7 @@ This feature adds an internal Python LangGraph workflow, public ASP.NET Core end
 
 ## Workflow and safety
 
-The member chooses a target such as weight loss, muscle building, general fitness, strength, or endurance. The coordinator delegates to deterministic screening, progress analysis, curated exercise search, structured LLM planning, and deterministic validation. The default three-day split is Monday chest and triceps, Wednesday arms and back, and Saturday legs; the agent deterministically replaces incompatible exercise IDs with approved, equipment-compatible catalog items for that focus. Each session displays its focus. A valid plan becomes ready immediately without instructor approval. The user records progress for each planned day before requesting the next week. The API allows one sequential four-week beginner program; after week four, the interface directs the user to meet an instructor. Repeated generation from an earlier schedule is rejected. Invalid plans get at most three planner attempts. A failed first-week workflow may be replaced with up to two fresh first-week attempts while the failed history remains saved. Pain or a declared health concern stops automated planning and directs the user to an instructor or qualified health professional. The Python model cannot approve plans or call arbitrary tools. The Python LangGraph checkpoint tables and ASP.NET feature tables share the existing PostgreSQL database; checkpoint state is keyed by run ID. No chain-of-thought is stored.
+The member completes the existing four beginner schedules, then reviews pain or discomfort, injuries or restrictions, current condition, goal, workout time, and available equipment. The three-month period is an analysis window, not a prebuilt calendar. The agent generates only the next 3 or 4 workout days; every generated day contains exercises and is labeled Day 01, Day 02, and so on. It does not generate rest-only or recovery-only entries. Each session is about 100–120 minutes, based on available workout time. The user records completion, effort, date, and any affected body area for every workout before requesting another block. Pain does not stop the whole program: the agent avoids exercises targeting reported areas, continues suitable workouts for other areas, and stores original exercise, replacement, and reason. Significant, worsening, or persistent pain calls for qualified professional guidance. A declared profile health concern still pauses self-scheduling. At the end of three months, the app analyzes the period and asks the user to review the same condition and training questions before starting another period. Repeated generation from an earlier block is rejected. Invalid plans get at most three planner attempts. A failed first workflow may be replaced with up to two fresh attempts while the failed history remains saved. The Python model cannot approve plans or call arbitrary tools. The Python LangGraph checkpoint tables and ASP.NET feature tables share the existing PostgreSQL database; checkpoint state is keyed by run ID. No chain-of-thought is stored.
 
 The profile asks about exercise-related symptoms, conditions needing clearance, recent surgery or injury, pregnancy-related restrictions, and clinician advice. A flagged answer pauses self-scheduling; it is not a diagnosis or medical clearance. Seed exercises and equipment labels are a curated starter catalog, not verified data from the AI-enriched gym service. A human must confirm gym equipment. Body image is not collected or assessed.
 
@@ -38,12 +38,14 @@ All member calls go through the ASP.NET API with the existing JWT:
 | GET/PUT | `/api/fitness/profile` | Read and save caller's profile |
 | DELETE | `/api/fitness/profile` | Delete caller's fitness profile and its schedules/progress, leaving the VitroFit account intact |
 | GET | `/api/fitness/exercises` | Read approved exercise catalog |
-| POST | `/api/fitness/workflows` | Start a first or progress-informed week |
+| POST | `/api/fitness/workflows` | Start the first beginner schedule or generate the next workout block from recorded progress |
 | GET | `/api/fitness/workflows?page=1&status=...` | Paginated caller-owned schedules |
 | GET | `/api/fitness/workflows/{id}` | Read caller's schedule |
 | GET | `/api/fitness/workflows/{id}/history` | Audit and progress history |
 | POST | `/api/fitness/workflows/{id}/retry` | Retry eligible failed/interrupted member run |
-| PUT | `/api/fitness/workflows/{id}/progress` | Record one scheduled weekday's progress |
+| PUT | `/api/fitness/workflows/{id}/progress` | Record a workout, effort, pain status, and affected body areas |
+| GET | `/api/fitness/workflows/{id}/next-cycle` | Read the three-month analysis window and its progress summary |
+| POST | `/api/fitness/workflows/{id}/next-cycle` | Save a cycle review and start an analysis period; request body includes pain, injuries, current condition, goal, available minutes, and equipment |
 
 The Python service exposes `/internal/generate` only to ASP.NET and has no browser CORS. The internal progress-event callback uses the same service key. API-generated secrets are configuration, never source values.
 
@@ -61,7 +63,7 @@ Backend policy regression checks:
 dotnet run --project BackendAPI/FitnessAgent.Tests
 ```
 
-Also build the API and React application, analyze the Flutter app where Flutter SDK is available, and perform a local PostgreSQL integration run. Demonstration scenario: member saves a target and profile; the agent produces week one; the member records progress and receives weeks two through four adapted to that progress; after week four, the app recommends meeting an instructor. Capture only facts actually verified during your own run for your evaluation evidence and AI usage log.
+Also build the API and React application, analyze the Flutter app where Flutter SDK is available, and perform a local PostgreSQL integration run. Demonstration scenario: member completes and records the four beginner schedules; answers the cycle review; receives only the next 3 or 4 workout days; records effort and any pain area; then receives the next adapted block. At the three-month boundary, the app summarizes that period and asks the review questions again. Capture only facts actually verified during your own run for your evaluation evidence and AI usage log.
 
 ## Ownership and limits
 

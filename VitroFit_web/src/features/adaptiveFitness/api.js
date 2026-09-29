@@ -11,7 +11,12 @@ export async function fitnessRequest(path, method = 'GET', body) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const validation = data.errors && Object.values(data.errors).flat().join(' ');
-    throw new Error(data.message || validation || (response.status === 401 ? 'Please sign in again.' : 'Fitness request failed.'));
+    const message = data.message || validation || (response.status === 401 ? 'Please sign in again.' : 'Fitness request failed.');
+    const diagnostic = [data.action, data.traceId ? `Request ID: ${data.traceId}` : null].filter(Boolean).join(' ');
+    const error = new Error([message, diagnostic].filter(Boolean).join(' '));
+    error.code = data.code;
+    error.traceId = data.traceId;
+    throw error;
   }
   return data;
 }

@@ -14,8 +14,8 @@ class Profile(Contract):
     heightCm: float = Field(ge=100, le=250)
     weightKg: float = Field(ge=30, le=300)
     goal: Literal["weight_loss", "muscle_building", "general_fitness", "strength", "endurance"]
-    days: list[int] = Field(min_length=1, max_length=3)
-    sessionMinutes: int = Field(ge=20, le=60)
+    days: list[int] = Field(min_length=3, max_length=4)
+    sessionMinutes: int = Field(ge=20, le=120)
     equipment: list[str] = Field(max_length=20)
     reviewRequired: bool
 
@@ -37,22 +37,25 @@ class Exercise(Contract):
 
 class Prescription(Contract):
     exerciseId: int
-    sets: int = Field(ge=1, le=3)
-    repetitions: int = Field(ge=6, le=15)
-    restSeconds: int = Field(ge=45, le=120)
+    sets: int = Field(ge=1, le=6)
+    repetitions: int = Field(ge=6, le=30)
+    restSeconds: int = Field(ge=30, le=180)
+    adaptedFromExerciseId: int | None = None
+    adaptationReason: str | None = Field(default=None, max_length=300)
 
 
 class WorkoutDay(Contract):
     day: int = Field(ge=1, le=7)
-    focus: Literal["Chest and triceps", "Arms and back", "Legs"]
+    focus: Literal["Chest and triceps", "Arms and back", "Legs", "Shoulders, back and core", "Legs and biceps"]
     warmupMinutes: int = Field(ge=5, le=10)
     cooldownMinutes: int = Field(ge=5, le=10)
-    exercises: list[Prescription] = Field(min_length=2, max_length=5)
+    exercises: list[Prescription] = Field(min_length=2, max_length=15)
+    durationMinutes: int | None = Field(default=None, ge=20, le=120)
 
 
 class Plan(Contract):
-    week: int = Field(ge=1, le=4)
-    days: list[WorkoutDay] = Field(min_length=1, max_length=3)
+    week: int = Field(ge=1, le=1000)
+    days: list[WorkoutDay] = Field(min_length=1, max_length=4)
 
 
 class Progress(Contract):
@@ -60,6 +63,8 @@ class Progress(Contract):
     completed: bool
     rpe: int = Field(ge=1, le=10)
     pain: bool
+    affectedAreas: list[str] = Field(default_factory=list, max_length=8)
+    block: int = Field(default=0, ge=0, le=1000)
 
 
 class GenerateRequest(Contract):
@@ -68,8 +73,9 @@ class GenerateRequest(Contract):
     profile: Profile
     catalog: list[Exercise] = Field(min_length=1, max_length=100)
     previousPlan: Plan | None = None
-    progress: list[Progress] = Field(default_factory=list, max_length=3)
-    feedback: str = Field(default="", max_length=500)
+    progress: list[Progress] = Field(default_factory=list, max_length=100)
+    feedback: str = Field(default="", max_length=1500)
+    history: list[Progress] = Field(default_factory=list, max_length=500)
 
 
 class Trace(Contract):

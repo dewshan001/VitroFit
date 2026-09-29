@@ -1469,3 +1469,85 @@
     transition: none;
   }
 }
+.adaptive-fitness .fitness-block-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adaptive-fitness .fitness-block-days > li,
+.adaptive-fitness .fitness-cycle-review {
+  padding: 1.25rem;
+  border: 1px solid rgba(190, 255, 0, .28);
+  background: rgba(0, 0, 0, .28);
+}
+
+.adaptive-fitness .fitness-block-days header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--fitness-accent, #c6ff00);
+  font-weight: 700;
+}
+
+.adaptive-fitness .fitness-adaptation-reason {
+  grid-column: 1 / -1;
+  color: #ffd48a;
+}
+
+.adaptive-fitness .fitness-pain-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+
+.adaptive-fitness .fitness-mode-toggle {
+  display: flex;
+  gap: 10px;
+}
+
+.adaptive-fitness .fitness-mode-toggle button {
+  padding: 10px 18px;
+  background: var(--fitness-card, #151815);
+  border: 1px solid var(--fitness-line, rgba(255, 255, 255, 0.15));
+  color: #ccc;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  transition: all 180ms ease;
+}
+
+.adaptive-fitness .fitness-mode-toggle button.fitness-btn-active {
+  background: var(--fitness-green-soft, rgba(200, 240, 0, 0.15));
+  border-color: var(--fitness-green, #c8f000);
+  color: var(--fitness-green, #c8f000);
+}
+
+.adaptive-fitness .fitness-btn-secondary {
+  background: transparent;
+  border: 1.5px solid rgba(200, 240, 0, 0.35);
+  color: rgba(200, 240, 0, 0.75);
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.adaptive-fitness .fitness-btn-secondary:hover:not(:disabled) {
+  border-color: var(--fitness-green, #c8f000);
+  color: var(--fitness-green, #c8f000);
+  background: rgba(200, 240, 0, 0.07);
+}
+
+.adaptive-fitness .fitness-btn-secondary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

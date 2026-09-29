@@ -18,7 +18,7 @@ class _FitnessScreenState extends State<FitnessScreen> {
   bool _signedIn = false, _busy = true;
   bool _editingProfile = false;
   String? _error, _notice;
-  Map<String, dynamic>? _profile, _workflow, _history;
+  Map<String, dynamic>? _profile, _workflow, _history, _nextCycle;
   List<dynamic> _items = [], _catalog = [], _schedules = [];
 
   @override
@@ -49,11 +49,11 @@ class _FitnessScreenState extends State<FitnessScreen> {
     try { _profile = Map<String, dynamic>.from(await _api.request('profile')); }
     catch (e) { if (!e.toString().contains('Create your fitness profile first.')) rethrow; }
     if (_profile?['reviewRequired'] == true) {
-      _workflow = null; _history = null; _schedules = [];
+      _workflow = null; _history = null; _nextCycle = null; _schedules = [];
     } else if (_items.isNotEmpty) {
       await _open(_items.first['id']);
     } else {
-      _workflow = null; _history = null;
+      _workflow = null; _history = null; _nextCycle = null;
     }
     _editingProfile = _profile == null;
   }
@@ -61,6 +61,7 @@ class _FitnessScreenState extends State<FitnessScreen> {
   Future<void> _open(String id) async {
     _workflow = Map<String, dynamic>.from(await _api.request('workflows/$id'));
     _history = Map<String, dynamic>.from(await _api.request('workflows/$id/history'));
+    _nextCycle = await _api.request('workflows/$id/next-cycle');
   }
 
   Future<void> _generate([String? previous]) async {
@@ -93,7 +94,7 @@ class _FitnessScreenState extends State<FitnessScreen> {
             _profile = Map<String, dynamic>.from(await _api.request('profile', method: 'PUT', body: value));
             _editingProfile = false;
             if (_profile!['reviewRequired'] == true) {
-              _workflow = null; _history = null; _schedules = [];
+              _workflow = null; _history = null; _nextCycle = null; _schedules = [];
               _notice = 'Profile saved. Please meet an instructor or qualified health professional before requesting a schedule.';
             } else if (_workflow == null || (_workflow!['status'] == 'ReviewRequired' && _workflow!['previousWorkflowId'] == null)) {
               await _generate();
@@ -117,13 +118,13 @@ class _FitnessScreenState extends State<FitnessScreen> {
               ));
               if (confirmed != true) return;
               await _api.request('profile', method: 'DELETE');
-              _profile = null; _workflow = null; _history = null; _items = []; _schedules = []; _editingProfile = true;
+              _profile = null; _workflow = null; _history = null; _nextCycle = null; _items = []; _schedules = []; _editingProfile = true;
               _notice = 'Fitness profile and its schedules were deleted. Your VitroFit account is unchanged.';
             }),
           ),
         if (_profile != null && !_editingProfile && _workflow == null && _profile!['reviewRequired'] != true)
-          FilledButton(onPressed: _busy ? null : () => _act(() => _generate()), child: const Text('Create week 1 of 4')),
-        const Text('The agent creates a four-week beginner plan and adapts each new week to your progress. Meet an instructor after week four to continue.'),
+          FilledButton(onPressed: _busy ? null : () => _act(() => _generate()), child: const Text('Create the first beginner schedule')),
+        const Text('The agent starts with four beginner schedules, then generates progressive 3 or 4 workout day blocks for a three-month analysis period. Every new block uses your performance and pain feedback.'),
         if (_profile?['reviewRequired'] == true && _workflow == null)
           const Text('Automated scheduling is paused because your profile indicates a health concern or need for review. Update the checkbox if it was selected by mistake, or meet an instructor or qualified health professional.'),
         OutlinedButton(onPressed: _busy ? null : () => _act(_load), child: const Text('Refresh schedule')),
@@ -134,19 +135,38 @@ class _FitnessScreenState extends State<FitnessScreen> {
 
   List<Widget> _details() {
     final w = _workflow!;
-    final plan = w['plan'];
+    final plan = w['plan'] as Map<String, dynamic>?;
     final ready = w['status'] == 'Ready';
+    final week = (plan?['week'] as num?)?.toInt() ?? 0;
+    final days = plan?['days'] as List? ?? [];
+    final records = _history?['progress'] as List? ?? [];
+    final allRecorded = days.every((day) => records.any((p) => p['day'] == day['day'] && (p['completed'] == true || p['pain'] == true)));
+    final cycleEnd = DateTime.tryParse('${_nextCycle?['endDate'] ?? ''}');
+    final cycleExpired = cycleEnd != null && cycleEnd.isBefore(DateTime.now());
     return [
       const Divider(), Text('Your current schedule Â· ${w['status']}', style: Theme.of(context).textTheme.titleLarge),
       Text(w['summary'] ?? ''), Text(w['safetyNote'] ?? ''),
-      if (ready) _weekOverview(),
+      if (ready && week <= 4) _weekOverview(),
+      if (ready && week > 4) _blockOverview(plan!),
       if (ready) ...[
-        FitnessProgressForm(key: ValueKey(w['id']), days: plan['days'], busy: _busy,
+        FitnessProgressForm(key: ValueKey(w['id']), days: days, progress: records, busy: _busy, blockPlan: week > 4,
           onSave: (value) => _act(() async { await _api.request('workflows/${w['id']}/progress', method: 'PUT', body: value); await _open(w['id']); _notice = 'Progress saved.'; })),
-        if (plan['week'] < 4)
-          FilledButton(onPressed: _busy || (_history?['progress'] as List? ?? []).length != (plan['days'] as List).length ? null : () => _act(() => _generate(w['id'])), child: Text('Create week ${plan['week'] + 1} of 4 from my progress')),
-        if (plan['week'] == 4)
-          const Text('You have completed the four-week beginner plan. Meet an instructor to plan the next stage of your training.'),
+        if (week < 4 && allRecorded)
+          FilledButton(onPressed: _busy ? null : () => _act(() => _generate(w['id'])), child: Text('Create beginner schedule ${week + 1} of 4')),
+        if (week == 4 && allRecorded) ...[
+          const Text('You have completed the four beginner schedules. Thank you for training with VitroFit! Meet an instructor to plan the next stage.'),
+          _cycleSummary(),
+          if (_nextCycle == null) FilledButton(onPressed: _busy ? null : () => _reviewAndGenerate(w['id']), child: const Text('Review and start the three-month cycle')),
+          if (_nextCycle != null) FilledButton(onPressed: _busy ? null : () => _act(() => _generate(w['id'])), child: const Text('Generate the next 3 or 4 workout days')),
+        ],
+        if (week > 4) ...[
+          _cycleSummary(),
+          if (cycleExpired)
+            FilledButton(onPressed: _busy ? null : () => _reviewAndGenerate(w['id']), child: const Text('Review your condition and start the next cycle'))
+          else if (allRecorded)
+            FilledButton(onPressed: _busy ? null : () => _act(() => _generate(w['id'])), child: const Text('Generate the next 3 or 4 workout days'))
+          else const Text('Record every workout day. Include effort and any painful body areas; pain records do not stop the whole program.'),
+        ],
       ],
       if (w['status'] == 'ReviewRequired')
         const Text('The agent paused because your profile or progress indicates a concern. Please speak with an instructor or qualified health professional before continuing.'),
@@ -156,7 +176,7 @@ class _FitnessScreenState extends State<FitnessScreen> {
         await _api.request('workflows/${w['id']}/retry', method: 'POST', body: {}); await _open(w['id']); await _load();
       }), child: const Text('Retry failed / interrupted request')),
       const Text('Progress history'),
-      ...(_history?['progress'] as List? ?? []).map((p) => Text('Day ${p['day']}: ${p['completed'] ? 'Completed' : 'Incomplete'}, effort ${p['rpe']}/10')),
+      ...records.map((p) => Text('Day ${p['day']}: ${p['completed'] ? 'Completed' : 'Incomplete'}, effort ${p['rpe']}/10${p['pain'] == true ? ', pain: ${(p['affectedAreas'] as List? ?? []).join(', ')}' : ''}')),
       const Text('Execution history'),
       ...(_history?['events'] as List? ?? []).map((event) => ExpansionTile(
         title: Text('${event['step']} Â· ${event['durationMs']} ms'),
@@ -165,6 +185,74 @@ class _FitnessScreenState extends State<FitnessScreen> {
           const JsonEncoder.withIndent('  ').convert(event['snapshot'])))],
       )),
     ];
+  }
+
+  Widget _cycleSummary() {
+    if (_nextCycle == null) return const SizedBox.shrink();
+    final analysis = _nextCycle!['analysis'] as Map? ?? {};
+    return Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Three-month analysis period', style: TextStyle(fontWeight: FontWeight.bold)),
+      Text('${_nextCycle!['startDate']} to ${_nextCycle!['endDate']} · workout blocks are generated 3 or 4 days at a time'),
+      Text('${analysis['completedSessions'] ?? 0} completed of ${analysis['plannedSessions'] ?? 0} planned workouts'),
+      Text('${analysis['painReports'] ?? 0} pain reports · average effort ${((analysis['averageRpe'] as num?)?.toStringAsFixed(1)) ?? '—'}/10'),
+      const Text('No rest-only or recovery-only days are generated.'),
+    ])));
+  }
+
+  Widget _blockOverview(Map<String, dynamic> plan) {
+    final days = plan['days'] as List? ?? [];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Workout block ${((plan['week'] as num).toInt()) - 4}', style: Theme.of(context).textTheme.titleMedium),
+      ...days.asMap().entries.map((entry) {
+        final day = entry.value as Map;
+        final exercises = day['exercises'] as List? ?? [];
+        return Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Day ${(entry.key + 1).toString().padLeft(2, '0')} · ${day['durationMinutes'] ?? 120} minutes', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text('${day['focus']} · warm up ${day['warmupMinutes']} min · cool down ${day['cooldownMinutes']} min'),
+          ...exercises.map((item) {
+            final exercise = _catalog.where((value) => value['id'] == item['exerciseId']);
+            final name = exercise.isEmpty ? 'Exercise ${item['exerciseId']}' : exercise.first['name'];
+            final adapted = item['adaptedFromExerciseId'];
+            return Text('$name · ${item['sets']} × ${item['repetitions']}${adapted == null ? '' : ' · adapted from $adapted: ${item['adaptationReason']}'}');
+          }),
+        ])));
+      }),
+    ]);
+  }
+
+  Future<void> _reviewAndGenerate(String sourceId) async {
+    final pain = TextEditingController(text: 'No current pain or discomfort');
+    final injuries = TextEditingController(text: 'No current injuries or exercise restrictions');
+    final condition = TextEditingController();
+    final review = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Three-month cycle check-in'),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: pain, decoration: const InputDecoration(labelText: 'Pain or discomfort')),
+        TextField(controller: injuries, decoration: const InputDecoration(labelText: 'Injuries or restrictions')),
+        TextField(controller: condition, decoration: const InputDecoration(labelText: 'Current condition'), maxLines: 2),
+        const Text('Significant, worsening, or persistent pain needs qualified professional guidance.'),
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () {
+          if (condition.text.trim().isEmpty) return;
+          final minutes = (_profile?['sessionMinutes'] as num?)?.toInt() ?? 120;
+          Navigator.pop(context, {
+            'painOrDiscomfort': pain.text.trim(), 'injuriesOrRestrictions': injuries.text.trim(),
+            'currentCondition': condition.text.trim(), 'goal': _profile?['goal'] ?? 'general_fitness',
+            'availableWorkoutMinutes': minutes.clamp(100, 120),
+            'availableDays': List<int>.from(_profile?['days'] ?? [1, 3, 5]),
+            'equipment': List<String>.from(_profile?['equipment'] ?? ['bodyweight']),
+          });
+        }, child: const Text('Start cycle and create next block')),
+      ],
+    ));
+    pain.dispose(); injuries.dispose(); condition.dispose();
+    if (review == null || !mounted) return;
+    await _act(() async {
+      await _api.request('workflows/$sourceId/next-cycle', method: 'POST', body: review);
+      await _generate(sourceId);
+      _notice = 'Your three-month analysis period has started. The next workout block is ready.';
+    });
   }
 
   Widget _weekOverview() {
