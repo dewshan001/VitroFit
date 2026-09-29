@@ -96,6 +96,22 @@ def health_check():
     return {"status": "ok", "service": "VitroFit Diet Plan Agent"}
 
 
+def _violations_to_message(violations: list[dict]) -> str:
+    """The frontend (VitroFit_web/src/api/dietPlan.js) reads error responses as
+    `data?.detail` and passes it straight to `new Error(...)`, which requires a
+    string - an object detail stringifies to "[object Object]". Violations are
+    still returned in full via the /workflows/{id} and /trace endpoints for
+    anyone who wants the structured detail; this is just the human-readable
+    summary for the immediate error message.
+    """
+    if not violations:
+        return "We couldn't generate a safe plan for these preferences. Please adjust and try again."
+    messages = [v.get("message", v.get("code", "")) for v in violations if v.get("severity") == "reject"] or [
+        v.get("message", v.get("code", "")) for v in violations
+    ]
+    return "We couldn't generate a safe plan: " + "; ".join(m for m in messages if m)
+
+
 @app.post("/api/diet/generate")
 async def generate_plan(
     prefs: DietPlanPreferences,
@@ -112,7 +128,7 @@ async def generate_plan(
     if wf.status == "failed":
         raise HTTPException(status_code=502, detail=wf.error or "Workflow failed.")
     if wf.status == "rejected":
-        raise HTTPException(status_code=422, detail={"violations": wf.final_outcome.get("violations", [])})
+        raise HTTPException(status_code=422, detail=_violations_to_message(wf.final_outcome.get("violations", [])))
 
     return {
         "totalCalories": wf.targets["totalCalories"],
@@ -202,7 +218,7 @@ def confirm_plan(
         # plan with the same deterministic rules before accepting it.
         result = validate_plan(req.meals, {"totalCalories": req.totalCalories, "macros": req.macros}, req.inputs.model_dump())
         if result["verdict"] == "reject":
-            raise HTTPException(status_code=422, detail={"violations": result["violations"]})
+            raise HTTPException(status_code=422, detail=_violations_to_message(result["violations"]))
 
     inputs_row = DietPlanInputs(
         user_id=user_id,
