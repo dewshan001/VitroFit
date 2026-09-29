@@ -110,6 +110,8 @@ namespace VitroFit.API.Features.GymAgent
         public bool Ok { get; set; }
         public int DurationMs { get; set; }
         public string? Error { get; set; }
+        /// <summary>Prompt-injection signals the guard found in this tool's output (codes, comma-separated).</summary>
+        public string? Flags { get; set; }
         public string? InputSummary { get; set; }
         public string? OutputSummary { get; set; }
         public DateTimeOffset? CreatedAt { get; set; }

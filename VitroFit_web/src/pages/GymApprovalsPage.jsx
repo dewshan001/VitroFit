@@ -371,7 +371,14 @@ export default function GymApprovalsPage() {
                         {events.map((e) => (
                           <tr key={e.id}>
                             <td>{e.agent}</td>
-                            <td>{e.tool ? `tool: ${e.tool}` : (e.outputSummary || 'step')}</td>
+                            <td>
+                              {e.tool ? `tool: ${e.tool}` : (e.outputSummary || 'step')}
+                              {e.flags && (
+                                <span className="ga-flag" title="The prompt-injection guard found instruction-like text in this source">
+                                  flagged: {e.flags.split(',').join(', ')}
+                                </span>
+                              )}
+                            </td>
                             <td className={e.ok ? 'ga-ok' : 'ga-error'}>{e.ok ? 'ok' : (e.error || 'failed')}</td>
                             <td>{e.durationMs} ms</td>
                           </tr>

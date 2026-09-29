@@ -558,16 +558,18 @@ def test_empty_result_never_reaches_approval_and_is_never_published():
     assert stored_details() is None
 
 
-def test_unusable_request_website_is_rejected_without_retrying():
+def test_unusable_request_website_is_rejected_before_any_model_runs():
     async def scenario():
         model = FakeModel(tool_calls=[])
-        return await start(make_runner(model), gym_request(website="http://127.0.0.1:8000"))
+        wid = await start(make_runner(model), gym_request(website="http://127.0.0.1:8000"))
+        return wid, model
 
-    wid = run(scenario())
+    wid, model = run(scenario())
     r = row(wid)
     assert r["status"] == "Failed" and "REQUEST_WEBSITE_INVALID" in r["finalOutcome"]
-    assert len(r["validationResults"]) == 1                          # reject: no retry loop
-    assert r["validationResults"][0]["violations"][0]["severity"] == "reject"
+    assert model.prompts == []                                       # refused in the planner step: no model call
+    assert r["validationResults"] == [] and agents(wid) == ["planner", "safe_fail"]
+    assert [(e["agent"], e["code"]) for e in r["errors"]] == [("planner", "REQUEST_REJECTED")]
 
 
 def test_search_route_accepts_an_allow_listed_source_it_actually_retrieved(monkeypatch):

@@ -173,5 +173,7 @@ class GymWorkflowToolCall(Base):
     input_summary = Column(String(300), nullable=True)
     ok = Column(Boolean, nullable=False)
     error_code = Column(String(60), nullable=True)
+    # Prompt-injection signals the guard found in this tool's output (codes, comma-separated). Never the text.
+    guard_flags = Column(String(200), nullable=True)
     duration_ms = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

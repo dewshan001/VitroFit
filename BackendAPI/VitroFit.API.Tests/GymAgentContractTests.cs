@@ -76,6 +76,28 @@ public sealed class GymAgentContractTests
     }
 
     [Fact]
+    public async Task Injection_guard_flags_on_tool_calls_reach_the_event_dto()
+    {
+        var json = """
+            [{"id":1,"agent":"gym_analysis","tool":"scrape_gym_website","ok":true,"durationMs":5,"error":null,
+              "flags":"OVERRIDE_INSTRUCTIONS,EXFIL_LINK","inputSummary":"https://fitzone.lk","outputSummary":null,"createdAt":null},
+             {"id":2,"agent":"planner","tool":null,"ok":true,"durationMs":0,"error":null,"flags":null,
+              "inputSummary":null,"outputSummary":"Plan created","createdAt":null}]
+            """;
+        var events = await ClientReturningJson(json).GetEventsAsync("x", default);
+
+        Assert.Equal("OVERRIDE_INSTRUCTIONS,EXFIL_LINK", events[0].Flags);
+        Assert.Null(events[1].Flags);
+    }
+
+    private static GymAgentClient ClientReturningJson(string json)
+    {
+        var http = new HttpClient(new Canned(json)) { BaseAddress = new Uri("http://agent.test") };
+        var settings = Options.Create(new GymAgentSettings { ServiceKey = new string('k', 40) });
+        return new GymAgentClient(http, settings, NullLogger<GymAgentClient>.Instance);
+    }
+
+    [Fact]
     public async Task Real_list_payload_maps_and_omits_child_rows()
     {
         var list = await ClientReturning("workflow_list.json").ListAsync(null, null, default);

@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 
 from llm_config import get_llm
 from schemas import GymEnrichmentResult
-from tools import get_all_tools
+from tools import get_all_tools, guarded
 
 load_dotenv()
 
@@ -287,7 +287,8 @@ def should_continue_or_extract(
 
 
 def _build_graph() -> StateGraph:
-    tools = get_all_tools()
+    # Tool output is untrusted web content: run it through the injection guard before the model sees it.
+    tools = [guarded(t) for t in get_all_tools()]
 
     graph = StateGraph(GymEnrichmentState)
 
@@ -364,7 +365,7 @@ async def enrich_gym(
 
     last_error: Exception | None = None
     for attempt in range(MAX_RETRIES + 1):
-        config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+        config = {"configurable": {"thread_id": str(uuid.uuid4())}, "metadata": {"workflow_id": "legacy"}}
         try:
             final_state = await _compiled_graph.ainvoke(initial_state, config=config)
             result = final_state.get("result", {})

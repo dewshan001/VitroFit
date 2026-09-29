@@ -9,6 +9,8 @@ from typing import Awaitable, Callable, TypeVar
 
 import openai
 
+from injection_guard import escape_for_fence
+
 logger = logging.getLogger("gym_agent")
 
 MAX_RETRIES = int(os.getenv("AGENT_MAX_RETRIES", "2"))
@@ -43,8 +45,12 @@ async def with_retries(call: Callable[[], Awaitable[T]], *, what: str) -> T:
 
 
 def untrusted(text: str) -> str:
-    """Fence external text so the model treats it as data, not instructions."""
-    return f"<untrusted_source>\n{text}\n</untrusted_source>"
+    """Fence external text so the model treats it as data, not instructions.
+
+    Angle brackets inside the text are replaced, so nothing in it can ever write a closing tag and
+    step out of the fence (however it is spelled or obfuscated).
+    """
+    return f"<untrusted_source>\n{escape_for_fence(text)}\n</untrusted_source>"
 
 
 def parse_json_object(raw: str) -> dict:

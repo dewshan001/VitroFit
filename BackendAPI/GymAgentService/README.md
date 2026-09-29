@@ -56,6 +56,27 @@ AI output never becomes `verified` on its own. Four independent layers enforce t
 
 `db_migrations.py` upgrades an existing database on start: it adds the columns, links existing verified rows to their latest `Published` workflow, and adds the constraint as `NOT VALID` (enforced for all new and changed rows, without failing if a legacy row was verified by hand and has no workflow; a warning is logged for such rows).
 
+## Prompt-injection guard (`injection_guard.py`)
+
+The service reads text anyone can influence: scraped pages, web-search results, OpenStreetMap gym names and addresses, reviewer notes, and the model's own output. A deterministic guard (no LLM) sits at each of those boundaries:
+
+| Where | What it does |
+|---|---|
+| Tool output (`tool_registry.call_tool`, and the legacy `tools.guarded`) | Normalises the text (Unicode NFKC, zero-width and control characters removed, look-alike letters folded), removes the sentences that try to instruct the model, and **withholds the whole source** (`INJECTION_BLOCKED`) when the evidence is strong. The model never sees a withheld source. |
+| Tool arguments the model chooses | A search query cannot carry a URL, an encoded blob or instructions out of the system (`INVALID_INPUT`). |
+| Request fields (gym name, address, known contacts) | Normalised on entry; a field that reads like an instruction ends the run in the planner step, before any model is called (`REQUEST_REJECTED` / `REQUEST_CONTENT_SUSPICIOUS`). |
+| Prompt fence | Angle brackets inside untrusted text are replaced, so no text can write a closing `</untrusted_source>` and break out. |
+| Model output (validator) | `OUTPUT_INJECTION`, `OUTPUT_HAS_LINK_OR_MARKUP` and `PROMPT_LEAK` send it back for revision. |
+| Storage | NUL bytes are stripped everywhere (PostgreSQL cannot store them). |
+
+Findings are stored on the tool call (`gym_agent_tool_calls.guard_flags`, codes only, never the text), shown to the approver on the Gym Approvals page, and logged as `prompt-injection signal source=... codes=...`. Set `GYM_INJECTION_MODE=monitor` to detect and record without changing anything (useful to check for false positives); tune the withholding threshold with `GYM_INJECTION_BLOCK_SCORE`.
+
+Limits: pattern matching cannot catch every phrasing or language, so this reduces risk rather than removing it. What keeps the system safe regardless are the allow-listed tools and URLs, the deterministic validator, the human approval step and the database constraint on `verified`.
+
+## Logging (`callbacks.py`)
+
+`GymAgentLoggingHandler` is attached to every model (`llm_config.get_llm`) and every tool call, and logs one line per event with the workflow id and graph node, e.g. `llm end wf=1a2b3c4d node=gym_analysis ms=1830 tokens=612`. Log lines are trusted output, so they never contain prompts, model replies, page content or secrets: values are stripped of control characters and newlines, secrets are redacted, non-ASCII is replaced (safe on any console) and everything is truncated. Level: `GYM_LOG_LEVEL`.
+
 ## Validator rules (deterministic, `validators.py` + `url_policy.py`)
 
 The validator never uses an LLM. Every violation has a `severity` and names the agent that should fix it; the verdict follows from the severities.

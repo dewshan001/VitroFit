@@ -81,7 +81,8 @@ class WorkflowRunner:
 
     @staticmethod
     def _config(workflow_id: str) -> dict:
-        return {"configurable": {"thread_id": workflow_id}, "recursion_limit": 40}
+        # metadata reaches the logging handler, so every model and tool log line carries the run id
+        return {"configurable": {"thread_id": workflow_id}, "recursion_limit": 40, "metadata": {"workflow_id": workflow_id}}
 
     def _spawn(self, coro) -> None:
         task = asyncio.create_task(coro)

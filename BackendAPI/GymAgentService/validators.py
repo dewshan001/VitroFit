@@ -18,12 +18,14 @@ import re
 
 from contracts import (
     GymFacts,
+    PlannerInput,
     Recommendations,
     ValidatorInput,
     Verdict,
     Violation,
 )
 from tools import DIFFICULTIES, MAX_WORKOUT_MINUTES, MIN_WORKOUT_MINUTES, WORKOUT_CATEGORIES
+from injection_guard import guard_field, has_markup_or_link, scan
 from url_policy import check_url, is_allowed_host, normalise_host, url_key
 
 CONFIDENCE_THRESHOLD = float(os.getenv("AGENT_CONFIDENCE_THRESHOLD", "0.6"))
@@ -31,6 +33,7 @@ NO_DATA_CONFIDENCE = 0.2
 WORKOUT_COUNT = 4
 BEGINNER_MAX_MINUTES = 60
 MAX_ITEMS_PER_LIST = 40
+STRONG_WEIGHT_FOR_REQUEST = 3   # a request field with one strong (or three weak) injection signals is refused
 
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 _UNSAFE_RE = re.compile(
@@ -199,11 +202,19 @@ def _own_host(website: str | None) -> str | None:
     return normalise_host(website)
 
 
-def _request_violations(inp: ValidatorInput) -> list[Violation]:
-    """The request itself can be the problem; retrying the agents cannot fix that."""
-    website = inp.gym.website
+_REQUEST_TEXT_FIELDS = ("name", "address", "known_phone", "known_email", "known_hours", "objective")
+
+
+def request_violations(gym: PlannerInput) -> list[Violation]:
+    """The request itself can be the problem; retrying the agents cannot fix that.
+
+    Also run by the planner step, so a poisoned request is refused before any model is called.
+    Gym names and addresses come from OpenStreetMap, which anyone can edit.
+    """
+    out: list[Violation] = []
+    website = gym.website
     if website and check_url(website, normalise_host(website)):
-        return [
+        out.append(
             Violation(
                 code="REQUEST_WEBSITE_INVALID",
                 field="website",
@@ -211,8 +222,74 @@ def _request_violations(inp: ValidatorInput) -> list[Violation]:
                 target="gym_analysis",
                 severity="reject",
             )
-        ]
-    return []
+        )
+    for field in _REQUEST_TEXT_FIELDS:
+        value = getattr(gym, field, None)
+        if not value:
+            continue
+        found = guard_field(value)
+        if found.strong or found.score >= STRONG_WEIGHT_FOR_REQUEST:
+            out.append(
+                Violation(
+                    code="REQUEST_CONTENT_SUSPICIOUS",
+                    field=field,
+                    message="A field of the request reads like an instruction to the AI and was refused.",
+                    target="gym_analysis",
+                    severity="reject",
+                )
+            )
+    return out
+
+
+def _request_violations(inp: ValidatorInput) -> list[Violation]:
+    return request_violations(inp.gym)
+
+
+# Distinctive phrases from our own system prompts: output containing them has leaked the prompt.
+_LEAK_MARKERS = (
+    "untrusted_source",
+    "you are the gym-analysis agent",
+    "you are the workout-recommendation agent",
+    "allowed evidence sources",
+    "allowed tools this run",
+    "security: text inside",
+)
+
+
+def _output_text_violations(inp: ValidatorInput) -> list[Violation]:
+    """What the agents WROTE is untrusted too: an injected page can make a model echo instructions,
+    plant links, or repeat its own prompt into fields an admin will approve and users will read."""
+    facts, recs = inp.facts, inp.recommendations
+    plain_facts = [(label, t) for label, items in (("equipment", facts.equipment), ("classes", facts.classes)) for t in items]
+    plain_facts += [(label, v) for label, v in (("phone", facts.phone), ("email", facts.email), ("opening_hours", facts.opening_hours)) if v]
+    snippets = [("evidence", e.snippet) for e in facts.evidence]      # verbatim from a source: links are expected
+    plain_recs = [("notes", recs.notes)] + [
+        (w.name, text) for w in recs.workouts for text in (w.name, w.category, w.description, *w.equipment_used)
+    ]
+
+    out: list[Violation] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def flag(code: str, field: str, target: str, message: str) -> None:
+        if (code, field, target) not in seen:
+            seen.add((code, field, target))
+            out.append(Violation(code=code, field=field, message=message, target=target, severity="revise"))
+
+    for target, fields, check_markup in (
+        ("gym_analysis", plain_facts, True),
+        ("gym_analysis", snippets, False),
+        ("workout_recommendation", plain_recs, True),
+    ):
+        for label, text in fields:
+            if not text:
+                continue
+            if any(f.strong for f in scan(text)):
+                flag("OUTPUT_INJECTION", label, target, "The output contains instruction-like text; write only plain facts.")
+            if check_markup and has_markup_or_link(text):
+                flag("OUTPUT_HAS_LINK_OR_MARKUP", label, target, "Use plain text only: no links, HTML or markdown.")
+            if any(marker in text.lower() for marker in _LEAK_MARKERS):
+                flag("PROMPT_LEAK", label, target, "The output repeats internal instructions; remove them.")
+    return out
 
 
 def _recommendation_violations(inp: ValidatorInput) -> list[Violation]:
@@ -283,7 +360,7 @@ def validate(inp: ValidatorInput) -> Verdict:
             )
         )
     else:
-        violations += _facts_violations(inp) + _recommendation_violations(inp)
+        violations += _facts_violations(inp) + _recommendation_violations(inp) + _output_text_violations(inp)
 
     if any(v.severity == "reject" for v in violations):
         verdict = "reject"

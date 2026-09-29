@@ -136,3 +136,10 @@
 @media (max-width: 860px) {
   .ga-layout { grid-template-columns: 1fr; }
 }
+
+.ga-flag {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: #ffc107;
+}

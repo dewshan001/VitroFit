@@ -7,7 +7,9 @@ output model; the graph state carries them between agents.
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from injection_guard import normalise_field
 
 
 class Contract(BaseModel):
@@ -45,6 +47,15 @@ class PlannerInput(Contract):
         "and recommend four workouts that use them.",
         max_length=500,
     )
+
+    @field_validator(
+        "place_id", "name", "address", "website", "known_phone", "known_email", "known_hours", "objective",
+        mode="before",
+    )
+    @classmethod
+    def _normalise(cls, value):
+        # OpenStreetMap text is editable by anyone: strip NUL/invisible/control characters on the way in.
+        return normalise_field(value) if isinstance(value, str) else value
 
 
 class PlanStep(Contract):
@@ -146,3 +157,8 @@ class ApprovalDecision(Contract):
     reason: str = Field(default="", max_length=500)
     actor_id: str = Field(min_length=1, max_length=100)
     actor_role: str = Field(min_length=1, max_length=30)
+
+    @field_validator("reason", "actor_id", "actor_role", mode="before")
+    @classmethod
+    def _normalise(cls, value):
+        return normalise_field(value) if isinstance(value, str) else value

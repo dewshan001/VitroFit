@@ -166,3 +166,20 @@ def test_migration_is_a_no_op_on_a_current_database():
     before = {c["name"] for c in inspect(engine).get_columns("gym_agent_details")}
     ensure_gym_details_provenance(engine)
     assert {c["name"] for c in inspect(engine).get_columns("gym_agent_details")} == before
+
+
+def test_guard_flags_column_is_added_to_an_old_tool_calls_table_and_the_migration_is_idempotent():
+    from sqlalchemy import text
+
+    from db_migrations import ensure_tool_call_guard_flags
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE gym_agent_tool_calls DROP COLUMN guard_flags"))
+    assert "guard_flags" not in {c["name"] for c in inspect(engine).get_columns("gym_agent_tool_calls")}
+
+    ensure_tool_call_guard_flags(engine)
+    ensure_tool_call_guard_flags(engine)                      # second run: nothing to do, no error
+
+    columns = {c["name"]: c for c in inspect(engine).get_columns("gym_agent_tool_calls")}
+    assert "guard_flags" in columns and columns["guard_flags"]["nullable"] is True
+    assert "VARCHAR(200)" in str(columns["guard_flags"]["type"])

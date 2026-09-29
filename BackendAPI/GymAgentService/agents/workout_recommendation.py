@@ -16,6 +16,7 @@ from agents._common import (
     with_retries,
 )
 from contracts import RecommendInput, Recommendations
+from injection_guard import guard_field
 from tool_registry import call_tool, sanitize_untrusted_text
 
 SYSTEM_PROMPT = (
@@ -45,7 +46,7 @@ def _messages(inp: RecommendInput, taxonomy: str, json_mode: bool) -> list:
     equipment = ", ".join(inp.facts.equipment) or "none listed"
     classes = ", ".join(inp.facts.classes) or "none listed"
     parts = [
-        f"Gym: {inp.name}",
+        f"Gym: {guard_field(inp.name).text}",   # OSM-supplied: normalised before it reaches the prompt
         f"Verified equipment: {equipment}",
         f"Verified classes: {classes}",
         f"Taxonomy: {taxonomy}",

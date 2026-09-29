@@ -14,10 +14,14 @@ os.environ["AGENT_MAX_RETRIES"] = "1"
 
 import pytest  # noqa: E402
 
+import llm_config as _llm_config  # noqa: E402
 import tool_registry  # noqa: E402
 from db import Base, engine  # noqa: E402
 import models  # noqa: E402,F401  (registers tables)
 from tests import support  # noqa: E402
+
+# The real factory, kept before the safety-net fixture replaces it, for tests that check how models are built.
+REAL_GET_LLM = _llm_config.get_llm
 from sqlalchemy import event  # noqa: E402
 
 if engine.dialect.name == "sqlite":

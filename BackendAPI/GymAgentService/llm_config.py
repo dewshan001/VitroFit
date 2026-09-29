@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
+from callbacks import get_handler
+
 load_dotenv()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -19,6 +21,9 @@ def get_llm(temperature: float = 0.2, max_tokens: int = 800) -> ChatOpenAI:
     Uses NVIDIA NIM (build.nvidia.com) when NVIDIA_API_KEY is set, since it has
     its own quota independent of OpenRouter's shared free-tier daily limit.
     Falls back to OpenRouter otherwise.
+
+    Every model built here logs its calls through GymAgentLoggingHandler (timing, tokens, errors;
+    never prompts or replies), which covers the four workflow agents and the legacy enrichment path.
     """
     if NVIDIA_API_KEY:
         return ChatOpenAI(
@@ -27,6 +32,7 @@ def get_llm(temperature: float = 0.2, max_tokens: int = 800) -> ChatOpenAI:
             model=NVIDIA_MODEL,
             temperature=temperature,
             max_tokens=max_tokens,
+            callbacks=[get_handler()],
         )
 
     if not OPENROUTER_API_KEY:
@@ -38,6 +44,7 @@ def get_llm(temperature: float = 0.2, max_tokens: int = 800) -> ChatOpenAI:
         model=OPENROUTER_MODEL,
         temperature=temperature,
         max_tokens=max_tokens,
+        callbacks=[get_handler()],
         default_headers={
             "HTTP-Referer": "http://localhost:5173",
             "X-Title": "VitroFit Gym Agent",

@@ -146,3 +146,33 @@ def get_all_tools() -> list:
     tool_registry.tools_for(role) / call_tool(role, ...) so allow-lists apply."""
     return [scrape_gym_website, search_gym_info, lookup_similar_gyms, list_equipment_taxonomy]
 
+
+
+# ── Injection-guarded copies for the legacy single-agent path ───────────
+
+
+def guarded(tool):
+    """The same tool (name, description, schema) whose output passes the prompt-injection guard.
+
+    The four-agent workflow reaches tools only through tool_registry.call_tool, which guards them; the
+    legacy enrichment graph (Find Gyms) runs the tools through a plain ToolNode, so it uses these copies.
+    """
+    import asyncio
+
+    from langchain_core.tools import StructuredTool
+
+    import injection_guard
+
+    async def run(**kwargs):
+        if tool.coroutine is not None:
+            raw = await tool.coroutine(**kwargs)
+        else:
+            raw = await asyncio.to_thread(tool.func, **kwargs)
+        checked = injection_guard.guard_text(raw if isinstance(raw, str) else str(raw), source=tool.name, limit=_MAX_SITE_TEXT_CHARS)
+        if checked.blocked:
+            return "Error: this source was withheld because it looked like an attempt to give you instructions."
+        return checked.text
+
+    return StructuredTool.from_function(
+        coroutine=run, name=tool.name, description=tool.description, args_schema=tool.args_schema
+    )

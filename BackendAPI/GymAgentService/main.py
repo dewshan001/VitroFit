@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, FastAPI, Depends, HTTPException
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import inspect, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -15,7 +15,8 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from checkpointer import open_checkpointer
 from db import Base, engine, get_session
-from db_migrations import ensure_gym_details_provenance
+from injection_guard import normalise_field
+from db_migrations import ensure_gym_details_provenance, ensure_tool_call_guard_flags
 from graph import build_graph
 from llm_config import get_llm
 from models import GymDetails, GymWorkoutSuggestions
@@ -67,6 +68,7 @@ def _ensure_contact_columns() -> None:
 
 _ensure_contact_columns()
 ensure_gym_details_provenance(engine)
+ensure_tool_call_guard_flags(engine)
 
 def _index_published(request: dict, facts: dict, recs: dict) -> None:
     """Best-effort RAG indexing of approved gym data (never blocks publication)."""
@@ -139,12 +141,27 @@ class GymDetailsRequest(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     opening_hours: str | None = Field(default=None, max_length=255)
 
+    @field_validator("place_id", "name", "address", "website", "phone", "email", "opening_hours", mode="before")
+    @classmethod
+    def _normalise(cls, value):
+        return normalise_field(value) if isinstance(value, str) else value
+
 
 class WorkoutSuggestionRequest(BaseModel):
     place_id: str = Field(..., min_length=1, max_length=255)
     name: str = Field(..., min_length=1, max_length=255)
     equipment: list[str] = Field(default_factory=list, max_length=60)
     classes: list[str] = Field(default_factory=list, max_length=60)
+
+    @field_validator("place_id", "name", mode="before")
+    @classmethod
+    def _normalise(cls, value):
+        return normalise_field(value) if isinstance(value, str) else value
+
+    @field_validator("equipment", "classes", mode="before")
+    @classmethod
+    def _normalise_items(cls, values):
+        return [normalise_field(v) if isinstance(v, str) else v for v in values] if isinstance(values, list) else values
 
 
 def _aware(value: datetime) -> datetime:

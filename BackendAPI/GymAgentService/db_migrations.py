@@ -93,3 +93,16 @@ def ensure_gym_details_provenance(engine: Engine) -> None:
                 "%d verified gym(s) have no approving workflow (set outside the approval flow). "
                 "They are left as they are; re-verify them through a workflow.", orphans
             )
+
+
+def ensure_tool_call_guard_flags(engine: Engine) -> None:
+    """Add gym_agent_tool_calls.guard_flags (prompt-injection findings) to a database created before it.
+
+    Additive and idempotent. PostgreSQL only; other databases get the column from create_all.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    if "gym_agent_tool_calls" not in set(inspect(engine).get_table_names()):
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE gym_agent_tool_calls ADD COLUMN IF NOT EXISTS guard_flags VARCHAR(200)"))

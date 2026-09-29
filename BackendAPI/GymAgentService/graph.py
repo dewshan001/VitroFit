@@ -39,6 +39,7 @@ from contracts import (
     Verdict,
 )
 from store import WorkflowStore
+from validators import request_violations
 
 logger = logging.getLogger("gym_agent")
 
@@ -71,7 +72,18 @@ class GymState(TypedDict, total=False):
     errors: Annotated[list, operator.add]
 
 
+class RequestRejected(Exception):
+    """The request itself is unusable or hostile: stop before any model is called."""
+
+    def __init__(self, codes: list[str]):
+        super().__init__(",".join(codes))
+        self.codes = codes
+        self.outcome = f"Request rejected ({', '.join(codes)}); nothing was published."
+
+
 def _error_code(exc: Exception) -> str:
+    if isinstance(exc, RequestRejected):
+        return "REQUEST_REJECTED"
     if isinstance(exc, PermissionError):
         return "TOOL_NOT_ALLOWED"
     if isinstance(exc, TRANSIENT_ERRORS):
@@ -88,6 +100,8 @@ def _error_detail(exc: Exception) -> str:
     if isinstance(cause, ValidationError):
         problems = sorted({f"{'.'.join(str(p) for p in e['loc'])}:{e['type']}" for e in cause.errors()})
         return f"{type(cause).__name__}: {'; '.join(problems)}"[:300]
+    if isinstance(exc, RequestRejected):
+        return f"RequestRejected: {exc}"
     if isinstance(exc, AgentOutputError):
         # Our own messages only; never the message of a wrapped third-party exception.
         inner = f" <- {cause}" if isinstance(cause, AgentOutputError) and cause is not exc else ""
@@ -124,7 +138,8 @@ def build_graph(
                 delta = {
                     "status": "Failed",
                     "approval_status": "none" if agent != "approval_gate" else "pending",
-                    "final_outcome": f"Workflow stopped safely ({error}); nothing was published.",
+                    "final_outcome": getattr(exc, "outcome", None)
+                    or f"Workflow stopped safely ({error}); nothing was published.",
                     "errors": [{"agent": agent, "code": error, "detail": detail}],
                 }
             duration = int((time.perf_counter() - started) * 1000)
@@ -147,7 +162,11 @@ def build_graph(
     # ── nodes ───────────────────────────────────────────────────────────
 
     async def planner_node(state: GymState) -> dict:
-        plan = planner.run(PlannerInput.model_validate(state["request"]))
+        request = PlannerInput.model_validate(state["request"])
+        problems = request_violations(request)
+        if problems:
+            raise RequestRejected(sorted({v.code for v in problems}))
+        plan = planner.run(request)
         return {
             "plan": plan.model_dump(mode="json"),
             "completed_steps": [_step("planner", f"Plan created: route={plan.route}, {len(plan.steps)} steps")],
@@ -169,7 +188,9 @@ def build_graph(
                 _step(
                     "gym_analysis",
                     f"{len(facts.equipment)} equipment, {len(facts.classes)} classes, "
-                    f"confidence {facts.confidence:.2f}, {len(records)} tool calls",
+                    f"confidence {facts.confidence:.2f}, {len(records)} tool calls"
+                    + (f", {sum(1 for r in records if r.get('flags'))} flagged by the injection guard"
+                       if any(r.get("flags") for r in records) else ""),
                 )
             ],
         }

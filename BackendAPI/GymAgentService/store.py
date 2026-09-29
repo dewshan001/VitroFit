@@ -44,6 +44,18 @@ class PublishRefused(Exception):
     """publish() was asked to promote data that no recorded approval covers."""
 
 
+def clean_text(value):
+    """PostgreSQL text and JSONB cannot hold NUL. Untrusted strings (model output, OSM data, tool
+    arguments) can, so every value is cleaned before it is stored, however deeply it is nested."""
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, dict):
+        return {clean_text(k): clean_text(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [clean_text(v) for v in value]
+    return value
+
+
 def workout_fingerprint(equipment: list[str], classes: list[str]) -> str:
     key = "|".join(sorted(equipment)) + "::" + "|".join(sorted(classes))
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
@@ -103,6 +115,7 @@ def tool_call_to_dict(row: GymWorkflowToolCall) -> dict:
         "input": row.input_summary,
         "ok": row.ok,
         "error": row.error_code,
+        "flags": row.guard_flags,
         "durationMs": row.duration_ms,
         "createdAt": _iso(row.created_at),
     }
@@ -121,11 +134,11 @@ class WorkflowStore:
             s.add(
                 GymWorkflow(
                     id=workflow_id,
-                    place_id=request["place_id"],
-                    requested_by=requested_by,
-                    objective=request["objective"],
+                    place_id=clean_text(request["place_id"]),
+                    requested_by=clean_text(requested_by),
+                    objective=clean_text(request["objective"]),
                     status="Running",
-                    request=request,
+                    request=clean_text(request),
                     validation_results=[],
                     errors=[],
                     approval_status="none",
@@ -140,10 +153,10 @@ class WorkflowStore:
         """Merge a node's state delta onto the row (lists append, scalars replace)."""
         for key in SCALAR_COLUMNS:
             if key in delta:
-                setattr(row, key, _decided_at(delta[key]) if key == "decided_at" else delta[key])
+                setattr(row, key, _decided_at(delta[key]) if key == "decided_at" else clean_text(delta[key]))
         for key in LIST_COLUMNS:
             if delta.get(key):
-                setattr(row, key, list(getattr(row, key) or []) + list(delta[key]))
+                setattr(row, key, list(getattr(row, key) or []) + clean_text(list(delta[key])))
 
     def apply(self, workflow_id: str, delta: dict) -> None:
         with SessionLocal() as s:
@@ -180,9 +193,9 @@ class WorkflowStore:
                 workflow_id=workflow_id,
                 seq=seq,
                 agent=agent,
-                summary=(summary or "")[:300] or None,
+                summary=clean_text(summary or "")[:300] or None,
                 ok=ok,
-                error=error,
+                error=clean_text(error),
                 duration_ms=duration_ms,
             )
             s.add(step)
@@ -192,11 +205,12 @@ class WorkflowStore:
                     GymWorkflowToolCall(
                         workflow_id=workflow_id,
                         step_id=step.id,
-                        agent=rec["agent"],
-                        tool=rec["tool"],
-                        input_summary=(rec.get("input") or "")[:300] or None,
+                        agent=clean_text(rec["agent"]),
+                        tool=clean_text(rec["tool"]),
+                        input_summary=clean_text(rec.get("input") or "")[:300] or None,
                         ok=rec["ok"],
-                        error_code=rec.get("error"),
+                        error_code=clean_text(rec.get("error")),
+                        guard_flags=clean_text(rec.get("flags") or "")[:200] or None,
                         duration_ms=rec["durationMs"],
                     )
                 )
@@ -249,6 +263,7 @@ class WorkflowStore:
                         ok=c.ok,
                         durationMs=c.duration_ms,
                         error=c.error_code,
+                        flags=c.guard_flags,
                         inputSummary=c.input_summary,
                         outputSummary=None,
                         createdAt=_iso(c.created_at),
@@ -259,6 +274,7 @@ class WorkflowStore:
                     ok=step.ok,
                     durationMs=step.duration_ms,
                     error=step.error,
+                    flags=None,
                     inputSummary=None,
                     outputSummary=step.summary,
                     createdAt=_iso(step.created_at),

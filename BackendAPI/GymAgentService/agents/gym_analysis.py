@@ -20,6 +20,7 @@ from agents._common import (
 )
 from contracts import AnalysisInput, GymFacts
 from tool_registry import ToolResult, call_tool, sanitize_untrusted_text, tools_for
+from injection_guard import guard_field
 from url_policy import configured_allowlist, normalise_host
 
 MAX_AGENT_STEPS = int(os.getenv("AGENT_MAX_STEPS", "6"))
@@ -57,14 +58,19 @@ JSON_SHAPE = (
 
 def _task_message(inp: AnalysisInput) -> HumanMessage:
     gym = inp.gym
-    parts = [f"Gym: {gym.name}", f"Address: {gym.address or 'unknown'}"]
+
+    def clean(value):
+        # OSM-supplied fields are editable by anyone: normalise them before they reach the prompt.
+        return guard_field(value).text if value else value
+
+    parts = [f"Gym: {clean(gym.name)}", f"Address: {clean(gym.address) or 'unknown'}"]
     parts.append(f"Website: {gym.website}" if gym.website else "Website: none")
     parts.append(f"Allowed tools this run: {', '.join(inp.plan.analysis_tools)}")
     own = normalise_host(gym.website) if gym.website else ""
     sources = ([own] if own else []) + configured_allowlist()
     parts.append(f"Allowed evidence sources (cite only these hosts): {', '.join(sources) or 'none'}")
     known = [
-        f"{label} = {value}"
+        f"{label} = {clean(value)}"
         for label, value in (
             ("phone", gym.known_phone),
             ("email", gym.known_email),
@@ -158,6 +164,7 @@ async def run(
                     "error": result.error_code,
                     "durationMs": result.duration_ms,
                     "input": _summarise(name, args),
+                    "flags": ",".join(result.flags),
                 }
             )
             if result.ok and result.output:
