@@ -308,7 +308,13 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     wf.targets = analyst_data["targets"]
     wf.risk_level = analyst_data["risk_level"]
     completed_steps.append({"step": 1, "agent": "NutritionAnalystAgent", "status": "done"})
-    completed_steps.append({"step": 2, "agent": "NutritionAnalystAgent", "status": "done"})
+    completed_steps.append({
+        "step": 2, "agent": "NutritionAnalystAgent", "status": "done",
+        # Carries *why* this risk level was assigned (not just the label), so
+        # the trace/live progress can explain the reasoning, not just the verdict.
+        "riskLevel": analyst_data["risk_level"],
+        "riskFlags": analyst_data["risk_flags"],
+    })
     wf.completed_steps = completed_steps
     wf.events = events
     session.commit()

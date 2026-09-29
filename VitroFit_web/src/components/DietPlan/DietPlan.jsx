@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import DietPlanPreferenceForm from './DietPlanPreferenceForm';
@@ -18,6 +18,58 @@ import './DietPlan.css';
 const HERO_IMG =
   'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=2000&q=80';
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// How long each agent's progress card stays on screen before the next one
+// appears - a human reading pace, not how fast the backend actually finished.
+// The explanations run a few sentences each, so this errs generous.
+const STEP_REVEAL_DELAY_MS = 4200;
+
+/**
+ * Wraps pollDietWorkflow so the UI reveals one completed step at a time at a
+ * readable pace, even if the backend already finished generating by the time
+ * we poll. onStepRevealed fires once per reveal with the detail truncated to
+ * just the steps shown so far; the returned promise only resolves (or
+ * rejects, matching pollDietWorkflow) once every step up to the final result
+ * has actually been shown - the caller shouldn't display the plan/error
+ * before that.
+ */
+async function pollWithPacedReveal(workflowId, onStepRevealed) {
+  let latestDetail = null;
+  let revealedCount = 0;
+  let workflowDone = false;
+
+  const revealLoop = (async () => {
+    while (true) {
+      const total = latestDetail?.completedSteps?.length || 0;
+      if (revealedCount < total) {
+        await sleep(STEP_REVEAL_DELAY_MS);
+        revealedCount += 1;
+        onStepRevealed({ ...latestDetail, completedSteps: latestDetail.completedSteps.slice(0, revealedCount) });
+      } else if (workflowDone) {
+        break;
+      } else {
+        await sleep(250);
+      }
+    }
+  })();
+
+  try {
+    const result = await pollDietWorkflow(workflowId, {
+      onProgress: (detail) => { latestDetail = detail; },
+    });
+    latestDetail = result;
+    workflowDone = true;
+    await revealLoop;
+    return result;
+  } catch (err) {
+    latestDetail = { completedSteps: err.completedSteps || [] };
+    workflowDone = true;
+    await revealLoop;
+    throw err;
+  }
+}
+
 export default function DietPlan() {
   const { auth, getFullName } = useAuth();
   const user = auth?.user ?? {};
@@ -30,12 +82,20 @@ export default function DietPlan() {
   const [liveDetail, setLiveDetail] = useState(null);
   const [refineStatus, setRefineStatus] = useState('idle'); // idle | applying | note | error
   const [refineMessage, setRefineMessage] = useState('');
-  const [refineLiveSteps, setRefineLiveSteps] = useState([]);
+  const [refineLiveDetail, setRefineLiveDetail] = useState(null);
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
   const [viewingPlan, setViewingPlan] = useState(null);
   const [editingPlanId, setEditingPlanId] = useState(null);
+
+  // Wraps the phase content so every phase change (loading starts, a plan
+  // lands, an error appears, a saved plan opens...) can scroll itself into
+  // view instead of leaving the user staring at wherever they were.
+  const contentRef = useRef(null);
+  const scrollToContent = () => {
+    contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Prefill from existing profile where available (goal + level).
   const initialPrefs = {
@@ -56,6 +116,20 @@ export default function DietPlan() {
 
   // Remembers the most recently used preferences for Regenerate/Confirm.
   const [lastPrefs, setLastPrefs] = useState(initialPrefs);
+
+  // Every phase change scrolls the content area into view - so switching to
+  // the loading screen, landing on a result, hitting an error, or opening a
+  // saved plan is always immediately visible, not something the user has to
+  // go looking for by scrolling manually.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    scrollToContent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -108,12 +182,13 @@ export default function DietPlan() {
     setRefineMessage('');
     try {
       const { workflowId } = await generateDietPlan(toApiPrefs(prefs));
-      const result = await pollDietWorkflow(workflowId, {
-        onProgress: (detail) => setLiveDetail(detail),
-      });
+      // Don't flip to the result screen the moment the backend is done - wait
+      // until every agent's progress line has actually been shown at a
+      // readable pace, so a fast generation doesn't just skip straight past
+      // the explanation to the finished plan.
+      const result = await pollWithPacedReveal(workflowId, setLiveDetail);
       setPlan(result);
       setPhase('result');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setErrorMessage(err.message || 'Something went wrong while generating your diet plan.');
       setErrorSteps(err.completedSteps || []);
@@ -126,12 +201,10 @@ export default function DietPlan() {
     if (!plan?.workflowId) return;
     setRefineStatus('applying');
     setRefineMessage('');
-    setRefineLiveSteps([]);
+    setRefineLiveDetail(null);
     try {
       await refineDietPlan(plan.workflowId, instruction);
-      const result = await pollDietWorkflow(plan.workflowId, {
-        onProgress: (detail) => setRefineLiveSteps(detail.completedSteps || []),
-      });
+      const result = await pollWithPacedReveal(plan.workflowId, setRefineLiveDetail);
       setPlan(result);
       if (result.note) {
         setRefineMessage(result.note);
@@ -139,6 +212,7 @@ export default function DietPlan() {
       } else {
         setRefineStatus('idle');
       }
+      scrollToContent();
     } catch (err) {
       setRefineMessage(err.message || "Couldn't apply that change. Please try again.");
       setRefineStatus('error');
@@ -253,7 +327,7 @@ export default function DietPlan() {
       </section>
 
       <section className="dp-section">
-        <div className="container">
+        <div className="container" ref={contentRef}>
           {!auth && (
             <div className="dp-empty dp-fade-up">
               <div className="dp-empty-icon">🔒</div>
@@ -321,7 +395,7 @@ export default function DietPlan() {
               onRefine={handleRefine}
               refineStatus={refineStatus}
               refineMessage={refineMessage}
-              refineLiveSteps={refineLiveSteps}
+              refineLiveDetail={refineLiveDetail}
             />
           )}
 

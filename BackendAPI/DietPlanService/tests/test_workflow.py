@@ -41,6 +41,12 @@ async def test_run_workflow_happy_path_completes(mock_generate_meals, db_session
     assert wf.risk_level == "low"
     assert len(wf.events) >= 3  # calculate_targets (+risk assessed inline), generate_meals, validate_plan
 
+    # The trace must carry *why* the risk level was assigned, not just the
+    # label, so live progress / trace views can explain the reasoning.
+    risk_step = next(s for s in wf.completed_steps if s.get("step") == 2)
+    assert risk_step["riskLevel"] == "low"
+    assert risk_step["riskFlags"] == []
+
 
 @pytest.mark.asyncio
 async def test_run_workflow_revise_then_pass(mock_generate_meals, db_session):
