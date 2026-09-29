@@ -171,6 +171,72 @@
   letter-spacing: 1px;
 }
 .dp-loading-desc { color: var(--text-secondary); margin-top: 0.5rem; }
+@keyframes dpFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ================================================
+   AGENT PROGRESS CARDS
+   Themed cards of short, plan-focused bullet points - shown while
+   generating, then stay visible on the result screen until the plan is
+   confirmed (see DietPlanResult.jsx's "result" state).
+   ================================================ */
+.dp-agent-cards {
+  text-align: left;
+  margin: 1.25rem auto 0;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.dp-refine-progress-placeholder {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: 0.5rem 0 0;
+}
+
+.dp-agent-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  padding: 1.1rem 1.35rem;
+  animation: dpFadeIn 0.4s ease;
+}
+.dp-agent-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.55rem;
+}
+.dp-agent-card-icon { font-size: 1.2rem; }
+.dp-agent-card-points {
+  color: var(--text-primary);
+  font-size: 1.08rem;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.dp-agent-card-points li { list-style: disc; }
+
+/* Outcome color-coding: pass reuses the theme accent, revise/reject borrow
+   the same amber/red already used elsewhere (warning banner, disclaimer-strong). */
+.dp-agent-card-revise {
+  border-left-color: #f59e0b;
+}
+.dp-agent-card-revise .dp-agent-card-header { color: #f59e0b; }
+.dp-agent-card-reject {
+  border-left-color: #f87171;
+}
+.dp-agent-card-reject .dp-agent-card-header { color: #f87171; }
 
 .dp-skeleton-list {
   display: flex;
@@ -431,6 +497,27 @@
 .dp-meal-item-cal { color: var(--accent); font-size: 0.9rem; font-weight: 600; }
 .dp-meal-item-macros { color: var(--text-muted); font-size: 0.75rem; }
 
+/* Highlights an item a refine edit just changed - stays until the plan is confirmed. */
+.dp-meal-item-changed {
+  background: rgba(200, 240, 0, 0.08);
+  border: 1px solid var(--accent);
+  padding: 0.6rem 0.75rem;
+  margin: -0.6rem -0.75rem;
+  animation: dpFadeIn 0.5s ease;
+}
+.dp-meal-item-changed-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  background: var(--accent);
+  color: #111;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+
 .dp-result-actions { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
 .dp-result-secondary-actions { display: flex; justify-content: center; margin-top: 1rem; }
 
@@ -484,6 +571,63 @@
   color: var(--text-secondary);
   font-size: 0.85rem;
   padding: 0.9rem 1.1rem;
+}
+
+.dp-refine-box {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+.dp-refine-box-label {
+  margin: 0 0 0.65rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+.dp-refine-form {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.dp-refine-input {
+  flex: 1 1 280px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 14px 16px;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  outline: none;
+  transition: var(--transition);
+}
+.dp-refine-input::placeholder {
+  color: var(--text-secondary);
+}
+.dp-refine-input:focus {
+  border-color: var(--accent);
+}
+.dp-refine-input:disabled {
+  opacity: 0.6;
+}
+.dp-refine-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dp-refine-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: dpSpin 0.7s linear infinite;
+}
+.dp-refine-message {
+  margin-top: 0.65rem;
 }
 
 /* ================================================

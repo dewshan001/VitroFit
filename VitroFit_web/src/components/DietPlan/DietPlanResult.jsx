@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const MEAL_ICONS = {
   breakfast: '🍳',
   lunch: '🥗',
@@ -7,8 +9,8 @@ const MEAL_ICONS = {
 
 const MEAL_FALLBACK_ICON = '🍽️';
 
-/** Shared summary + meal breakdown, used by both the unsaved result preview and a saved plan's read-only view. */
-function PlanDetails({ plan, hasMedicalConditions }) {
+/** Shared summary + meal breakdown, used by both the unsaved result preview and a saved plan's read-only view. `changedItemKeys` (a Set of "mealIndex::itemIndex") highlights items a refine edit just changed, until the plan is confirmed. */
+function PlanDetails({ plan, hasMedicalConditions, changedItemKeys }) {
   const totalCalories = plan?.totalCalories ?? 0;
   const macros = plan?.macros ?? { protein: 0, carbs: 0, fat: 0 };
   const meals = plan?.meals ?? [];
@@ -64,20 +66,26 @@ function PlanDetails({ plan, hasMedicalConditions }) {
               <span className="dp-meal-calories">{mealCalories(meal)} kcal</span>
             </div>
             <ul className="dp-meal-items">
-              {(meal.items || []).map((item, j) => (
-                <li className="dp-meal-item" key={j}>
-                  <div className="dp-meal-item-info">
-                    <span className="dp-meal-item-name">{item.name}</span>
-                    <span className="dp-meal-item-portion">{item.portion}</span>
-                  </div>
-                  <div className="dp-meal-item-meta">
-                    <span className="dp-meal-item-cal">{item.calories} kcal</span>
-                    <span className="dp-meal-item-macros">
-                      P {item.macros?.protein ?? 0} · C {item.macros?.carbs ?? 0} · F {item.macros?.fat ?? 0}
-                    </span>
-                  </div>
-                </li>
-              ))}
+              {(meal.items || []).map((item, j) => {
+                const isChanged = changedItemKeys?.has(`${i}::${j}`);
+                return (
+                  <li className={`dp-meal-item${isChanged ? ' dp-meal-item-changed' : ''}`} key={j}>
+                    <div className="dp-meal-item-info">
+                      <span className="dp-meal-item-name">
+                        {item.name}
+                        {isChanged && <span className="dp-meal-item-changed-badge">Changed</span>}
+                      </span>
+                      <span className="dp-meal-item-portion">{item.portion}</span>
+                    </div>
+                    <div className="dp-meal-item-meta">
+                      <span className="dp-meal-item-cal">{item.calories} kcal</span>
+                      <span className="dp-meal-item-macros">
+                        P {item.macros?.protein ?? 0} · C {item.macros?.carbs ?? 0} · F {item.macros?.fat ?? 0}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
@@ -109,6 +117,8 @@ export default function DietPlanResult({
   state,
   plan,
   errorMessage,
+  errorSteps = [],
+  liveDetail = null,
   hasMedicalConditions,
   confirmStatus = 'idle',
   confirmErrorMessage,
@@ -123,6 +133,10 @@ export default function DietPlanResult({
   onDeletePlan,
   onBack,
   onDelete,
+  onRefine,
+  refineStatus = 'idle',
+  refineMessage = '',
+  changedItemKeys = null,
 }) {
   if (state === 'empty') {
     return (
@@ -204,6 +218,7 @@ export default function DietPlanResult({
   }
 
   if (state === 'error') {
+    const attemptSteps = (errorSteps || []).filter((s) => s.agent === 'SafetyValidatorAgent');
     return (
       <div className="dp-empty dp-fade-up">
         <div className="dp-empty-icon">⚠️</div>
@@ -211,6 +226,19 @@ export default function DietPlanResult({
         <p className="dp-empty-desc">
           {errorMessage || 'Something went wrong while generating your diet plan. Please try again.'}
         </p>
+        {attemptSteps.length > 0 && (
+          <div className="dp-disclaimer" style={{ textAlign: 'left', marginTop: '1rem' }}>
+            <p style={{ margin: 0 }}>
+              Our system tried {attemptSteps.length === 1 ? 'once' : `${attemptSteps.length} times`} to build a
+              plan around your preferences:
+            </p>
+            <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+              {attemptSteps.map((step, i) => (
+                <li key={i}>{describeAttemptStep(step)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="dp-result-actions">
           <button className="btn-secondary" onClick={onEdit}>
             Edit Preferences
@@ -224,15 +252,25 @@ export default function DietPlanResult({
   }
 
   if (state === 'loading') {
+    const liveSteps = liveDetail?.completedSteps || [];
     return (
       <div className="dp-loading dp-fade-up">
         <div className="dp-loading-top">
           <span className="dp-loader" />
           <h3 className="dp-loading-title">Generating your diet plan…</h3>
-          <p className="dp-loading-desc">
-            {simulateLoadingText()}
-          </p>
+          {liveSteps.length === 0 && (
+            <p className="dp-loading-desc">
+              <AgentProgressText />
+            </p>
+          )}
         </div>
+        {liveSteps.length > 0 && (
+          <div className="dp-agent-cards">
+            {liveSteps.map((step, i) => (
+              <LiveStepCard key={i} step={step} detail={liveDetail} allSteps={liveSteps} />
+            ))}
+          </div>
+        )}
         <div className="dp-skeleton-list">
           {[0, 1, 2, 3].map((m) => (
             <div className="dp-skeleton-meal" key={m}>
@@ -250,14 +288,42 @@ export default function DietPlanResult({
   }
 
   // state === 'result'
+  // The agent cards from generation don't vanish once the plan is ready -
+  // they stay visible until the user confirms, using the same shape
+  // describeLiveStep() expects (plan itself carries completedSteps/riskLevel/
+  // meals from the finished workflow; targets is reconstructed from the
+  // flattened totalCalories/macros the result screen already uses).
+  // Only the original generation's steps - a later refine edit appends its
+  // own step entries to the same array, but those shouldn't resurface the
+  // full agent breakdown; the changed-item highlight below covers an edit instead.
+  const resultSteps = (plan?.completedSteps || []).filter((s) => !s.refine);
+  const resultDetail = {
+    targets: { totalCalories: plan?.totalCalories, macros: plan?.macros },
+    riskLevel: plan?.riskLevel,
+    meals: plan?.meals,
+  };
   return (
     <div className="dp-result dp-fade-up">
-      <PlanDetails plan={plan} hasMedicalConditions={hasMedicalConditions} />
+      {resultSteps.length > 0 && (
+        <div className="dp-agent-cards">
+          {resultSteps.map((step, i) => (
+            <LiveStepCard key={i} step={step} detail={resultDetail} allSteps={resultSteps} />
+          ))}
+        </div>
+      )}
+
+      <PlanDetails plan={plan} hasMedicalConditions={hasMedicalConditions} changedItemKeys={changedItemKeys} />
+
+      <RefineBox
+        onRefine={onRefine}
+        refineStatus={refineStatus}
+        refineMessage={refineMessage}
+      />
 
       {/* Actions */}
       <div className="dp-result-actions">
         <button className="btn-secondary" onClick={onEdit}>
-          Edit Preferences
+          Start Over
         </button>
         <button
           className="btn-primary"
@@ -285,7 +351,184 @@ export default function DietPlanResult({
   );
 }
 
-/* Random rotation of reassuring loader copy. */
-function simulateLoadingText() {
-  return 'Calculating calorie targets and planning portions for every meal…';
+/* Shown only for the very first instant, before the first real step has
+   arrived from the backend - a one-line placeholder, not a simulated feed. */
+function AgentProgressText() {
+  return 'Starting up the Nutrition Analyst…';
+}
+
+const AGENT_META = {
+  NutritionAnalystAgent: { icon: '🧮', label: 'Nutrition Analyst' },
+  MealGeneratorAgent: { icon: '🧑‍🍳', label: 'Meal Generator' },
+  SafetyValidatorAgent: { icon: '🛡️', label: 'Safety Validator' },
+};
+
+const RISK_FLAG_TEXT = {
+  UNDER_18: 'under 18',
+  MEDICAL_CONDITIONS_PRESENT: 'medical condition declared',
+  BELOW_SAFE_FLOOR: 'below the 1,200 kcal safe minimum',
+  STEEP_DEFICIT: 'steep calorie deficit',
+};
+
+/**
+ * Turns one real completedSteps entry (as polled live from
+ * GET /workflows/{id}) into a few short, plan-focused bullet points - facts
+ * and numbers about THIS plan, not an explanation of what the agents are
+ * allowed to do. `detail` is the full polled workflow response, used to pull
+ * in numbers (targets, risk, drafted meals) a bare step entry doesn't carry
+ * by itself. Returns {icon, label, variant, points} for LiveStepCard.
+ */
+function describeLiveStep(step, detail, allSteps) {
+  const meta = AGENT_META[step.agent] || { icon: '✓', label: step.agent };
+
+  if (step.agent === 'NutritionAnalystAgent') {
+    if (step.step === 1) {
+      const t = detail?.targets;
+      const points = t
+        ? [
+            `Daily target: ${t.totalCalories} kcal`,
+            `Protein ${t.macros?.protein}g · Carbs ${t.macros?.carbs}g · Fat ${t.macros?.fat}g`,
+          ]
+        : ['Calculating your calorie and macro targets…'];
+      return { ...meta, variant: 'default', points };
+    }
+    const flags = step.riskFlags ?? detail?.riskFlags;
+    const risk = step.riskLevel ?? detail?.riskLevel;
+    if (!risk) return { ...meta, variant: 'default', points: ['Checking risk level…'] };
+    const flagPhrases = (flags || []).map((f) => RISK_FLAG_TEXT[f.code]).filter(Boolean);
+    const points = [`Risk level: ${risk.charAt(0).toUpperCase()}${risk.slice(1)}`];
+    points.push(flagPhrases.length ? `Why: ${flagPhrases.join(', ')}` : 'No safety concerns found');
+    if (risk === 'high') points.push('Needs Trainer/Admin approval before saving');
+    return { ...meta, variant: risk === 'high' ? 'revise' : 'default', points };
+  }
+
+  if (step.agent === 'MealGeneratorAgent') {
+    // detail.meals only ever holds the LATEST attempt's meals - only show
+    // them for the most recent Meal Generator step in the list, or an
+    // earlier retry entry would incorrectly display meals from a later try.
+    const lastGenIndex = (allSteps || []).map((s) => s.agent).lastIndexOf('MealGeneratorAgent');
+    const isLatestGenStep = !allSteps || allSteps.indexOf(step) === lastGenIndex;
+    const meals = isLatestGenStep ? detail?.meals : null;
+    const mealList = meals?.length ? meals.map((m) => m.label || m.type).join(', ') : null;
+
+    if (step.retry) {
+      const points = mealList
+        ? [`Revised meals (try ${step.retry + 1}): ${mealList}`]
+        : [`Revising meals (try ${step.retry + 1})…`];
+      return { ...meta, variant: 'revise', points };
+    }
+    const points = mealList ? [`Drafted ${meals.length} meals: ${mealList}`] : ['Drafting meals…'];
+    return { ...meta, variant: 'default', points };
+  }
+
+  if (step.agent === 'SafetyValidatorAgent') {
+    const violations = step.violations || [];
+    const reason = violations.map((v) => v.message).filter(Boolean).slice(0, 2).join('; ');
+    const otherReasons = violations
+      .filter((v) => v.code !== 'CALORIE_OUT_OF_TOLERANCE')
+      .map((v) => v.message)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('; ');
+    const direction = step.attemptCalories != null && step.targetCalories
+      ? (step.attemptCalories < step.targetCalories ? 'under' : 'over')
+      : null;
+    const calorieLine = step.targetCalories
+      ? `Total: ${step.attemptCalories} kcal (target ${step.targetCalories} kcal, ${step.diffPct}% ${direction})`
+      : null;
+
+    if (step.verdict === 'pass') {
+      const points = calorieLine ? [calorieLine, '✓ Within tolerance — approved'] : ['✓ Passed all checks'];
+      return { ...meta, variant: 'pass', points };
+    }
+    if (step.verdict === 'reject') {
+      const points = [reason ? `✗ Rejected: ${reason}` : '✗ Rejected — safety issue found'];
+      return { ...meta, variant: 'reject', points };
+    }
+    // revise
+    const points = calorieLine
+      ? [calorieLine, '⚠ Outside tolerance — revising', ...(otherReasons ? [`Also: ${otherReasons}`] : [])]
+      : ['⚠ Not quite on target — revising'];
+    return { ...meta, variant: 'revise', points };
+  }
+
+  return { icon: '✓', label: step.agent, variant: 'default', points: ['Done'] };
+}
+
+/** One agent's progress, styled as a themed card of short bullet points - larger, higher-contrast text than the surrounding page, color-coded by outcome. */
+function LiveStepCard({ step, detail, allSteps }) {
+  const info = describeLiveStep(step, detail, allSteps);
+  return (
+    <div className={`dp-agent-card dp-agent-card-${info.variant}`}>
+      <div className="dp-agent-card-header">
+        <span className="dp-agent-card-icon">{info.icon}</span>
+        <span>{info.label}</span>
+      </div>
+      <ul className="dp-agent-card-points">
+        {info.points.map((point, i) => <li key={i}>{point}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+/** A free-text "edit this plan" box, used on the result screen instead of restarting the whole form. */
+function RefineBox({ onRefine, refineStatus, refineMessage }) {
+  const [instruction, setInstruction] = useState('');
+  if (!onRefine) return null;
+
+  const applying = refineStatus === 'applying';
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = instruction.trim();
+    if (!trimmed || applying) return;
+    onRefine(trimmed);
+    setInstruction('');
+  };
+
+  return (
+    <div className="dp-refine-box">
+      <p className="dp-refine-box-label">Want a small change?</p>
+      <form onSubmit={handleSubmit} className="dp-refine-form">
+        <input
+          type="text"
+          className="dp-refine-input"
+          value={instruction}
+          onChange={(e) => setInstruction(e.target.value)}
+          placeholder="e.g. instead of rice, include something else at lunch"
+          disabled={applying}
+          maxLength={300}
+        />
+        <button type="submit" className="btn-secondary dp-refine-submit" disabled={applying || !instruction.trim()}>
+          {applying && <span className="dp-refine-spinner" />}
+          {applying ? 'Applying…' : 'Apply Change'}
+        </button>
+      </form>
+      {applying && <p className="dp-refine-progress-placeholder">Applying your change…</p>}
+      {(refineStatus === 'note' || refineStatus === 'error') && refineMessage && (
+        <p className="dp-field-err-text dp-refine-message">{refineMessage}</p>
+      )}
+    </div>
+  );
+}
+
+/** Plain-language, non-technical summary of one validator attempt, for customers rather than engineers. */
+function describeAttemptStep(step) {
+  const tryLabel = step.attempt ? `Try ${step.attempt}` : 'This try';
+  const isSafetyIssue = (step.violations || []).some((v) => v.code === 'RESTRICTION_VIOLATION' || v.code === 'BELOW_SAFE_FLOOR');
+
+  if (step.verdict === 'pass') {
+    return `${tryLabel}: matched your calorie target and passed all checks.`;
+  }
+  if (isSafetyIssue) {
+    // A dietary-safety issue (an ingredient conflicting with a restriction/
+    // allergy, or a target below a safe calorie floor) is the real reason,
+    // not the calorie miss - lead with that in plain terms.
+    return `${tryLabel}: one of the suggested meals conflicted with a restriction, allergy, or safe calorie minimum you set.`;
+  }
+  if (step.targetCalories) {
+    const direction = step.attemptCalories < step.targetCalories ? 'short of' : 'over';
+    return `${tryLabel}: came out to about ${step.attemptCalories} calories — ${step.diffPct}% ${direction} your ${step.targetCalories}-calorie target.`;
+  }
+  return `${tryLabel}: didn't quite match your preferences.`;
 }

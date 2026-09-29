@@ -396,14 +396,21 @@ All routes are under `/api`, defined in the `Controllers/` folder.
 
 ### Diet Plan Agent — `http://localhost:8003` (separate service)
 
+A small multi-agent workflow (Nutrition Analyst → Meal Generator → Safety Validator) computes targets, drafts meals via an LLM, and validates the result with fixed rules before it's usable — see [`BackendAPI/DietPlanService/AGENT.md`](BackendAPI/DietPlanService/AGENT.md) for the full architecture.
+
 | Method | Route | Auth | Description |
 | ------ | ----- | ---- | ----------- |
 | GET | `/health` | — | Health check |
-| POST | `/api/diet/generate` | 🔒 | Compute calorie/macro targets and generate a meal plan from the given preferences (not saved) |
-| POST | `/api/diet/confirm` | 🔒 | Save a (possibly user-edited) generated plan, plus the inputs that produced it |
+| POST | `/api/diet/generate` | 🔒 | Starts generating a plan from the given preferences and returns a `workflowId` immediately (does not wait for the LLM) |
+| GET | `/api/diet/workflows/{id}` | 🔒 | Poll a workflow's live progress and, once finished, the generated plan or the reason it failed |
+| GET | `/api/diet/workflows/{id}/trace` | 🔒 | Full audit trace of a workflow (every agent/tool call, timing, retries) |
+| POST | `/api/diet/workflows/{id}/refine` | 🔒 | Apply a free-text edit (e.g. "swap the rice at lunch") to an already-generated plan |
+| POST | `/api/diet/confirm` | 🔒 | Save a generated plan (by `workflowId`, or a legacy inline payload), plus the inputs that produced it |
 | GET | `/api/diet/plans` | 🔒 | List the current user's saved plans |
 | PUT | `/api/diet/plans/{id}` | 🔒 | Update a saved plan |
 | DELETE | `/api/diet/plans/{id}` | 🔒 | Delete a saved plan |
+| GET | `/api/diet/approvals/pending` | 🔒 Trainer/Admin | List plans flagged as high-risk, awaiting approval |
+| POST | `/api/diet/workflows/{id}/approve` / `/reject` | 🔒 Trainer/Admin | Approve or reject a high-risk plan |
 
 🔒 = requires the same access token issued by `VitroFit.API`; this service verifies it directly against `VitroFit.API`'s `appsettings.json` (see [§3.2](#32-one-time-setup)).
 
