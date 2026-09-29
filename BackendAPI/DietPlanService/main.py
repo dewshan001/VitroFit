@@ -1,19 +1,41 @@
 # DietPlanService/main.py
+import uuid
+from datetime import datetime, timezone
+from typing import Literal
+
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
 from db import Base, engine, get_session
 from models import DietPlanInputs, DietPlan
-from calculator import calculate_targets
-from meal_agent import generate_meals
-from auth import get_current_user_id
+from auth import get_current_user_id, get_current_user_claims
+from security import require_roles, _extract_role
+import workflow_models  # noqa: F401 - registers DietWorkflow with Base before create_all
+from workflow_models import DietWorkflow
+from workflow import run_workflow
+from validators import validate_plan
 
 load_dotenv()
 
 Base.metadata.create_all(bind=engine)
+
+GenderLiteral = Literal["male", "female", "other"]
+ActivityLevelLiteral = Literal["sedentary", "light", "moderate", "active"]
+GoalLiteral = Literal["weight loss", "muscle gain", "maintenance", "endurance"]
+MealFrequencyLiteral = Literal["3Meals", "4Meals", "5Meals", "intermittent"]
+RestrictionLiteral = Literal[
+    "vegetarian", "vegan", "halal", "dairy-free", "gluten-free",
+    "peanut allergy", "lactose-intolerant",
+]
+MedicalConditionLiteral = Literal[
+    "diabetes", "high blood pressure", "high cholesterol",
+    "heart condition", "kidney condition", "thyroid condition",
+]
+BudgetTierLiteral = Literal["low", "medium", "high", "custom"]
+CookingTimeLiteral = Literal["quick", "moderate", "nocook"]
 
 app = FastAPI(
     title="VitroFit Diet Plan Agent API",
@@ -38,18 +60,26 @@ app.add_middleware(
 
 class DietPlanPreferences(BaseModel):
     age: int = Field(..., ge=10, le=100)
-    gender: str
+    gender: GenderLiteral
     heightCm: float = Field(..., ge=100, le=260)
     weightKg: float = Field(..., ge=30, le=250)
-    activityLevel: str
-    goal: str
-    mealFrequency: str
-    restrictions: list[str] = []
+    activityLevel: ActivityLevelLiteral
+    goal: GoalLiteral
+    mealFrequency: MealFrequencyLiteral
+    restrictions: list[RestrictionLiteral] = []
     dislikes: str | None = ""
-    budgetTier: str
+    budgetTier: BudgetTierLiteral
     budgetCustomAmount: float | None = Field(default=None, ge=500, le=15000)
-    medicalConditions: list[str] = []
-    cookingTime: str
+    medicalConditions: list[MedicalConditionLiteral] = []
+    cookingTime: CookingTimeLiteral
+
+    @field_validator("dislikes")
+    @classmethod
+    def _sanitize_dislikes(cls, v: str | None) -> str | None:
+        if not v:
+            return v
+        cleaned = "".join(c for c in v if c.isprintable() or c in " \n")
+        return cleaned[:500]
 
 
 class ConfirmPlanRequest(BaseModel):
@@ -58,6 +88,7 @@ class ConfirmPlanRequest(BaseModel):
     macros: dict
     meals: list
     withinTolerance: bool = True
+    workflowId: str | None = None
 
 
 @app.get("/health")
@@ -66,25 +97,33 @@ def health_check():
 
 
 @app.post("/api/diet/generate")
-async def generate_plan(prefs: DietPlanPreferences, user_id: int = Depends(get_current_user_id)):
-    targets = calculate_targets(
-        gender=prefs.gender,
-        age=prefs.age,
-        height_cm=prefs.heightCm,
-        weight_kg=prefs.weightKg,
-        activity_level=prefs.activityLevel,
-        goal=prefs.goal,
+async def generate_plan(
+    prefs: DietPlanPreferences,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    wf = await run_workflow(
+        objective="generate_diet_plan",
+        prefs=prefs.model_dump(),
+        user_id=user_id,
+        session=session,
     )
 
-    result = await generate_meals(targets, prefs.model_dump())
-    if "error" in result:
-        raise HTTPException(status_code=502, detail=result["error"])
+    if wf.status == "failed":
+        raise HTTPException(status_code=502, detail=wf.error or "Workflow failed.")
+    if wf.status == "rejected":
+        raise HTTPException(status_code=422, detail={"violations": wf.final_outcome.get("violations", [])})
 
     return {
-        "totalCalories": targets["totalCalories"],
-        "macros": targets["macros"],
-        "meals": result["meals"],
-        "withinTolerance": result["withinTolerance"],
+        "totalCalories": wf.targets["totalCalories"],
+        "macros": wf.targets["macros"],
+        "meals": wf.meals,
+        "withinTolerance": wf.final_outcome.get("withinTolerance", True),
+        "workflowId": str(wf.id),
+        "status": wf.status,
+        "riskLevel": wf.risk_level,
+        "plan": wf.plan,
+        "requiresApproval": wf.approval_status == "pending",
     }
 
 
@@ -145,6 +184,26 @@ def confirm_plan(
     user_id: int = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
+    wf = None
+    if req.workflowId:
+        wf = session.get(DietWorkflow, uuid.UUID(req.workflowId))
+        if not wf or wf.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Workflow not found.")
+        if wf.status != "completed":
+            raise HTTPException(status_code=409, detail=f"Workflow is not completed (status={wf.status}).")
+        # Trust the workflow's own stored, validated data - ignore whatever
+        # the client sent for these fields.
+        req.totalCalories = wf.targets["totalCalories"]
+        req.macros = wf.targets["macros"]
+        req.meals = wf.meals
+        req.withinTolerance = wf.validation_results.get("verdict") == "pass"
+    else:
+        # Legacy path (old frontend, no workflowId): validate the submitted
+        # plan with the same deterministic rules before accepting it.
+        result = validate_plan(req.meals, {"totalCalories": req.totalCalories, "macros": req.macros}, req.inputs.model_dump())
+        if result["verdict"] == "reject":
+            raise HTTPException(status_code=422, detail={"violations": result["violations"]})
+
     inputs_row = DietPlanInputs(
         user_id=user_id,
         age=req.inputs.age,
@@ -175,6 +234,10 @@ def confirm_plan(
     session.add(plan_row)
     session.commit()
     session.refresh(plan_row)
+
+    if wf is not None:
+        wf.plan_id = plan_row.id
+        session.commit()
 
     return {"id": plan_row.id, "createdAt": plan_row.created_at.isoformat()}
 
@@ -231,3 +294,137 @@ def delete_plan(
     session.commit()
 
     return Response(status_code=204)
+
+
+def _get_workflow_or_404(workflow_id: str, session: Session) -> DietWorkflow:
+    try:
+        parsed_id = uuid.UUID(workflow_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Workflow not found.")
+    wf = session.get(DietWorkflow, parsed_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found.")
+    return wf
+
+
+def _workflow_summary(wf: DietWorkflow) -> dict:
+    return {
+        "id": str(wf.id),
+        "userId": wf.user_id,
+        "status": wf.status,
+        "riskLevel": wf.risk_level,
+        "approvalStatus": wf.approval_status,
+        "createdAt": wf.created_at.isoformat() if wf.created_at else None,
+    }
+
+
+def _workflow_detail(wf: DietWorkflow) -> dict:
+    return {
+        **_workflow_summary(wf),
+        "objective": wf.objective,
+        "plan": wf.plan,
+        "targets": wf.targets,
+        "meals": wf.meals,
+        "validationResults": wf.validation_results,
+        "finalOutcome": wf.final_outcome,
+        "error": wf.error,
+        "retryCount": wf.retry_count,
+        "approvedBy": wf.approved_by,
+        "approvalNote": wf.approval_note,
+        "planId": wf.plan_id,
+    }
+
+
+@app.get("/api/diet/approvals/pending")
+def list_pending_approvals(
+    claims: dict = Depends(require_roles("Trainer", "Admin")),
+    session: Session = Depends(get_session),
+):
+    rows = (
+        session.query(DietWorkflow)
+        .filter(DietWorkflow.approval_status == "pending")
+        .order_by(DietWorkflow.created_at.desc())
+        .all()
+    )
+    return [_workflow_summary(r) for r in rows]
+
+
+@app.post("/api/diet/workflows/{workflow_id}/approve")
+def approve_workflow(
+    workflow_id: str,
+    note: str | None = None,
+    claims: dict = Depends(require_roles("Trainer", "Admin")),
+    session: Session = Depends(get_session),
+):
+    wf = _get_workflow_or_404(workflow_id, session)
+    wf.approval_status = "approved"
+    wf.approved_by = int(claims["sub"])
+    wf.approval_note = note
+    events = list(wf.events or [])
+    events.append({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "step": None, "agent": "approval", "tool": "approve",
+        "ok": True, "error": None, "note": note, "approvedBy": wf.approved_by,
+    })
+    wf.events = events
+    session.commit()
+    return {"id": str(wf.id), "approvalStatus": wf.approval_status}
+
+
+@app.post("/api/diet/workflows/{workflow_id}/reject")
+def reject_workflow(
+    workflow_id: str,
+    note: str,
+    claims: dict = Depends(require_roles("Trainer", "Admin")),
+    session: Session = Depends(get_session),
+):
+    wf = _get_workflow_or_404(workflow_id, session)
+    wf.approval_status = "rejected"
+    wf.approved_by = int(claims["sub"])
+    wf.approval_note = note
+    events = list(wf.events or [])
+    events.append({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "step": None, "agent": "approval", "tool": "reject",
+        "ok": True, "error": None, "note": note, "approvedBy": wf.approved_by,
+    })
+    wf.events = events
+    session.commit()
+    return {"id": str(wf.id), "approvalStatus": wf.approval_status}
+
+
+def _require_owner_or_trainer_admin(wf: DietWorkflow, claims: dict) -> None:
+    user_id = int(claims["sub"])
+    if wf.user_id == user_id:
+        return
+    if _extract_role(claims) in ("Trainer", "Admin"):
+        return
+    raise HTTPException(status_code=403, detail="Not authorized to view this workflow.")
+
+
+@app.get("/api/diet/workflows/{workflow_id}")
+def get_workflow(
+    workflow_id: str,
+    claims: dict = Depends(get_current_user_claims),
+    session: Session = Depends(get_session),
+):
+    wf = _get_workflow_or_404(workflow_id, session)
+    _require_owner_or_trainer_admin(wf, claims)
+    return _workflow_detail(wf)
+
+
+@app.get("/api/diet/workflows/{workflow_id}/trace")
+def get_workflow_trace(
+    workflow_id: str,
+    claims: dict = Depends(get_current_user_claims),
+    session: Session = Depends(get_session),
+):
+    wf = _get_workflow_or_404(workflow_id, session)
+    _require_owner_or_trainer_admin(wf, claims)
+    return {
+        "id": str(wf.id),
+        "plan": wf.plan,
+        "completedSteps": wf.completed_steps,
+        "events": wf.events,
+        "retryCount": wf.retry_count,
+    }
