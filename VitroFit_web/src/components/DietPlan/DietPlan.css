@@ -178,8 +178,9 @@
 
 /* ================================================
    AGENT PROGRESS CARDS
-   Themed cards for live, detailed agent-by-agent explanations - used both
-   on the main "generating your plan" screen and inside the refine box.
+   Themed cards of short, plan-focused bullet points - shown while
+   generating, then stay visible on the result screen until the plan is
+   confirmed (see DietPlanResult.jsx's "result" state).
    ================================================ */
 .dp-agent-cards {
   text-align: left;
@@ -188,10 +189,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-}
-.dp-agent-cards-compact {
-  max-width: none;
-  margin: 0.75rem 0 0;
 }
 .dp-refine-progress-placeholder {
   color: var(--text-secondary);

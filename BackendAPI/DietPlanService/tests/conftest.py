@@ -6,7 +6,23 @@ no real NVIDIA API call happens during tests.
 import os
 import sys
 import time
-import uuid
+
+# Must be set before `auth` is imported anywhere (it reads JWT_SIGNING_KEY at
+# module import time), so tests sign/verify with their own throwaway secret.
+os.environ.setdefault("JWT_SECRET", "test-secret-not-the-real-one-padded-to-32-bytes-min")
+os.environ.setdefault("JWT_ISSUER", "vitrofit-tests")
+os.environ.setdefault("JWT_AUDIENCE", "vitrofit-tests")
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import jwt as pyjwt
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
+
+import main
+import agents
+from calculator import calculate_targets
 
 _TERMINAL_STATUSES = {"completed", "failed", "rejected"}
 
@@ -24,24 +40,6 @@ def poll_workflow(client, workflow_id, headers, timeout_s=10, interval_s=0.05):
             return resp.json()
         time.sleep(interval_s)
     raise TimeoutError(f"Workflow {workflow_id} did not reach a terminal status within {timeout_s}s")
-
-# Must be set before `auth` is imported anywhere (it reads JWT_SIGNING_KEY at
-# module import time), so tests sign/verify with their own throwaway secret.
-os.environ.setdefault("JWT_SECRET", "test-secret-not-the-real-one-padded-to-32-bytes-min")
-os.environ.setdefault("JWT_ISSUER", "vitrofit-tests")
-os.environ.setdefault("JWT_AUDIENCE", "vitrofit-tests")
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import jwt as pyjwt
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock
-
-import main
-import agents
-import meal_agent
-from calculator import calculate_targets
 
 
 def make_token(user_id: int = 1, role: str = "User") -> str:

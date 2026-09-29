@@ -14,6 +14,7 @@ own DB session (SessionLocal()) rather than reusing the request's, since that
 session is closed once the request returns - the task keeps running
 independently of the request that started it.
 """
+import asyncio
 import time
 from datetime import datetime, timezone
 
@@ -78,8 +79,6 @@ async def call_tool(agent, tool: str, payload, events: list, step: int) -> dict:
     raw prompts, full payloads, or secrets - only which tool ran, whether it
     succeeded, and how long it took.
     """
-    import asyncio
-
     started = time.monotonic()
     if tool not in agent.allowed_tools:
         events.append({
@@ -320,7 +319,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     session.commit()
 
     if _deadline_exceeded():
-        return _fail("Workflow exceeded 90s time budget.")
+        return _fail(f"Workflow exceeded the {_OVERALL_TIME_BUDGET_SECONDS}s time budget.")
 
     # --- Step 3: Meal Generator - generate_meals ----------------------------
     generator_result = await call_tool(
@@ -340,7 +339,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     session.commit()
 
     if _deadline_exceeded():
-        return _fail("Workflow exceeded 90s time budget.")
+        return _fail(f"Workflow exceeded the {_OVERALL_TIME_BUDGET_SECONDS}s time budget.")
 
     # --- Step 4: Safety Validator - validate_plan (+ revise loop) ----------
     step_counter = 4
@@ -412,7 +411,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
             session.refresh(wf)
             return wf
         if _deadline_exceeded():
-            return _fail("Workflow exceeded 90s time budget.")
+            return _fail(f"Workflow exceeded the {_OVERALL_TIME_BUDGET_SECONDS}s time budget.")
 
         corrective_note = _summarize_violations(validation["violations"])
         regen_result = await call_tool(
@@ -436,7 +435,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
         session.commit()
 
         if _deadline_exceeded():
-            return _fail("Workflow exceeded 90s time budget.")
+            return _fail(f"Workflow exceeded the {_OVERALL_TIME_BUDGET_SECONDS}s time budget.")
 
     # --- Success -------------------------------------------------------
     wf.status = "completed"

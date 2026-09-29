@@ -1,6 +1,6 @@
 # DietPlanService/meal_agent.py
-"""Builds the meal-generation prompt and calls Gemini. The LLM only fills in
-food items - it never computes the calorie/macro targets themselves
+"""Builds the meal-generation prompt and calls the NVIDIA NIM LLM. The LLM
+only fills in food items - it never computes the calorie/macro targets themselves
 (calculator.py is the source of truth for those). Output is validated against
 the targets before being returned; anything that can't be parsed into valid
 JSON, or that fails even after a retry, surfaces as a clean error instead of

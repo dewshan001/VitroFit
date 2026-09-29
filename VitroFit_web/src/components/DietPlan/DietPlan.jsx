@@ -106,8 +106,9 @@ export default function DietPlan() {
   const [liveDetail, setLiveDetail] = useState(null);
   const [refineStatus, setRefineStatus] = useState('idle'); // idle | applying | note | error
   const [refineMessage, setRefineMessage] = useState('');
-  // Which meal items were just changed by a refine edit ("mealType::itemName"
-  // keys) - highlighted in the plan until the user confirms or starts over.
+  // Which meal items were just changed by a refine edit ("mealIndex::itemIndex"
+  // keys, see diffMealItems below) - highlighted in the plan until the user
+  // confirms or starts over.
   const [changedItemKeys, setChangedItemKeys] = useState(new Set());
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');

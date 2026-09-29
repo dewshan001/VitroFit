@@ -9,7 +9,7 @@ const MEAL_ICONS = {
 
 const MEAL_FALLBACK_ICON = '🍽️';
 
-/** Shared summary + meal breakdown, used by both the unsaved result preview and a saved plan's read-only view. `changedItemKeys` (a Set of "mealType::itemName") highlights items a refine edit just changed, until the plan is confirmed. */
+/** Shared summary + meal breakdown, used by both the unsaved result preview and a saved plan's read-only view. `changedItemKeys` (a Set of "mealIndex::itemIndex") highlights items a refine edit just changed, until the plan is confirmed. */
 function PlanDetails({ plan, hasMedicalConditions, changedItemKeys }) {
   const totalCalories = plan?.totalCalories ?? 0;
   const macros = plan?.macros ?? { protein: 0, carbs: 0, fat: 0 };
