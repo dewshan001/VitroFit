@@ -112,7 +112,7 @@ export default function DietPlanResult({
   plan,
   errorMessage,
   errorSteps = [],
-  liveSteps = [],
+  liveDetail = null,
   hasMedicalConditions,
   confirmStatus = 'idle',
   confirmErrorMessage,
@@ -246,6 +246,7 @@ export default function DietPlanResult({
   }
 
   if (state === 'loading') {
+    const liveSteps = liveDetail?.completedSteps || [];
     return (
       <div className="dp-loading dp-fade-up">
         <div className="dp-loading-top">
@@ -256,9 +257,9 @@ export default function DietPlanResult({
               <AgentProgressText />
             </p>
           ) : (
-            <ul className="dp-loading-desc" style={{ textAlign: 'left', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
+            <ul className="dp-loading-desc dp-live-progress">
               {liveSteps.map((step, i) => (
-                <li key={i}>{describeLiveStep(step)}</li>
+                <li key={i}>{describeLiveStep(step, liveDetail, liveSteps)}</li>
               ))}
             </ul>
           )}
@@ -345,25 +346,73 @@ function AgentProgressText() {
   return AGENT_PROGRESS_STEPS[stepIndex];
 }
 
+const RISK_EXPLANATIONS = {
+  low: 'low risk — no extra review needed.',
+  medium: 'medium risk — nothing blocking, but noted for review.',
+  high: 'high risk — this plan will need a Trainer or Admin to approve it before it can be saved.',
+};
+
 /**
  * Turns one real completedSteps entry (as polled live from
- * GET /workflows/{id}) into a plain-language progress line. This reflects
- * what the backend has actually finished, not a simulated guess.
+ * GET /workflows/{id}) into a plain-language, detailed progress line. `detail`
+ * is the full polled workflow response, used to pull in the actual numbers
+ * (targets, risk level, drafted meals) a bare step entry doesn't carry by
+ * itself. This reflects what the backend has actually finished, not a
+ * simulated guess.
  */
-function describeLiveStep(step) {
+function describeLiveStep(step, detail, allSteps) {
   if (step.agent === 'NutritionAnalystAgent') {
-    return step.step === 1
-      ? '✓ Nutrition Analyst calculated your calorie and macro targets.'
+    if (step.step === 1) {
+      const t = detail?.targets;
+      if (t) {
+        return (
+          `✓ Nutrition Analyst calculated your target: ${t.totalCalories} kcal/day ` +
+          `(${t.macros?.protein}g protein, ${t.macros?.carbs}g carbs, ${t.macros?.fat}g fat).`
+        );
+      }
+      return '✓ Nutrition Analyst calculated your calorie and macro targets.';
+    }
+    const risk = detail?.riskLevel;
+    return risk
+      ? `✓ Nutrition Analyst assessed safety risk: ${RISK_EXPLANATIONS[risk] || risk}`
       : '✓ Nutrition Analyst checked whether this plan needs extra safety review.';
   }
   if (step.agent === 'MealGeneratorAgent') {
-    if (step.refine) return '✓ Meal Generator drafted your requested change — now checking it\'s safe…';
-    return step.retry
-      ? `↻ Meal Generator drafted a revised set of meals (try ${step.retry + 1}).`
+    // detail.meals only ever holds the LATEST attempt's meals - only show
+    // them for the most recent Meal Generator step in the list, or an
+    // earlier retry entry would incorrectly display meals from a later try.
+    const lastGenIndex = (allSteps || []).map((s) => s.agent).lastIndexOf('MealGeneratorAgent');
+    const isLatestGenStep = !allSteps || allSteps.indexOf(step) === lastGenIndex;
+    const meals = isLatestGenStep ? detail?.meals : null;
+    const mealList = meals?.length ? meals.map((m) => m.label || m.type).join(', ') : null;
+    if (step.refine) {
+      return mealList
+        ? `✓ Meal Generator drafted your requested change (${mealList}) — now checking it's safe…`
+        : '✓ Meal Generator drafted your requested change — now checking it\'s safe…';
+    }
+    if (step.retry) {
+      return mealList
+        ? `↻ Meal Generator drafted a revised set of meals (try ${step.retry + 1}): ${mealList}.`
+        : `↻ Meal Generator drafted a revised set of meals (try ${step.retry + 1}).`;
+    }
+    return mealList
+      ? `✓ Meal Generator drafted ${meals.length} meals: ${mealList}.`
       : '✓ Meal Generator drafted a full day of meals.';
   }
   if (step.agent === 'SafetyValidatorAgent') {
-    const reason = (step.violations || []).map((v) => v.message).filter(Boolean).slice(0, 2).join('; ');
+    const violations = step.violations || [];
+    const reason = violations.map((v) => v.message).filter(Boolean).slice(0, 2).join('; ');
+    const calorieNote = step.targetCalories
+      ? `${step.attemptCalories} kcal vs your ${step.targetCalories} kcal target${step.diffPct ? ` (${step.diffPct}% off)` : ''}`
+      : null;
+    // Excludes the calorie-tolerance violation specifically where calorieNote
+    // is already shown alongside it, so the two don't just restate each other.
+    const otherReasons = violations
+      .filter((v) => v.code !== 'CALORIE_OUT_OF_TOLERANCE')
+      .map((v) => v.message)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('; ');
     if (step.refine) {
       if (step.verdict === 'reject') {
         return reason
@@ -377,13 +426,21 @@ function describeLiveStep(step) {
       }
       return '✓ Safety Validator confirmed the change is still safe.';
     }
-    if (step.verdict === 'pass') return '✓ Safety Validator confirmed the plan meets your targets.';
+    if (step.verdict === 'pass') {
+      return calorieNote
+        ? `✓ Safety Validator checked the plan: ${calorieNote} — within tolerance, all restrictions respected.`
+        : '✓ Safety Validator confirmed the plan meets your targets.';
+    }
     if (step.verdict === 'reject') {
       return reason
         ? `✗ Safety Validator rejected this plan: ${reason}`
         : '✗ Safety Validator found a safety issue with this plan.';
     }
-    return `↻ Safety Validator flagged this attempt as not quite on target — asking for another try.`;
+    // revise
+    const attemptLabel = step.attempt ? `attempt ${step.attempt}` : 'this attempt';
+    return calorieNote
+      ? `↻ Safety Validator checked ${attemptLabel}: ${calorieNote}${otherReasons ? ` — ${otherReasons}` : ''}. Asking Meal Generator to try again…`
+      : `↻ Safety Validator flagged ${attemptLabel} as not quite on target — asking for another try.`;
   }
   return `✓ ${step.agent} finished.`;
 }

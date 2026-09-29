@@ -171,6 +171,23 @@
   letter-spacing: 1px;
 }
 .dp-loading-desc { color: var(--text-secondary); margin-top: 0.5rem; }
+.dp-live-progress {
+  text-align: left;
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem auto 0;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.dp-live-progress li {
+  animation: dpFadeIn 0.3s ease;
+}
+@keyframes dpFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .dp-skeleton-list {
   display: flex;

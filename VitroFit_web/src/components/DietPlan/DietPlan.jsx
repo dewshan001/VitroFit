@@ -27,7 +27,7 @@ export default function DietPlan() {
   const [plan, setPlan] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorSteps, setErrorSteps] = useState([]);
-  const [liveSteps, setLiveSteps] = useState([]);
+  const [liveDetail, setLiveDetail] = useState(null);
   const [refineStatus, setRefineStatus] = useState('idle'); // idle | applying | note | error
   const [refineMessage, setRefineMessage] = useState('');
   const [refineLiveSteps, setRefineLiveSteps] = useState([]);
@@ -103,13 +103,13 @@ export default function DietPlan() {
   const handleGenerate = async (prefs) => {
     setPhase('loading');
     setConfirmStatus('idle');
-    setLiveSteps([]);
+    setLiveDetail(null);
     setRefineStatus('idle');
     setRefineMessage('');
     try {
       const { workflowId } = await generateDietPlan(toApiPrefs(prefs));
       const result = await pollDietWorkflow(workflowId, {
-        onProgress: (detail) => setLiveSteps(detail.completedSteps || []),
+        onProgress: (detail) => setLiveDetail(detail),
       });
       setPlan(result);
       setPhase('result');
@@ -296,7 +296,7 @@ export default function DietPlan() {
             />
           )}
 
-          {auth && phase === 'loading' && <DietPlanResult state="loading" liveSteps={liveSteps} />}
+          {auth && phase === 'loading' && <DietPlanResult state="loading" liveDetail={liveDetail} />}
 
           {auth && phase === 'error' && (
             <DietPlanResult
