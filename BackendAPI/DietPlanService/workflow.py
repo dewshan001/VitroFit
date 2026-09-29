@@ -1,0 +1,243 @@
+# DietPlanService/workflow.py
+"""The coordinator: builds a plan, dispatches each step to the right agent
+through an allow-listed tool call, runs the revise/reject loop, and saves
+workflow state (plan, per-step results, events, validation, approval) after
+every step so a DietWorkflow row is always a truthful, resumable record of
+what happened.
+
+Tradeoff (flagged for the reader / AGENT.md): run_workflow() executes fully
+inline inside the POST /api/diet/generate request, so a single HTTP call can
+legitimately take up to ~90s (up to 2 revise retries, each bounded by
+meal_agent's own 40s LLM timeout, itself capped by this file's 25s per-tool
+timeout). A true fix would have /generate return the workflowId immediately
+and have the frontend poll GET /api/diet/workflows/{id} - but the frontend is
+out of scope for this task, so this stays inline and documented instead.
+"""
+import time
+from datetime import datetime, timezone
+
+from agents import (
+    NutritionAnalystAgent, NutritionAnalystInput,
+    MealGeneratorAgent, MealGeneratorInput,
+    SafetyValidatorAgent, SafetyValidatorInput,
+)
+from workflow_models import DietWorkflow
+
+_TOOL_TIMEOUT_SECONDS = 25
+_OVERALL_TIME_BUDGET_SECONDS = 90
+_MAX_REVISE_RETRIES = 2
+
+_analyst = NutritionAnalystAgent()
+_generator = MealGeneratorAgent()
+_validator = SafetyValidatorAgent()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def build_plan(objective: str, prefs: dict) -> list[dict]:
+    """Static, explainable 3-4 step plan - not dynamic re-planning. Adaptation
+    is limited to a single note appended when medical conditions are present.
+    """
+    steps = [
+        {"step": 1, "agent": "NutritionAnalystAgent", "tool": "calculate_targets",
+         "description": "Compute calorie/macro targets and budget context.", "status": "pending"},
+        {"step": 2, "agent": "NutritionAnalystAgent", "tool": "assess_risk",
+         "description": "Assess health/safety risk level from age, medical conditions, deficit.", "status": "pending"},
+        {"step": 3, "agent": "MealGeneratorAgent", "tool": "generate_meals",
+         "description": "Generate a day's meals matching targets and preferences.", "status": "pending"},
+        {"step": 4, "agent": "SafetyValidatorAgent", "tool": "validate_plan",
+         "description": "Validate meals against targets, restrictions, and medical rules.", "status": "pending"},
+    ]
+    if prefs.get("medicalConditions"):
+        steps[3]["description"] += " (medical_review: extra scrutiny applied due to declared medical conditions.)"
+    return steps
+
+
+async def call_tool(agent, tool: str, payload, events: list, step: int) -> dict:
+    """Enforces the agent's allow-list, validates via the agent's own Pydantic
+    input model, applies a timeout, and appends a short trace entry. Never logs
+    raw prompts, full payloads, or secrets - only which tool ran, whether it
+    succeeded, and how long it took.
+    """
+    import asyncio
+
+    started = time.monotonic()
+    if tool not in agent.allowed_tools:
+        events.append({
+            "ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool,
+            "ok": False, "error": f"Tool '{tool}' not permitted for {agent.name}.", "duration_ms": 0,
+        })
+        return {"ok": False, "data": None, "error": f"Tool '{tool}' not permitted for {agent.name}."}
+
+    try:
+        result = await asyncio.wait_for(agent.run(payload), timeout=_TOOL_TIMEOUT_SECONDS)
+        duration_ms = int((time.monotonic() - started) * 1000)
+        events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": True, "error": None, "duration_ms": duration_ms})
+        return {"ok": True, "data": result.model_dump(), "error": None}
+    except asyncio.TimeoutError:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        error = f"Tool '{tool}' timed out after {_TOOL_TIMEOUT_SECONDS}s."
+        events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": False, "error": error, "duration_ms": duration_ms})
+        return {"ok": False, "data": None, "error": error}
+    except Exception as e:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        error = str(e)
+        events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": False, "error": error, "duration_ms": duration_ms})
+        return {"ok": False, "data": None, "error": error}
+
+
+def _summarize_violations(violations: list[dict]) -> str:
+    revise_violations = [v for v in violations if v["severity"] == "revise"]
+    if not revise_violations:
+        return "Revise the plan to better match the targets and preferences."
+    parts = [v["message"] for v in revise_violations[:5]]
+    return "Previous attempt had issues: " + "; ".join(parts) + ". Adjust and retry."
+
+
+async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> DietWorkflow:
+    plan = build_plan(objective, prefs)
+    wf = DietWorkflow(
+        user_id=user_id,
+        objective=objective,
+        status="running",
+        plan=plan,
+        completed_steps=[],
+        inputs=prefs,
+        events=[],
+        retry_count=0,
+    )
+    session.add(wf)
+    session.commit()
+    session.refresh(wf)
+
+    events = list(wf.events)
+    completed_steps = list(wf.completed_steps)
+    deadline = time.monotonic() + _OVERALL_TIME_BUDGET_SECONDS
+
+    def _fail(error: str, final_outcome: dict | None = None):
+        wf.status = "failed"
+        wf.error = error
+        wf.events = events
+        wf.completed_steps = completed_steps
+        if final_outcome is not None:
+            wf.final_outcome = final_outcome
+        session.commit()
+        session.refresh(wf)
+        return wf
+
+    def _deadline_exceeded() -> bool:
+        return time.monotonic() > deadline
+
+    # --- Step 1: Nutrition Analyst - calculate_targets + assess_risk -------
+    analyst_result = await call_tool(_analyst, "calculate_targets", NutritionAnalystInput(prefs=prefs), events, step=1)
+    if not analyst_result["ok"]:
+        return _fail(analyst_result["error"])
+
+    analyst_data = analyst_result["data"]
+    wf.targets = analyst_data["targets"]
+    wf.risk_level = analyst_data["risk_level"]
+    completed_steps.append({"step": 1, "agent": "NutritionAnalystAgent", "status": "done"})
+    completed_steps.append({"step": 2, "agent": "NutritionAnalystAgent", "status": "done"})
+    wf.completed_steps = completed_steps
+    wf.events = events
+    session.commit()
+
+    if _deadline_exceeded():
+        return _fail("Workflow exceeded 90s time budget.")
+
+    # --- Step 3: Meal Generator - generate_meals ----------------------------
+    generator_result = await call_tool(
+        _generator, "generate_meals",
+        MealGeneratorInput(targets=wf.targets, prefs=prefs), events, step=3,
+    )
+    generator_data = generator_result["data"] or {}
+    if not generator_result["ok"] or generator_data.get("error"):
+        error = generator_result["error"] or generator_data.get("error") or "Meal generation failed."
+        return _fail(error)
+
+    meals = generator_result["data"]["meals"]
+    wf.meals = meals
+    completed_steps.append({"step": 3, "agent": "MealGeneratorAgent", "status": "done"})
+    wf.completed_steps = completed_steps
+    wf.events = events
+    session.commit()
+
+    if _deadline_exceeded():
+        return _fail("Workflow exceeded 90s time budget.")
+
+    # --- Step 4: Safety Validator - validate_plan (+ revise loop) ----------
+    step_counter = 4
+    while True:
+        validator_result = await call_tool(
+            _validator, "validate_plan",
+            SafetyValidatorInput(meals=meals, targets=wf.targets, prefs=prefs), events, step=step_counter,
+        )
+        if not validator_result["ok"]:
+            return _fail(validator_result["error"])
+
+        validation = validator_result["data"]
+        wf.validation_results = validation
+        completed_steps.append({"step": step_counter, "agent": "SafetyValidatorAgent", "status": "done"})
+        wf.completed_steps = completed_steps
+        wf.events = events
+        session.commit()
+        step_counter += 1
+
+        verdict = validation["verdict"]
+        if verdict == "pass":
+            break
+        if verdict == "reject":
+            wf.status = "rejected"
+            wf.final_outcome = {"reason": "validation_reject", "violations": validation["violations"]}
+            wf.events = events
+            wf.completed_steps = completed_steps
+            session.commit()
+            session.refresh(wf)
+            return wf
+
+        # verdict == "revise"
+        wf.retry_count += 1
+        if wf.retry_count > _MAX_REVISE_RETRIES:
+            return _fail("Max revise retries exceeded.", final_outcome={
+                "reason": "max_retries_exceeded", "last_violations": validation["violations"],
+            })
+        if _deadline_exceeded():
+            return _fail("Workflow exceeded 90s time budget.")
+
+        corrective_note = _summarize_violations(validation["violations"])
+        regen_result = await call_tool(
+            _generator, "generate_meals",
+            MealGeneratorInput(targets=wf.targets, prefs=prefs, corrective_note=corrective_note),
+            events, step=step_counter,
+        )
+        completed_steps.append({"step": step_counter, "agent": "MealGeneratorAgent", "status": "done", "retry": wf.retry_count})
+        wf.completed_steps = completed_steps
+        wf.events = events
+        session.commit()
+        step_counter += 1
+
+        regen_data = regen_result["data"] or {}
+        if not regen_result["ok"] or regen_data.get("error"):
+            error = regen_result["error"] or regen_data.get("error") or "Meal generation failed."
+            return _fail(error)
+
+        meals = regen_result["data"]["meals"]
+        wf.meals = meals
+        session.commit()
+
+        if _deadline_exceeded():
+            return _fail("Workflow exceeded 90s time budget.")
+
+    # --- Success -------------------------------------------------------
+    wf.status = "completed"
+    wf.final_outcome = {
+        "totalCalories": wf.targets["totalCalories"],
+        "macros": wf.targets["macros"],
+        "withinTolerance": wf.validation_results.get("verdict") == "pass",
+    }
+    wf.approval_status = "pending" if wf.risk_level == "high" else "auto_approved"
+    session.commit()
+    session.refresh(wf)
+    return wf
