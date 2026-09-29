@@ -2,7 +2,7 @@
 
 ## How I explain it in 60 seconds
 
-My Diet Planning workflow has three agents with different jobs. A small coordinator (`workflow.py`) builds a plan of steps and hands each one to the right agent. Each agent can use only its own approved tools — the Meal Generator is the only one allowed to call the LLM, and it can't touch the database. The Safety Validator checks the finished meals against fixed rules, not AI — calorie tolerance, allergy/restriction keywords, medical-condition sanity checks. If validation says "revise," the coordinator sends the specific problems back to the Meal Generator for another attempt (max 2 retries) before giving up safely. If a plan is classified high-impact — under a safe calorie floor, or a minor with a medical condition — it pauses and waits for a Trainer or Admin to approve it before it can be saved. Every step, tool call, retry, and decision is logged to a `diet_workflows` row, so the whole run is traceable end to end.
+My Diet Planning workflow has three agents with different jobs. A small coordinator (`workflow.py`) builds a plan of steps and hands each one to the right agent. Each agent can use only its own approved tools — the Meal Generator is the only one allowed to call the LLM, and it can't touch the database. The Safety Validator checks the finished meals against fixed rules, not AI — calorie tolerance, allergy/restriction keywords, medical-condition sanity checks. If validation says "revise" (a tolerance miss, nothing unsafe), the coordinator sends the specific problems back to the Meal Generator for one more attempt (2 total tries); if it's still not within tolerance after that, we hand back the closest attempt flagged as not-quite-on-target rather than nothing at all. Only a genuine safety issue — a restricted/allergy ingredient, or calories under a safe floor — is a hard "reject" with no plan returned. If a plan is classified high-impact — under a safe calorie floor, or a minor with a medical condition — it pauses and waits for a Trainer or Admin to approve it before it can be saved. Every step, tool call, retry, and decision is logged to a `diet_workflows` row, so the whole run is traceable end to end.
 
 ## Flow
 
@@ -11,7 +11,9 @@ Request -> Coordinator builds plan
    Step 1  Nutrition Analyst   -> targets + risk level          (tools: calculate_targets, assess_risk, lookup_budget)
    Step 2  Meal Generator      -> meals (LLM)                   (tool:  generate_meals)
    Step 3  Safety Validator    -> pass / revise / reject        (tool:  validate_plan, rules only)
-              revise -> back to Meal Generator (max 2 retries) else safe failure
+              revise -> back to Meal Generator (1 retry, 2 tries total)
+                        still revising after that -> completed with withinTolerance=false (best-effort, not blocked)
+              reject  -> hard stop, no plan returned (safety issue: restriction/allergy/calorie floor)
    Step 4  Risky plan? -> wait for Trainer/Admin approval -> save plan
    (every step is logged to the workflow record)
 ```
