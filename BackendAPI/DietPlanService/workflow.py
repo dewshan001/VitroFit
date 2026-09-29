@@ -5,12 +5,14 @@ workflow state (plan, per-step results, events, validation, approval) after
 every step so a DietWorkflow row is always a truthful, resumable record of
 what happened.
 
-Tradeoff (flagged for the reader / AGENT.md): run_workflow() executes fully
-inline inside the POST /api/diet/generate request, so a single HTTP call can
-legitimately take close to the 90s overall budget below. A true fix would
-have /generate return the workflowId immediately and have the frontend poll
-GET /api/diet/workflows/{id} - but the frontend is out of scope for this
-task, so this stays inline and documented instead.
+POST /api/diet/generate calls create_workflow() (fast, synchronous - just
+persists the initial row) then schedules execute_workflow() as a detached
+asyncio task and returns the workflowId immediately, so the frontend can poll
+GET /api/diet/workflows/{id} and show each agent's real progress as it
+happens instead of blocking on one long request. execute_workflow() opens its
+own DB session (SessionLocal()) rather than reusing the request's, since that
+session is closed once the request returns - the task keeps running
+independently of the request that started it.
 """
 import time
 from datetime import datetime, timezone
@@ -20,6 +22,7 @@ from agents import (
     MealGeneratorAgent, MealGeneratorInput,
     SafetyValidatorAgent, SafetyValidatorInput,
 )
+from db import SessionLocal
 from workflow_models import DietWorkflow
 
 # Per-tool timeouts. calculate_targets/assess_risk/lookup_budget/validate_plan
@@ -114,7 +117,11 @@ def _summarize_violations(violations: list[dict]) -> str:
     return "Previous attempt had issues: " + "; ".join(parts) + ". Adjust and retry."
 
 
-async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> DietWorkflow:
+def create_workflow(objective: str, prefs: dict, user_id: int, session) -> DietWorkflow:
+    """Persists the initial workflow row and returns immediately - the actual
+    step execution happens separately in execute_workflow(), so the caller
+    (POST /api/diet/generate) can hand the workflowId back right away.
+    """
     plan = build_plan(objective, prefs)
     wf = DietWorkflow(
         user_id=user_id,
@@ -129,7 +136,50 @@ async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> Di
     session.add(wf)
     session.commit()
     session.refresh(wf)
+    return wf
 
+
+async def execute_workflow(workflow_id, prefs: dict) -> None:
+    """Runs the workflow's steps to completion against its own DB session.
+    Meant to run as a detached asyncio task (asyncio.create_task) kicked off
+    right after create_workflow() - nothing awaits this function directly in
+    production, so it must never let an exception escape without first
+    marking the row "failed"; otherwise the row would be stuck in "running"
+    forever with no one left to report the error.
+    """
+    session = SessionLocal()
+    wf = None
+    try:
+        wf = session.get(DietWorkflow, workflow_id)
+        if wf is None:
+            return
+        await _run_steps(wf, prefs, session)
+    except Exception as e:
+        if wf is not None:
+            try:
+                wf.status = "failed"
+                wf.error = f"Unexpected error: {e}"
+                session.commit()
+            except Exception:
+                session.rollback()
+    finally:
+        session.close()
+
+
+async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> DietWorkflow:
+    """Convenience wrapper: create + fully run a workflow to completion using
+    the caller's own session, then refresh it back into that session. Used by
+    tests and anything that wants to await full completion synchronously,
+    rather than the production create_workflow()+execute_workflow() split
+    used for live progress polling.
+    """
+    wf = create_workflow(objective, prefs, user_id, session)
+    await execute_workflow(wf.id, prefs)
+    session.refresh(wf)
+    return wf
+
+
+async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     events = list(wf.events)
     completed_steps = list(wf.completed_steps)
     deadline = time.monotonic() + _OVERALL_TIME_BUDGET_SECONDS

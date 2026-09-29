@@ -8,6 +8,23 @@ import sys
 import time
 import uuid
 
+_TERMINAL_STATUSES = {"completed", "failed", "rejected"}
+
+
+def poll_workflow(client, workflow_id, headers, timeout_s=10, interval_s=0.05):
+    """Polls GET /workflows/{id} (as a real client would) until the
+    background execute_workflow() task reaches a terminal status. Tests use
+    mocked, near-instant meal generation, so this should resolve in well
+    under a second - the timeout is just a safety net against a hang.
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        resp = client.get(f"/api/diet/workflows/{workflow_id}", headers=headers)
+        if resp.status_code == 200 and resp.json().get("status") in _TERMINAL_STATUSES:
+            return resp.json()
+        time.sleep(interval_s)
+    raise TimeoutError(f"Workflow {workflow_id} did not reach a terminal status within {timeout_s}s")
+
 # Must be set before `auth` is imported anywhere (it reads JWT_SIGNING_KEY at
 # module import time), so tests sign/verify with their own throwaway secret.
 os.environ.setdefault("JWT_SECRET", "test-secret-not-the-real-one-padded-to-32-bytes-min")

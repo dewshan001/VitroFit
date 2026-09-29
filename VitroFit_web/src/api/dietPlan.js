@@ -13,8 +13,10 @@ function authHeaders() {
 }
 
 /**
- * Generates a diet plan from the given preferences via DietPlanService.
- * Not saved server-side yet — call confirmDietPlan() once the user accepts it.
+ * Starts generating a diet plan from the given preferences. Returns
+ * immediately with a workflowId + status "running" — it does NOT wait for
+ * the AI to finish. Call pollDietWorkflow() with the returned workflowId to
+ * watch live progress and get the finished plan (or a clear failure reason).
  */
 export async function generateDietPlan(prefs) {
   const response = await fetch(`${DIET_AGENT_API_URL}/generate`, {
@@ -26,15 +28,68 @@ export async function generateDietPlan(prefs) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = new Error(data?.detail || 'Could not generate a diet plan. Please try again.');
-    // completedSteps carries the real per-agent, per-attempt trace (which
-    // agent ran, what it produced, why a revise/reject happened) so the UI
-    // can show what actually happened instead of just one generic line.
-    error.completedSteps = data?.completedSteps || [];
-    throw error;
+    throw new Error(data?.detail || 'Could not start generating a diet plan. Please try again.');
   }
 
   return data;
+}
+
+/** One-shot fetch of a workflow's current state (status, live steps, and — once terminal — the plan or the reason it failed). */
+export async function getDietWorkflow(workflowId) {
+  const response = await fetch(`${DIET_AGENT_API_URL}/workflows/${workflowId}`, {
+    method: 'GET',
+    headers: authHeaders(),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data?.detail || 'Could not check plan generation status.');
+  }
+
+  return data;
+}
+
+const TERMINAL_WORKFLOW_STATUSES = new Set(['completed', 'failed', 'rejected']);
+
+/**
+ * Polls a workflow started by generateDietPlan() until it reaches a terminal
+ * status, calling onProgress with each poll's raw workflow detail so the
+ * caller can show live per-agent progress (completedSteps) while waiting.
+ * Resolves with the finished plan on success; throws (with completedSteps
+ * attached) on failure/rejection or if it never finishes within timeoutMs.
+ */
+export async function pollDietWorkflow(workflowId, { onProgress, intervalMs = 2000, timeoutMs = 240000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const detail = await getDietWorkflow(workflowId);
+    onProgress?.(detail);
+
+    if (TERMINAL_WORKFLOW_STATUSES.has(detail.status)) {
+      if (detail.status === 'completed') {
+        return {
+          totalCalories: detail.targets?.totalCalories ?? 0,
+          macros: detail.targets?.macros ?? { protein: 0, carbs: 0, fat: 0 },
+          meals: detail.meals ?? [],
+          withinTolerance: detail.finalOutcome?.withinTolerance ?? true,
+          workflowId: detail.id,
+          status: detail.status,
+          riskLevel: detail.riskLevel,
+          plan: detail.plan,
+          completedSteps: detail.completedSteps,
+          requiresApproval: detail.approvalStatus === 'pending',
+        };
+      }
+      const error = new Error(detail.message || 'Could not generate a diet plan. Please try again.');
+      error.completedSteps = detail.completedSteps || [];
+      throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  throw new Error('Generating your plan is taking longer than expected. Please try again.');
 }
 
 /**

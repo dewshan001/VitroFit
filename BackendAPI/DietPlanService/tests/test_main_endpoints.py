@@ -1,25 +1,33 @@
 # DietPlanService/tests/test_main_endpoints.py
-from conftest import VALID_PREFS, make_meals, expected_target_calories
+from conftest import VALID_PREFS, make_meals, expected_target_calories, poll_workflow
 
 TARGET_CALORIES = expected_target_calories(VALID_PREFS)
 
 
-def test_generate_endpoint_returns_additive_fields(client, auth_headers, mock_generate_meals):
+def test_generate_endpoint_starts_workflow_immediately(client, auth_headers, mock_generate_meals):
     mock_generate_meals.return_value = {
         "meals": make_meals(calories_each=TARGET_CALORIES / 4, count=4),
         "withinTolerance": True,
     }
+    headers = auth_headers(user_id=101)
 
-    resp = client.post("/api/diet/generate", json=VALID_PREFS, headers=auth_headers(user_id=101))
+    resp = client.post("/api/diet/generate", json=VALID_PREFS, headers=headers)
 
+    # /generate no longer blocks on the LLM - it hands back a workflowId
+    # right away so the frontend can poll live progress instead.
     assert resp.status_code == 200
     body = resp.json()
-    for legacy_field in ("totalCalories", "macros", "meals", "withinTolerance"):
-        assert legacy_field in body
-    for new_field in ("workflowId", "status", "riskLevel", "plan", "requiresApproval"):
-        assert new_field in body
-    assert body["status"] == "completed"
-    assert body["requiresApproval"] is False
+    assert body["status"] == "running"
+    for field in ("workflowId", "status", "plan"):
+        assert field in body
+
+    detail = poll_workflow(client, body["workflowId"], headers)
+    assert detail["status"] == "completed"
+    assert detail["targets"]["totalCalories"] == TARGET_CALORIES
+    assert detail["meals"]
+    assert detail["finalOutcome"]["withinTolerance"] is True
+    assert detail["approvalStatus"] == "auto_approved"
+    assert detail["completedSteps"]
 
 
 def test_generate_endpoint_rejects_invalid_literal(client, auth_headers):
@@ -37,6 +45,7 @@ def test_confirm_with_workflow_id_ignores_client_meals(client, auth_headers, moc
     gen_resp = client.post("/api/diet/generate", json=VALID_PREFS, headers=headers)
     assert gen_resp.status_code == 200
     workflow_id = gen_resp.json()["workflowId"]
+    poll_workflow(client, workflow_id, headers)
 
     tampered_confirm = {
         "inputs": VALID_PREFS,
@@ -78,11 +87,14 @@ def test_approve_requires_trainer_role(client, auth_headers, mock_generate_meals
     headers = auth_headers(user_id=104)
     risky_prefs = dict(VALID_PREFS, medicalConditions=["diabetes"], age=15)
     gen_resp = client.post("/api/diet/generate", json=risky_prefs, headers=headers)
-    # Either completed-with-pending-approval or rejected by validator's own floor check;
-    # only proceed with the approval-role check if a workflow id came back.
-    if gen_resp.status_code != 200:
-        return
+    assert gen_resp.status_code == 200
     workflow_id = gen_resp.json()["workflowId"]
+    detail = poll_workflow(client, workflow_id, headers)
+    # Either completed-with-pending-approval or rejected by the validator's
+    # own floor check; only proceed with the approval-role check if it
+    # actually reached the pending-approval state.
+    if detail["status"] != "completed" or detail["approvalStatus"] != "pending":
+        return
 
     user_resp = client.post(f"/api/diet/workflows/{workflow_id}/approve", headers=auth_headers(user_id=104, role="User"))
     assert user_resp.status_code == 403
@@ -100,6 +112,7 @@ def test_workflow_trace_shows_all_three_agents(client, auth_headers, mock_genera
     headers = auth_headers(user_id=105)
     gen_resp = client.post("/api/diet/generate", json=VALID_PREFS, headers=headers)
     workflow_id = gen_resp.json()["workflowId"]
+    poll_workflow(client, workflow_id, headers)
 
     trace_resp = client.get(f"/api/diet/workflows/{workflow_id}/trace", headers=headers)
     assert trace_resp.status_code == 200

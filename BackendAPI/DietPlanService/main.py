@@ -1,4 +1,5 @@
 # DietPlanService/main.py
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
@@ -16,8 +17,13 @@ from auth import get_current_user_id, get_current_user_claims
 from security import require_roles, _extract_role
 import workflow_models  # noqa: F401 - registers DietWorkflow with Base before create_all
 from workflow_models import DietWorkflow
-from workflow import run_workflow
+from workflow import create_workflow, execute_workflow
 from validators import validate_plan
+
+# Holds strong references to in-flight background workflow tasks so asyncio
+# doesn't garbage-collect them mid-run (a bare asyncio.create_task() result
+# that nothing holds onto can be silently dropped).
+_background_tasks: set[asyncio.Task] = set()
 
 load_dotenv()
 
@@ -126,45 +132,26 @@ async def generate_plan(
     user_id: int = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
-    wf = await run_workflow(
+    """Starts the workflow and returns the workflowId immediately - it does
+    NOT wait for the LLM. The actual run happens in a detached background
+    task (execute_workflow) so the frontend can poll
+    GET /api/diet/workflows/{id} and show each agent's real progress live
+    instead of the request blocking for up to _OVERALL_TIME_BUDGET_SECONDS.
+    """
+    wf = create_workflow(
         objective="generate_diet_plan",
         prefs=prefs.model_dump(),
         user_id=user_id,
         session=session,
     )
-
-    # completedSteps carries the real per-agent, per-attempt trace (verdict,
-    # attempt calories vs target, violations) so the frontend can explain
-    # *why* a plan was revised/rejected/failed instead of a single generic
-    # line - the same idea as showing an LLM's step-by-step reasoning.
-    if wf.status == "failed":
-        return JSONResponse(status_code=502, content={
-            "detail": wf.error or "Workflow failed.",
-            "workflowId": str(wf.id),
-            "status": wf.status,
-            "plan": wf.plan,
-            "completedSteps": wf.completed_steps,
-        })
-    if wf.status == "rejected":
-        return JSONResponse(status_code=422, content={
-            "detail": _violations_to_message(wf.final_outcome.get("violations", [])),
-            "workflowId": str(wf.id),
-            "status": wf.status,
-            "plan": wf.plan,
-            "completedSteps": wf.completed_steps,
-        })
+    task = asyncio.create_task(execute_workflow(wf.id, prefs.model_dump()))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return {
-        "totalCalories": wf.targets["totalCalories"],
-        "macros": wf.targets["macros"],
-        "meals": wf.meals,
-        "withinTolerance": wf.final_outcome.get("withinTolerance", True),
         "workflowId": str(wf.id),
         "status": wf.status,
-        "riskLevel": wf.risk_level,
         "plan": wf.plan,
-        "completedSteps": wf.completed_steps,
-        "requiresApproval": wf.approval_status == "pending",
     }
 
 
@@ -359,16 +346,30 @@ def _workflow_summary(wf: DietWorkflow) -> dict:
     }
 
 
+def _workflow_message(wf: DietWorkflow) -> str | None:
+    """Customer-facing summary for a terminal workflow, used by the frontend
+    when polling GET /workflows/{id} - same idea as _violations_to_message()
+    used for the (now-legacy, immediate) error paths elsewhere in this file.
+    """
+    if wf.status == "rejected":
+        return _violations_to_message((wf.final_outcome or {}).get("violations", []))
+    if wf.status == "failed":
+        return wf.error or "Something went wrong while generating your plan. Please try again."
+    return None
+
+
 def _workflow_detail(wf: DietWorkflow) -> dict:
     return {
         **_workflow_summary(wf),
         "objective": wf.objective,
         "plan": wf.plan,
+        "completedSteps": wf.completed_steps,
         "targets": wf.targets,
         "meals": wf.meals,
         "validationResults": wf.validation_results,
         "finalOutcome": wf.final_outcome,
         "error": wf.error,
+        "message": _workflow_message(wf),
         "retryCount": wf.retry_count,
         "approvedBy": wf.approved_by,
         "approvalNote": wf.approval_note,

@@ -5,6 +5,7 @@ import DietPlanPreferenceForm from './DietPlanPreferenceForm';
 import DietPlanResult from './DietPlanResult';
 import {
   generateDietPlan,
+  pollDietWorkflow,
   confirmDietPlan,
   updateDietPlan,
   deleteDietPlan,
@@ -25,6 +26,7 @@ export default function DietPlan() {
   const [plan, setPlan] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorSteps, setErrorSteps] = useState([]);
+  const [liveSteps, setLiveSteps] = useState([]);
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
@@ -97,8 +99,12 @@ export default function DietPlan() {
   const handleGenerate = async (prefs) => {
     setPhase('loading');
     setConfirmStatus('idle');
+    setLiveSteps([]);
     try {
-      const result = await generateDietPlan(toApiPrefs(prefs));
+      const { workflowId } = await generateDietPlan(toApiPrefs(prefs));
+      const result = await pollDietWorkflow(workflowId, {
+        onProgress: (detail) => setLiveSteps(detail.completedSteps || []),
+      });
       setPlan(result);
       setPhase('result');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -258,7 +264,7 @@ export default function DietPlan() {
             />
           )}
 
-          {auth && phase === 'loading' && <DietPlanResult state="loading" />}
+          {auth && phase === 'loading' && <DietPlanResult state="loading" liveSteps={liveSteps} />}
 
           {auth && phase === 'error' && (
             <DietPlanResult

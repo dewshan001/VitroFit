@@ -112,6 +112,7 @@ export default function DietPlanResult({
   plan,
   errorMessage,
   errorSteps = [],
+  liveSteps = [],
   hasMedicalConditions,
   confirmStatus = 'idle',
   confirmErrorMessage,
@@ -246,9 +247,17 @@ export default function DietPlanResult({
         <div className="dp-loading-top">
           <span className="dp-loader" />
           <h3 className="dp-loading-title">Generating your diet plan…</h3>
-          <p className="dp-loading-desc">
-            <AgentProgressText />
-          </p>
+          {liveSteps.length === 0 ? (
+            <p className="dp-loading-desc">
+              <AgentProgressText />
+            </p>
+          ) : (
+            <ul className="dp-loading-desc" style={{ textAlign: 'left', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
+              {liveSteps.map((step, i) => (
+                <li key={i}>{describeLiveStep(step)}</li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="dp-skeleton-list">
           {[0, 1, 2, 3].map((m) => (
@@ -323,6 +332,30 @@ function AgentProgressText() {
   }, []);
 
   return AGENT_PROGRESS_STEPS[stepIndex];
+}
+
+/**
+ * Turns one real completedSteps entry (as polled live from
+ * GET /workflows/{id}) into a plain-language progress line. This reflects
+ * what the backend has actually finished, not a simulated guess.
+ */
+function describeLiveStep(step) {
+  if (step.agent === 'NutritionAnalystAgent') {
+    return step.step === 1
+      ? '✓ Nutrition Analyst calculated your calorie and macro targets.'
+      : '✓ Nutrition Analyst checked whether this plan needs extra safety review.';
+  }
+  if (step.agent === 'MealGeneratorAgent') {
+    return step.retry
+      ? `↻ Meal Generator drafted a revised set of meals (try ${step.retry + 1}).`
+      : '✓ Meal Generator drafted a full day of meals.';
+  }
+  if (step.agent === 'SafetyValidatorAgent') {
+    if (step.verdict === 'pass') return '✓ Safety Validator confirmed the plan meets your targets.';
+    if (step.verdict === 'reject') return '✗ Safety Validator found a safety issue with this plan.';
+    return `↻ Safety Validator flagged this attempt as not quite on target — asking for another try.`;
+  }
+  return `✓ ${step.agent} finished.`;
 }
 
 /** Plain-language, non-technical summary of one validator attempt, for customers rather than engineers. */
