@@ -32,9 +32,9 @@ def fake_scrape_tool(text: str = SITE_TEXT) -> StructuredTool:
     )
 
 
-def fake_search_tool() -> StructuredTool:
+def fake_search_tool(text: str = "Web search unavailable: test") -> StructuredTool:
     async def search(query: str) -> str:
-        return "Web search unavailable: test"
+        return text
 
     return StructuredTool.from_function(
         coroutine=search, name="search_gym_info", description="fake", args_schema=SearchGymInput
@@ -93,7 +93,8 @@ class FakeModel:
         self.tool_calls = tool_calls if tool_calls is not None else [
             {"name": "scrape_gym_website", "args": {"url": WEBSITE}, "id": "call-1", "type": "tool_call"}
         ]
-        self.facts = facts if facts is not None else golden_facts()
+        # A list scripts successive attempts (the last one repeats); a single value is used every time.
+        self.facts_queue = list(facts) if isinstance(facts, list) else [facts if facts is not None else golden_facts()]
         self.recs_queue = list(recs) if recs else [golden_recs()]
         self.fail = fail
         self.delay = delay
@@ -133,7 +134,8 @@ class FakeModel:
                         GymFacts.model_validate(
                             {"confidence": 5, "evidence": [{"field": "bogus", "snippet": "x" * 500}]}
                         )
-                    return outer.facts
+                    queue = outer.facts_queue
+                    return queue[0] if len(queue) == 1 else queue.pop(0)
                 recs = outer.recs_queue[0] if len(outer.recs_queue) == 1 else outer.recs_queue.pop(0)
                 return recs
 
@@ -141,3 +143,31 @@ class FakeModel:
 
     def all_prompt_text(self) -> str:
         return "\n".join(str(getattr(m, "content", m)) for turn in self.prompts for m in turn)
+
+
+def seed_verified_gym(place_id="place-1", name="Old", equipment=("old",), phone="0000"):
+    """A verified row the legitimate way: a Published workflow that vouches for it."""
+    from datetime import datetime, timezone
+
+    from db import SessionLocal
+    from models import GymDetails, GymWorkflow
+
+    workflow_id = f"seed-{place_id}"
+    with SessionLocal() as s:
+        s.add(
+            GymWorkflow(
+                id=workflow_id, place_id=place_id, requested_by="seed", objective="seed", status="Published",
+                request={"place_id": place_id, "name": name}, approval_status="approved",
+                approved_by="seed-admin", approver_role="Admin", decided_at=datetime.now(timezone.utc),
+            )
+        )
+        s.flush()
+        s.add(
+            GymDetails(
+                place_id=place_id, name=name, source="verified", equipment=list(equipment), classes=[],
+                phone=phone, verified_workflow_id=workflow_id, verified_by="seed-admin",
+                verified_at=datetime.now(timezone.utc),
+            )
+        )
+        s.commit()
+    return workflow_id

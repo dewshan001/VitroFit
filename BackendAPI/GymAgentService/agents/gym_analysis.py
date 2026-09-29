@@ -6,6 +6,7 @@ and always invoked through tool_registry.call_tool (allow-list, guards, timeouts
 """
 
 import os
+import re
 from typing import Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
@@ -19,6 +20,7 @@ from agents._common import (
 )
 from contracts import AnalysisInput, GymFacts
 from tool_registry import ToolResult, call_tool, sanitize_untrusted_text, tools_for
+from url_policy import configured_allowlist, normalise_host
 
 MAX_AGENT_STEPS = int(os.getenv("AGENT_MAX_STEPS", "6"))
 NO_EVIDENCE_CONFIDENCE_CAP = 0.3
@@ -38,7 +40,9 @@ EXTRACTION_PROMPT = (
     "From the conversation above, produce the final structured facts.\n"
     "- evidence: for the equipment list, the classes list, and each contact field you fill, add an "
     "entry {field, source_url, snippet}. The snippet must be copied VERBATIM (max 300 chars) from "
-    "the retrieved text.\n"
+    "the retrieved text. source_url is required: it must be the exact URL of a page a tool retrieved "
+    "(the URL you scraped, or the URL on a 'Source:' line of the search results) and must be on the "
+    "allowed-sources list given in the task. Facts you cannot cite that way must be left out.\n"
     "- confidence: 0.8-1.0 if from the gym's own website, 0.5-0.7 if from web search, "
     "0.2-0.4 if inferred from similar gyms or the name.\n"
     "- Leave phone/email/opening_hours null unless explicitly present in the retrieved text."
@@ -56,6 +60,9 @@ def _task_message(inp: AnalysisInput) -> HumanMessage:
     parts = [f"Gym: {gym.name}", f"Address: {gym.address or 'unknown'}"]
     parts.append(f"Website: {gym.website}" if gym.website else "Website: none")
     parts.append(f"Allowed tools this run: {', '.join(inp.plan.analysis_tools)}")
+    own = normalise_host(gym.website) if gym.website else ""
+    sources = ([own] if own else []) + configured_allowlist()
+    parts.append(f"Allowed evidence sources (cite only these hosts): {', '.join(sources) or 'none'}")
     known = [
         f"{label} = {value}"
         for label, value in (
@@ -73,6 +80,19 @@ def _task_message(inp: AnalysisInput) -> HumanMessage:
             + "\n- ".join(sanitize_untrusted_text(f, 300) for f in inp.feedback)
         )
     return HumanMessage(content="\n".join(parts))
+
+
+_SOURCE_LINE = re.compile(r"^Source:\s*(https?://\S+)", re.MULTILINE)
+
+
+def _urls_from(name: str, args: dict, output: str) -> list[str]:
+    """Pages a successful tool call actually retrieved (what evidence may legitimately cite)."""
+    if name == "scrape_gym_website":
+        url = str(args.get("url") or "")
+        return [url] if url else []
+    if name == "search_gym_info":
+        return _SOURCE_LINE.findall(output)
+    return []
 
 
 def _summarise(name: str, args: dict) -> str:
@@ -105,14 +125,15 @@ async def _extract(llm, messages: list) -> GymFacts:
 
 async def run(
     inp: AnalysisInput, llm_factory: Callable[..., object]
-) -> tuple[GymFacts, list[str], list[dict]]:
-    """Returns (facts, sanitised tool text corpus, tool-call records)."""
+) -> tuple[GymFacts, list[str], list[str], list[dict]]:
+    """Returns (facts, sanitised tool text corpus, retrieved URLs, tool-call records)."""
     llm = llm_factory(temperature=0.1, max_tokens=900)
     allowed = inp.plan.analysis_tools
     bound = llm.bind_tools(tools_for("gym_analysis", allowed))
 
     messages: list = [SystemMessage(content=SYSTEM_PROMPT), _task_message(inp)]
     corpus: list[str] = []
+    sources: list[str] = []
     records: list[dict] = []
 
     for _ in range(MAX_AGENT_STEPS):
@@ -141,6 +162,7 @@ async def run(
             )
             if result.ok and result.output:
                 corpus.append(result.output)
+                sources.extend(u for u in _urls_from(name, args, result.output) if u not in sources)
             content = (
                 untrusted(result.output)
                 if result.ok
@@ -164,4 +186,4 @@ async def run(
         updates["confidence"] = min(facts.confidence, NO_EVIDENCE_CONFIDENCE_CAP)
     if updates:
         facts = facts.model_copy(update=updates)
-    return facts, corpus, records
+    return facts, corpus, sources, records

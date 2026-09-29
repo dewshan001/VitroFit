@@ -45,7 +45,7 @@ VitroFit/
 │   │   ├── Settings/            # Jwt, Cloudinary, Email strongly-typed config
 │   │   ├── Program.cs           # App startup, DI, pipeline, JWT, CORS, Python sidecar auto-start
 │   │   └── appsettings.json     # Config: DB, JWT, SMTP, Cloudinary
-│   ├── GymAgentService/         # FastAPI: nearby-gym equipment/classes enrichment (port 8001)
+│   ├── GymAgentService/         # FastAPI, internal only: gym enrichment + approval workflow (127.0.0.1:8001)
 │   └── chatbot_service/         # FastAPI: RAG fitness chatbot, streamed responses (port 8000)
 ├── VitroFit_web/                # React (Vite) web frontend
 │   ├── src/
@@ -226,13 +226,16 @@ You can also run `npm run build` to create a production bundle, then
 
 ## 3. Running the Python Microservices (optional but required for Find Gyms / Chatbot)
 
-Two small FastAPI services live under `BackendAPI/` and power specific web
-features by being called **directly from the browser** (not proxied through
-`VitroFit.API`):
+Two small FastAPI services live under `BackendAPI/`:
+
+- **`GymAgentService` is internal.** Only `VitroFit.API` calls it (JWT + roles are enforced by the API, the
+  service itself needs a shared `X-Gym-Agent-Key`, listens on `127.0.0.1` only, has no CORS and no public docs).
+  Web and mobile clients never talk to it; they use `/api/gyms/*` and `/api/gym-agent/*` on the API.
+- `chatbot_service` is still called **directly from the browser** (not yet routed through the API).
 
 | Service | Port | Powers | Frontend call site |
 | ------- | ---- | ------ | ------------------- |
-| `GymAgentService` | `8001` | "Find Gyms" equipment/classes enrichment | `VitroFit_web/src/api/gyms.js` |
+| `GymAgentService` | `8001` (loopback only) | "Find Gyms" equipment/classes, workout ideas, gym approval workflow | `VitroFit.API` only (`GymAgentClient`); web uses `VitroFit_web/src/api/gyms.js` -> `/api/gyms/*` |
 | `chatbot_service` | `8000` | The RAG fitness chatbot widget | `VitroFit_web/src/components/Chatbot/Chatbot.jsx` |
 
 ### 3.1 Auto-start with the backend
@@ -258,7 +261,9 @@ copy .env.example .env                          # cp on macOS/Linux, then fill i
 
 Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the
 backend), `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `PORT` (`8001`),
-`CACHE_STALE_DAYS` (how long a cached enrichment result is reused).
+`CACHE_STALE_DAYS` (how long a cached enrichment result is reused), and
+`GYM_AGENT_KEY` (>= 32 random characters, the shared secret with the API: set the
+same value as `GymAgent:ServiceKey` in the API with `dotnet user-secrets`).
 
 **chatbot_service:**
 
@@ -289,15 +294,16 @@ Auto-start covers normal use; to run a service standalone (e.g. before its
 `venv` exists, or to see its logs directly):
 
 ```bash
-# from BackendAPI/GymAgentService
-venv/Scripts/python -m uvicorn main:app --port 8001
+# from BackendAPI/GymAgentService (server.py binds to 127.0.0.1 only)
+venv/Scripts/python server.py
 
 # from BackendAPI/chatbot_service
 venv/Scripts/python -m uvicorn main:app --port 8000
 ```
 
 Check either is up with `GET http://localhost:8001/health` or
-`GET http://localhost:8000/health`.
+`GET http://localhost:8000/health` (the Gym Agent's `/health` reveals nothing but liveness;
+every other route needs the service key).
 
 ---
 
@@ -308,7 +314,7 @@ Check either is up with `GET http://localhost:8001/health` or
 | Backend API | `dotnet run` (in `BackendAPI/VitroFit.API`) | `http://localhost:5284` |
 | API Swagger | — | `http://localhost:5284/swagger` |
 | Web frontend | `npm run dev` (in `VitroFit_web`) | `http://localhost:5173` |
-| Gym Agent service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8001` |
+| Gym Agent service (internal) | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://127.0.0.1:8001` (not for clients) |
 | Chatbot service | auto-started by the API, or manual (see [§3](#3-running-the-python-microservices-optional-but-required-for-find-gyms--chatbot)) | `http://localhost:8000` |
 
 The web app must be running while the backend is running in order to see real
@@ -347,12 +353,33 @@ folder.
 | POST | `/admin/users` | Create a user (auto-verified) |
 | DELETE | `/admin/users/{id}` | Delete a user (cannot delete yourself) |
 
-### Gym Agent — `http://localhost:8001` (separate service, called directly by the web app)
+### Gym data and approval — through the API (JWT required)
+
+These routes are how clients reach the Gym Agent; the service behind them is internal.
+
+| Method | Route | Roles | Description |
+| ------ | ----- | ----- | ----------- |
+| POST | `/gyms/details` | any signed-in user | Equipment/classes/contact for a gym (AI-enriched, cached, or verified). Rate limited per user |
+| POST | `/gyms/workouts` | any signed-in user | Four workout ideas for a gym's known equipment/classes. Rate limited per user |
+| POST | `/gym-agent/workflows` | Admin, Gym_Owner | Start the four-agent review of a gym (rate limited) |
+| GET | `/gym-agent/workflows` | any signed-in user | Your own workflows (`?all=true` for approvers) |
+| GET | `/gym-agent/workflows/pending` | Admin, Gym_Owner | Runs awaiting approval |
+| GET | `/gym-agent/workflows/{id}` and `/events` | owner of the run, Admin, Gym_Owner | Detail and execution history |
+| POST | `/gym-agent/workflows/{id}/approve` `/reject` `/revise` | Admin, Gym_Owner | Human decision before data becomes `verified` |
+
+Error responses are RFC 7807 problem details: `401` not signed in, `403` wrong role, `429` rate limited,
+`503` agent service down or not configured, `504` agent service too slow.
+
+### Gym Agent — internal service, `http://127.0.0.1:8001` (called only by `VitroFit.API`)
 
 | Method | Route | Description |
 | ------ | ----- | ----------- |
-| GET | `/health` | Health check |
-| POST | `/api/gyms/details` | Get (and cache) enriched equipment/classes for a gym |
+| GET | `/health` | Liveness only |
+| POST | `/internal/gyms/details`, `/internal/gyms/workouts` | Behind `/api/gyms/*` |
+| `*` | `/internal/workflows/...` | Behind `/api/gym-agent/workflows/*` |
+
+Every `/internal/*` route requires the `X-Gym-Agent-Key` header. There is no CORS, no `/docs`, and requests must be
+addressed to `127.0.0.1` or `localhost`.
 
 ### Chatbot — `http://localhost:8000` (separate service, called directly by the web app)
 
@@ -366,13 +393,12 @@ folder.
 ## Configuration Reference
 
 The web's `.env` (copy from `VitroFit_web/.env.example`) defines the API base
-URLs: `VITE_API_BASE_URL` (the .NET backend), and `VITE_GYM_AGENT_API_URL` /
-`VITE_CHATBOT_API_URL` (the Python services, defaulting to
-`http://localhost:8001/api` and `http://localhost:8000/api/chat` respectively
-if unset). The backend's `appsettings.json` defines the database connection,
+URLs: `VITE_API_BASE_URL` (the .NET backend, the only URL the gym features use), and
+`VITE_CHATBOT_API_URL` (the chatbot service, defaulting to
+`http://localhost:8000/api/chat` if unset). The backend's `appsettings.json` defines the database connection,
 JWT, SMTP and Cloudinary settings. Each Python microservice has its own
 `.env` (copy from the `.env.example` in its folder): `GymAgentService` needs
-`DATABASE_URL` and `OPENROUTER_API_KEY`; `chatbot_service` needs
+`DATABASE_URL`, an LLM key (`NVIDIA_API_KEY` or `OPENROUTER_API_KEY`) and `GYM_AGENT_KEY`; `chatbot_service` needs
 `GOOGLE_API_KEY`. For basic local development you only need to set the
 database connection string and a JWT secret; SMTP, Cloudinary, and the Python
 services' API keys are only used by specific features (email OTPs, profile
@@ -432,6 +458,13 @@ feature still fails, confirm the service's `.env` (copied from its
 `GymAgentService`, `GOOGLE_API_KEY` for `chatbot_service` — or start it
 manually (see [§3.3](#33-running-manually)) to see its logs directly. You can
 also hit its `/health` endpoint to confirm it's up.
+
+**Find Gyms shows "Sign in to see equipment and classes", or a red error.**
+Gym details and workout ideas need a login (the API checks your JWT). Signed in but still failing? Look at the
+message: `Gym agent service is not configured` (503) means `GYM_AGENT_KEY` in `GymAgentService/.env` and
+`GymAgent:ServiceKey` in the API (`dotnet user-secrets`) are missing or different (>= 32 chars, same value in
+both). `too long` (504) means the service is running but slow. `Too many requests` (429) is the per-user rate
+limit; wait a minute.
 
 **`chatbot_service` crashes with `ValueError: No API key was provided`.**
 `GOOGLE_API_KEY` is missing or empty. Run

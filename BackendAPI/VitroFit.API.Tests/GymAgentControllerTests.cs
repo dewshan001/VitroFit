@@ -47,6 +47,26 @@ public sealed class FakeGymAgentClient : IGymAgentClient
         return Task.FromResult<IReadOnlyList<GymWorkflowDto>>(Workflows.Values.ToList());
     }
 
+    public void ResetLast() { LastDetails = null; LastWorkouts = null; }
+    public GymDetailsRequest? LastDetails { get; private set; }
+    public GymWorkoutsRequest? LastWorkouts { get; private set; }
+    public System.Text.Json.JsonElement DetailsResult { get; set; } = System.Text.Json.JsonDocument.Parse("{\"source\":\"ai-scraped\",\"equipment\":[\"treadmill\"]}").RootElement;
+    public System.Text.Json.JsonElement WorkoutsResult { get; set; } = System.Text.Json.JsonDocument.Parse("{\"workouts\":[],\"notes\":\"\"}").RootElement;
+
+    public Task<System.Text.Json.JsonElement> GetGymDetailsAsync(GymDetailsRequest request, CancellationToken ct)
+    {
+        if (Fail != null) throw Fail;
+        LastDetails = request;
+        return Task.FromResult(DetailsResult);
+    }
+
+    public Task<System.Text.Json.JsonElement> GetGymWorkoutsAsync(GymWorkoutsRequest request, CancellationToken ct)
+    {
+        if (Fail != null) throw Fail;
+        LastWorkouts = request;
+        return Task.FromResult(WorkoutsResult);
+    }
+
     public Task DecideAsync(string id, GymDecision decision, CancellationToken ct)
     {
         if (Fail != null) throw Fail;
@@ -217,13 +237,25 @@ public sealed class GymAgentControllerTests : IAsyncLifetime
 
     // ── starting ────────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task Any_signed_in_user_can_start_and_is_recorded_as_requester()
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("Gym_Owner")]
+    public async Task Approver_roles_can_start_and_are_recorded_as_requester(string role)
     {
-        var res = await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows", "7", "User", ValidStart));
+        var res = await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows", "7", role, ValidStart));
         Assert.Equal(HttpStatusCode.Accepted, res.StatusCode);
         Assert.Equal("7", _agent.StartedBy);
         Assert.NotNull(res.Headers.Location);
+    }
+
+    [Theory]
+    [InlineData("User")]
+    [InlineData("Trainer")]
+    public async Task Other_roles_cannot_start_a_workflow(string role)
+    {
+        var res = await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows", "7", role, ValidStart));
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Null(_agent.StartedBy);
     }
 
     [Fact]
@@ -256,7 +288,7 @@ public sealed class GymAgentControllerTests : IAsyncLifetime
     [InlineData("{\"placeId\":\"p\",\"name\":\"x\",\"lat\":123}")]
     public async Task Invalid_start_requests_are_400(string json)
     {
-        var msg = Req(HttpMethod.Post, "/api/gym-agent/workflows", "7", "User");
+        var msg = Req(HttpMethod.Post, "/api/gym-agent/workflows", "7", "Admin");
         msg.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
         var res = await _http.SendAsync(msg);
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);

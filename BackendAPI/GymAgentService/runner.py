@@ -12,8 +12,7 @@ import os
 
 from langgraph.types import Command
 
-from contracts import ApprovalDecision, PlannerInput
-from graph import APPROVER_ROLES
+from contracts import APPROVER_ROLES, ApprovalDecision, PlannerInput
 from store import WorkflowStore
 
 logger = logging.getLogger("gym_agent")

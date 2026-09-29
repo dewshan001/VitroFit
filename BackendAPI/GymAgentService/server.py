@@ -12,8 +12,13 @@ import uvicorn
 from main import app
 
 
+# Loopback only: the service must never listen on a network interface. Only ASP.NET (same machine) calls it.
+HOST = "127.0.0.1"
+PORT = 8001
+
+
 def main() -> None:
-    config = uvicorn.Config(app, host="127.0.0.1", port=8001, loop="none")
+    config = uvicorn.Config(app, host=HOST, port=PORT, loop="none")
     server = uvicorn.Server(config)
     if sys.platform == "win32":
         asyncio.run(server.serve(), loop_factory=asyncio.SelectorEventLoop)

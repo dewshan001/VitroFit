@@ -116,13 +116,50 @@ public sealed class GymAgentRealTokenTests : IAsyncLifetime
     [Theory]
     [InlineData(UserRole.Admin)]
     [InlineData(UserRole.Gym_Owner)]
-    [InlineData(UserRole.User)]
-    public async Task Signed_in_users_can_start_and_their_id_is_read_from_the_real_token(UserRole role)
+    public async Task Approver_tokens_can_start_and_their_id_is_read_from_the_real_token(UserRole role)
     {
         var res = await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows", role, userId: 42, body: Start));
 
         Assert.Equal(HttpStatusCode.Accepted, res.StatusCode);
         Assert.Equal("42", _agent.StartedBy);
+    }
+
+    [Theory]
+    [InlineData(UserRole.User)]
+    [InlineData(UserRole.Trainer)]
+    public async Task Other_real_tokens_cannot_start_a_workflow(UserRole role)
+    {
+        var res = await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows", role, body: Start));
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Null(_agent.StartedBy);
+    }
+
+    // The regression class behind the earlier "Unauthorized for admins" bug, now for the public AI routes:
+    // every role must get through with a REAL login token (real claim mapping), not a fake header login.
+    [Theory]
+    [InlineData(UserRole.User)]
+    [InlineData(UserRole.Trainer)]
+    [InlineData(UserRole.Gym_Owner)]
+    [InlineData(UserRole.Admin)]
+    public async Task Real_tokens_of_every_role_can_use_the_gym_ai_routes(UserRole role)
+    {
+        var d = await _http.SendAsync(Req(HttpMethod.Post, "/api/gyms/details", role, userId: 5, body: new { placeId = "p", name = "n" }));
+        var w = await _http.SendAsync(Req(HttpMethod.Post, "/api/gyms/workouts", role, userId: 5, body: new { placeId = "p", name = "n" }));
+        Assert.Equal(HttpStatusCode.OK, d.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, w.StatusCode);
+    }
+
+    [Fact]
+    public async Task Gym_ai_routes_refuse_a_missing_or_tampered_token()
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await _http.SendAsync(Req(HttpMethod.Post, "/api/gyms/details", role: null, body: new { placeId = "p", name = "n" }))).StatusCode);
+
+        var forged = Req(HttpMethod.Post, "/api/gyms/details", UserRole.Admin, body: new { placeId = "p", name = "n" });
+        var token = forged.Headers.Authorization!.Parameter!;
+        forged.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token[..^4] + "AAAA");   // break the signature
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _http.SendAsync(forged)).StatusCode);
+        Assert.Null(_agent.LastDetails);
     }
 
     [Theory]

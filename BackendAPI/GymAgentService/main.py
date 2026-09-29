@@ -3,10 +3,11 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, FastAPI, Depends, HTTPException
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from checkpointer import open_checkpointer
 from db import Base, engine, get_session
+from db_migrations import ensure_gym_details_provenance
 from graph import build_graph
 from llm_config import get_llm
 from models import GymDetails, GymWorkoutSuggestions
@@ -21,7 +23,7 @@ from enrichment_agent import enrich_gym  # DEPRECATED: legacy endpoint only
 from runner import WorkflowRunner
 from store import WorkflowStore, workout_fingerprint
 from vectorstore import store_gym_enrichment
-from workflow_api import router as workflow_router
+from workflow_api import MIN_KEY_LENGTH, require_key, router as workflow_router
 from workout_agent import suggest_workouts  # DEPRECATED: legacy endpoint only
 
 load_dotenv()
@@ -29,6 +31,10 @@ load_dotenv()
 logger = logging.getLogger("gym_agent")
 
 CACHE_STALE_DAYS = int(os.getenv("CACHE_STALE_DAYS", "30"))
+AI_SOURCES = frozenset({"ai-scraped", "ai-inferred", "ai-generic"})
+# This service is internal: only requests addressed to a local name are accepted (blocks DNS-rebinding
+# style access from a browser). Override with GYM_ALLOWED_HOSTS only if a proxy needs another name.
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("GYM_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 WORKOUT_CACHE_STALE_DAYS = int(os.getenv("WORKOUT_CACHE_STALE_DAYS", "30"))
 
 Base.metadata.create_all(bind=engine)
@@ -60,6 +66,7 @@ def _ensure_contact_columns() -> None:
 
 
 _ensure_contact_columns()
+ensure_gym_details_provenance(engine)
 
 def _index_published(request: dict, facts: dict, recs: dict) -> None:
     """Best-effort RAG indexing of approved gym data (never blocks publication)."""
@@ -78,6 +85,11 @@ async def lifespan(app: FastAPI):
     /internal/workflows routes are unavailable (503); legacy routes keep working."""
     stack = AsyncExitStack()
     app.state.runner = None
+    if len(os.getenv("GYM_AGENT_KEY", "")) < MIN_KEY_LENGTH:
+        logger.error(
+            "GYM_AGENT_KEY is missing or shorter than %d characters: every request will be refused "
+            "with 503 until it is set (and the same value configured in the ASP.NET API).", MIN_KEY_LENGTH
+        )
     try:
         checkpointer = await stack.enter_async_context(open_checkpointer())
         store = WorkflowStore()
@@ -96,30 +108,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="VitroFit Gym Agent API",
+    title="VitroFit Gym Agent (internal)",
     description=(
-        "Internal gym multi-agent workflow (planner, gym analysis, workout recommendation, "
-        "validator) with human approval, called by ASP.NET Core. The /api/gyms/* routes are "
-        "DEPRECATED legacy single-agent endpoints kept until the clients move to ASP.NET."
+        "INTERNAL service. Only the ASP.NET Core API calls it, with the shared X-Gym-Agent-Key header; "
+        "React and Flutter never do. Bound to 127.0.0.1, no CORS, no public docs."
     ),
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
+    # Nothing here is for browsers or humans: no interactive docs or schema on a service that is internal.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 app.include_router(workflow_router)
+# No CORS middleware on purpose: a browser must never be able to call this service directly.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Gym details / workout suggestions for ASP.NET (/api/gyms/*), behind the same service key.
+gyms_router = APIRouter(prefix="/internal/gyms", dependencies=[Depends(require_key)])
 
 
 class GymDetailsRequest(BaseModel):
@@ -127,18 +133,23 @@ class GymDetailsRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     lat: float | None = None
     lng: float | None = None
-    address: str | None = None
-    website: str | None = None
-    phone: str | None = None
-    email: str | None = None
-    opening_hours: str | None = None
+    address: str | None = Field(default=None, max_length=500)
+    website: str | None = Field(default=None, max_length=500)
+    phone: str | None = Field(default=None, max_length=50)
+    email: str | None = Field(default=None, max_length=255)
+    opening_hours: str | None = Field(default=None, max_length=255)
 
 
 class WorkoutSuggestionRequest(BaseModel):
     place_id: str = Field(..., min_length=1, max_length=255)
     name: str = Field(..., min_length=1, max_length=255)
-    equipment: list[str] = Field(default_factory=list)
-    classes: list[str] = Field(default_factory=list)
+    equipment: list[str] = Field(default_factory=list, max_length=60)
+    classes: list[str] = Field(default_factory=list, max_length=60)
+
+
+def _aware(value: datetime) -> datetime:
+    """Timestamps are stored in UTC; some databases (SQLite) return them without tzinfo."""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 @app.get("/health")
@@ -146,7 +157,7 @@ def health_check():
     return {"status": "ok", "service": "VitroFit Gym Agent"}
 
 
-@app.post("/api/gyms/details")
+@gyms_router.post("/details")
 async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get_session)):
     existing = session.get(GymDetails, req.place_id)
 
@@ -154,7 +165,7 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
         return _to_response(existing)
 
     if existing:
-        age = datetime.now(timezone.utc) - existing.updated_at
+        age = datetime.now(timezone.utc) - _aware(existing.updated_at)
         if age < timedelta(days=CACHE_STALE_DAYS):
             return _to_response(existing)
 
@@ -165,17 +176,32 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
     if "error" in result:
         raise HTTPException(status_code=502, detail=f"Enrichment failed: {result['error']}")
 
+    # The legacy path can only ever produce AI sources; 'verified' exists only via an approved workflow.
+    source = result["source"] if result.get("source") in AI_SOURCES else "ai-generic"
+
     if existing:
-        existing.name = req.name
-        existing.lat = req.lat
-        existing.lng = req.lng
-        existing.website = req.website
-        existing.phone = result.get("phone")
-        existing.email = result.get("email")
-        existing.opening_hours = result.get("opening_hours")
-        existing.source = result["source"]
-        existing.equipment = result["equipment"]
-        existing.classes = result["classes"]
+        # One conditional UPDATE instead of check-then-write: if an approval promoted this gym
+        # to 'verified' after we read it, zero rows change and the verified data is returned.
+        updated = session.execute(
+            update(GymDetails)
+            .where(GymDetails.place_id == req.place_id, GymDetails.source != "verified")
+            .values(
+                name=req.name,
+                lat=req.lat,
+                lng=req.lng,
+                website=req.website,
+                phone=result.get("phone"),
+                email=result.get("email"),
+                opening_hours=result.get("opening_hours"),
+                source=source,
+                equipment=result["equipment"],
+                classes=result["classes"],
+            )
+        ).rowcount
+        session.commit()
+        session.refresh(existing)
+        if updated == 0:
+            return _to_response(existing)
         row = existing
     else:
         row = GymDetails(
@@ -187,14 +213,21 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
             phone=result.get("phone"),
             email=result.get("email"),
             opening_hours=result.get("opening_hours"),
-            source=result["source"],
+            source=source,
             equipment=result["equipment"],
             classes=result["classes"],
         )
         session.add(row)
-
-    session.commit()
-    session.refresh(row)
+        try:
+            session.commit()
+        except IntegrityError:
+            # Someone (an approval, or a concurrent request) created this gym first: keep theirs.
+            session.rollback()
+            current = session.get(GymDetails, req.place_id)
+            if current is None:
+                raise
+            return _to_response(current)
+        session.refresh(row)
 
     # Store in vector store for RAG (non-blocking, best-effort)
     try:
@@ -211,7 +244,7 @@ async def get_gym_details(req: GymDetailsRequest, session: Session = Depends(get
     return _to_response(row)
 
 
-@app.post("/api/gyms/workouts")
+@gyms_router.post("/workouts")
 async def get_gym_workouts(req: WorkoutSuggestionRequest, session: Session = Depends(get_session)):
     fingerprint = workout_fingerprint(req.equipment, req.classes)
     existing = session.get(GymWorkoutSuggestions, req.place_id)
@@ -257,3 +290,6 @@ def _to_response(row: GymDetails) -> dict:
         "opening_hours": row.opening_hours,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
+
+
+app.include_router(gyms_router)

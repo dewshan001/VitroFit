@@ -64,8 +64,11 @@ builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
 {
     var settings = sp.GetRequiredService<IOptions<GymAgentSettings>>().Value;
     client.BaseAddress = new Uri(settings.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+    // Timeouts are applied per call by GymAgentClient (quick calls vs. AI calls), not globally.
+    client.Timeout = Timeout.InfiniteTimeSpan;
 });
+builder.Services.AddGymAgentRateLimiting(
+    builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:AiRequestsPerMinute") ?? new GymAgentSettings().AiRequestsPerMinute);
 
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -118,6 +121,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("DefaultCorsPolicy");
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

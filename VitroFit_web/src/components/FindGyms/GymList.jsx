@@ -62,6 +62,13 @@ const IconClock = () => (
 );
 
 function GymDetailsBody({ status }) {
+  if (status?.authRequired) {
+    return (
+      <div className="gl-details gl-details--empty">
+        <Link to="/login">Sign in</Link> to see equipment and classes.
+      </div>
+    );
+  }
   if (!status || status.loading) {
     return (
       <div className="gl-details gl-details--loading">

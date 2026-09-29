@@ -22,6 +22,51 @@ namespace VitroFit.API.Features.GymAgent
         [Range(-180, 180)] public double? Lng { get; set; }
     }
 
+    /// <summary>A gym from the map provider whose equipment/classes the user wants to see.</summary>
+    public sealed class GymDetailsRequest
+    {
+        [Required, StringLength(255, MinimumLength = 1)]
+        public string PlaceId { get; set; } = string.Empty;
+
+        [Required, StringLength(255, MinimumLength = 1)]
+        public string Name { get; set; } = string.Empty;
+
+        [Range(-90, 90)] public double? Lat { get; set; }
+        [Range(-180, 180)] public double? Lng { get; set; }
+        [StringLength(500)] public string? Address { get; set; }
+        [StringLength(500)] public string? Website { get; set; }
+        [StringLength(50)] public string? Phone { get; set; }
+        [StringLength(255)] public string? Email { get; set; }
+        [StringLength(255)] public string? OpeningHours { get; set; }
+    }
+
+    /// <summary>Known equipment/classes of a gym, to turn into workout suggestions.</summary>
+    public sealed class GymWorkoutsRequest : IValidatableObject
+    {
+        private const int MaxItems = 60;
+        private const int MaxItemLength = 80;
+
+        [Required, StringLength(255, MinimumLength = 1)]
+        public string PlaceId { get; set; } = string.Empty;
+
+        [Required, StringLength(255, MinimumLength = 1)]
+        public string Name { get; set; } = string.Empty;
+
+        public List<string> Equipment { get; set; } = new();
+        public List<string> Classes { get; set; } = new();
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            foreach (var (label, items) in new[] { (nameof(Equipment), Equipment), (nameof(Classes), Classes) })
+            {
+                if (items.Count > MaxItems)
+                    yield return new ValidationResult($"At most {MaxItems} items are allowed.", new[] { label });
+                if (items.Any(i => i is null || i.Length > MaxItemLength))
+                    yield return new ValidationResult($"Each item must be at most {MaxItemLength} characters.", new[] { label });
+            }
+        }
+    }
+
     /// <summary>Reviewer's note. Mandatory for "revise" so the agents know what to change.</summary>
     public sealed class ReviewRequest
     {

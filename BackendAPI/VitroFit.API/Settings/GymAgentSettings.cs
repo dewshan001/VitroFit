@@ -14,6 +14,13 @@ namespace VitroFit.API.Settings
         /// <summary>Shared secret sent as X-Gym-Agent-Key (minimum 32 characters).</summary>
         public string ServiceKey { get; set; } = string.Empty;
 
+        /// <summary>Timeout for quick calls (status, lists, decisions).</summary>
         public int TimeoutSeconds { get; set; } = 30;
+
+        /// <summary>Timeout for calls that run the LLM (gym details, workout suggestions). Enrichment can take a minute or two.</summary>
+        public int AiTimeoutSeconds { get; set; } = 150;
+
+        /// <summary>Per-user (per-IP when anonymous) limit on calls that can start LLM work.</summary>
+        public int AiRequestsPerMinute { get; set; } = 60;
     }
 }

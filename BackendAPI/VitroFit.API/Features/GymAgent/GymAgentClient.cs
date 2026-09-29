@@ -24,6 +24,8 @@ namespace VitroFit.API.Features.GymAgent
         Task<IReadOnlyList<GymWorkflowEventDto>> GetEventsAsync(string id, CancellationToken ct);
         Task<IReadOnlyList<GymWorkflowDto>> ListAsync(string? status, string? requestedBy, CancellationToken ct);
         Task DecideAsync(string id, GymDecision decision, CancellationToken ct);
+        Task<JsonElement> GetGymDetailsAsync(GymDetailsRequest request, CancellationToken ct);
+        Task<JsonElement> GetGymWorkoutsAsync(GymWorkoutsRequest request, CancellationToken ct);
     }
 
     /// <summary>
@@ -111,6 +113,21 @@ namespace VitroFit.API.Features.GymAgent
             await SendAsync<JsonElement>(message, ct);
         }
 
+        public async Task<JsonElement> GetGymDetailsAsync(GymDetailsRequest request, CancellationToken ct)
+        {
+            using var message = Build(HttpMethod.Post, "/internal/gyms/details", JsonContent.Create(request, options: RequestJson));
+            return await SendAsync<JsonElement>(message, ct, AiTimeout);
+        }
+
+        public async Task<JsonElement> GetGymWorkoutsAsync(GymWorkoutsRequest request, CancellationToken ct)
+        {
+            using var message = Build(HttpMethod.Post, "/internal/gyms/workouts", JsonContent.Create(request, options: RequestJson));
+            return await SendAsync<JsonElement>(message, ct, AiTimeout);
+        }
+
+        private TimeSpan QuickTimeout => TimeSpan.FromSeconds(Math.Max(1, _settings.TimeoutSeconds));
+        private TimeSpan AiTimeout => TimeSpan.FromSeconds(Math.Max(1, _settings.AiTimeoutSeconds));
+
         private HttpRequestMessage Build(HttpMethod method, string path, HttpContent? content = null)
         {
             if (_settings.ServiceKey.Length < MinKeyLength)
@@ -123,14 +140,23 @@ namespace VitroFit.API.Features.GymAgent
             return message;
         }
 
-        private async Task<T> SendAsync<T>(HttpRequestMessage message, CancellationToken ct)
+        private async Task<T> SendAsync<T>(HttpRequestMessage message, CancellationToken ct, TimeSpan? timeout = null)
         {
+            // The HttpClient itself has no timeout; each call gets its own (AI calls need far longer than status calls).
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(timeout ?? QuickTimeout);
+
             HttpResponseMessage response;
             try
             {
-                response = await _http.SendAsync(message, ct);
+                response = await _http.SendAsync(message, deadline.Token);
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                _logger.LogWarning("Gym agent service timed out for {Path}", message.RequestUri);
+                throw new GymAgentException(HttpStatusCode.GatewayTimeout, "The gym agent service took too long to respond.");
+            }
+            catch (HttpRequestException ex)
             {
                 _logger.LogWarning(ex, "Gym agent service unreachable");
                 throw new GymAgentException(HttpStatusCode.ServiceUnavailable, "Gym agent service is unavailable.");
@@ -152,7 +178,7 @@ namespace VitroFit.API.Features.GymAgent
                     };
                 }
 
-                var result = await response.Content.ReadFromJsonAsync<T>(ResponseJson, ct);
+                var result = await response.Content.ReadFromJsonAsync<T>(ResponseJson, deadline.Token);
                 return result ?? throw new GymAgentException(HttpStatusCode.BadGateway, "Gym agent service returned an empty response.");
             }
         }

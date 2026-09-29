@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select, update
 
+from contracts import APPROVER_ROLES
 from db import SessionLocal
 from models import (
     GymDetails,
@@ -37,6 +38,10 @@ SCALAR_COLUMNS = (
     "final_outcome",
     "retry_count",
 )
+
+
+class PublishRefused(Exception):
+    """publish() was asked to promote data that no recorded approval covers."""
 
 
 def workout_fingerprint(equipment: list[str], classes: list[str]) -> str:
@@ -312,11 +317,36 @@ class WorkflowStore:
             s.commit()
             return len(rows)
 
-    def publish(self, workflow_id: str, request: dict, facts: dict, recs: dict, actor: dict) -> None:
-        """Write approved data as 'verified' and close the workflow, atomically."""
-        equipment, classes = facts["equipment"], facts["classes"]
+    def publish(self, workflow_id: str) -> None:
+        """Promote a workflow's data to 'verified' and close it, atomically.
+
+        This is the ONLY code that writes source='verified'. It does not trust its caller:
+        inside the transaction it locks the workflow row and refuses unless that row itself
+        records an approval by an approver role. It publishes exactly the request, facts and
+        workouts stored on that row, and records who approved and which workflow vouches for
+        the data (the database CHECK constraint requires that link).
+        """
         with SessionLocal() as s, s.begin():
-            details = s.get(GymDetails, request["place_id"])
+            wf = s.execute(
+                select(GymWorkflow).where(GymWorkflow.id == workflow_id).with_for_update()
+            ).scalar_one_or_none()
+            if wf is None:
+                raise PublishRefused("workflow does not exist")
+            if wf.status == "Published":
+                raise PublishRefused("workflow is already published")
+            if wf.approval_status != "approved":
+                raise PublishRefused(f"workflow approval is '{wf.approval_status}', not 'approved'")
+            if wf.approver_role not in APPROVER_ROLES or not wf.approved_by:
+                raise PublishRefused("approval was not recorded by an approver role")
+            if not wf.facts or not wf.recommendations:
+                raise PublishRefused("workflow has no facts or recommendations to publish")
+
+            request, facts, recs = wf.request, wf.facts, wf.recommendations
+            if request.get("place_id") != wf.place_id:
+                raise PublishRefused("request does not match the workflow's gym")
+
+            equipment, classes = facts["equipment"], facts["classes"]
+            decided_at = wf.decided_at or datetime.now(timezone.utc)
             fields = dict(
                 name=request["name"],
                 lat=request.get("lat"),
@@ -328,20 +358,24 @@ class WorkflowStore:
                 source="verified",
                 equipment=equipment,
                 classes=classes,
+                verified_workflow_id=wf.id,
+                verified_by=wf.approved_by,
+                verified_at=decided_at,
             )
+            details = s.get(GymDetails, wf.place_id)
             if details is None:
-                s.add(GymDetails(place_id=request["place_id"], **fields))
+                s.add(GymDetails(place_id=wf.place_id, **fields))
             else:
                 for k, v in fields.items():
                     setattr(details, k, v)
 
             fingerprint = workout_fingerprint(equipment, classes)
-            suggestions = s.get(GymWorkoutSuggestions, request["place_id"])
+            suggestions = s.get(GymWorkoutSuggestions, wf.place_id)
             workouts = recs["workouts"]
             if suggestions is None:
                 s.add(
                     GymWorkoutSuggestions(
-                        place_id=request["place_id"],
+                        place_id=wf.place_id,
                         equipment_fingerprint=fingerprint,
                         workouts=workouts,
                         notes=recs.get("notes", ""),
@@ -352,11 +386,6 @@ class WorkflowStore:
                 suggestions.workouts = workouts
                 suggestions.notes = recs.get("notes", "")
 
-            wf = s.get(GymWorkflow, workflow_id)
             wf.status = "Published"
-            wf.approval_status = "approved"
-            wf.approved_by = actor["actor_id"]
-            wf.approver_role = actor.get("actor_role")
-            wf.decided_at = datetime.now(timezone.utc)
-            wf.approval_note = actor.get("reason") or None
+            wf.decided_at = decided_at
             wf.final_outcome = "Approved and published as verified gym data."

@@ -16,6 +16,10 @@ class Contract(BaseModel):
 
 # ── Shared vocabulary ───────────────────────────────────────────────────
 
+# Roles allowed to approve, reject or revise. Enforced by ASP.NET, the runner, the graph's
+# approval gate, and (last line of defence) store.publish.
+APPROVER_ROLES = frozenset({"Gym_Owner", "Admin"})
+
 AgentName = Literal["planner", "gym_analysis", "workout_recommendation", "validator"]
 Route = Literal["scrape", "search", "rag"]
 Difficulty = Literal["Beginner", "Intermediate", "Advanced"]
@@ -116,6 +120,8 @@ class ValidatorInput(Contract):
     recommendations: Recommendations
     # Text actually returned by tools (already sanitised); used to prove evidence.
     corpus: list[str] = Field(default_factory=list)
+    # Pages actually fetched (scraped URL, search-result sources); a cited URL must be one of these.
+    retrieved_urls: list[str] = Field(default_factory=list)
 
 
 class Violation(Contract):
@@ -123,6 +129,8 @@ class Violation(Contract):
     field: str | None = None
     message: str
     target: Literal["gym_analysis", "workout_recommendation"]
+    # revise: the agent can fix it and is sent back. reject: it cannot be fixed by retrying.
+    severity: Literal["revise", "reject"] = "revise"
 
 
 class Verdict(Contract):

@@ -27,6 +27,7 @@ from typing_extensions import TypedDict
 from agents import gym_analysis, planner, validator, workout_recommendation
 from agents._common import TRANSIENT_ERRORS, AgentOutputError
 from contracts import (
+    APPROVER_ROLES,
     AnalysisInput,
     ApprovalDecision,
     GymFacts,
@@ -43,7 +44,6 @@ logger = logging.getLogger("gym_agent")
 
 MAX_VALIDATION_REVISIONS = 2
 MAX_HUMAN_REVISIONS = 2
-APPROVER_ROLES = frozenset({"Gym_Owner", "Admin"})
 
 
 class GymState(TypedDict, total=False):
@@ -54,6 +54,7 @@ class GymState(TypedDict, total=False):
     recommendations: dict
     verdict: dict
     corpus: list[str]
+    sources: list[str]
     feedback_analysis: list[str]
     feedback_recs: list[str]
     revisions: int
@@ -158,10 +159,11 @@ def build_graph(
             plan=Plan.model_validate(state["plan"]),
             feedback=state.get("feedback_analysis", []),
         )
-        facts, corpus, records = await gym_analysis.run(inp, llm_factory)
+        facts, corpus, sources, records = await gym_analysis.run(inp, llm_factory)
         return {
             "facts": facts.model_dump(mode="json"),
             "corpus": corpus,
+            "sources": sources,
             "tool_results": records,
             "completed_steps": [
                 _step(
@@ -194,6 +196,7 @@ def build_graph(
                 facts=GymFacts.model_validate(state["facts"]),
                 recommendations=Recommendations.model_validate(state["recommendations"]),
                 corpus=state.get("corpus", []),
+                retrieved_urls=state.get("sources", []),
             )
         )
         attempt = state.get("revisions", 0) + 1
@@ -289,8 +292,8 @@ def build_graph(
 
     async def publish_node(state: GymState) -> dict:
         request, facts, recs = state["request"], state["facts"], state["recommendations"]
-        approval = state["approval"]
-        await io(store.publish, state["workflow_id"], request, facts, recs, approval)
+        # store.publish re-checks the recorded approval itself and publishes what the row holds.
+        await io(store.publish, state["workflow_id"])
         if on_published is not None:
             try:
                 await io(on_published, request, facts, recs)

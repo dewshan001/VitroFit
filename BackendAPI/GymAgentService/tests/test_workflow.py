@@ -22,9 +22,11 @@ from tests.support import (
     WEBSITE,
     FakeModel,
     fake_scrape_tool,
+    fake_search_tool,
     golden_facts,
     golden_recs,
     gym_request,
+    seed_verified_gym,
     workout,
 )
 
@@ -132,9 +134,7 @@ def test_approval_publishes_verified_data_atomically():
 
 
 def test_existing_verified_data_is_untouched_until_approval():
-    with SessionLocal() as s:
-        s.add(GymDetails(place_id="place-1", name="Old", source="verified", equipment=["old"], classes=[], phone="0000"))
-        s.commit()
+    seed_verified_gym()
 
     async def scenario():
         runner = make_runner(FakeModel())
@@ -495,3 +495,130 @@ def test_schema_violations_report_field_names_but_not_values():
         detail = _error_detail(exc)
     assert "confidence:less_than_equal" in detail and "evidence.0.field:literal_error" in detail
     assert "SECRET" not in detail
+
+
+# ── validator: URL allow-list and empty results, through the whole graph ─
+
+
+def facts_citing(url, **overrides):
+    evidence = [{**e.model_dump(), "source_url": url} for e in golden_facts().evidence]
+    return golden_facts(evidence=evidence, **overrides)
+
+
+def test_off_list_citation_is_sent_back_with_a_reason_and_passes_on_retry():
+    bad = facts_citing("https://random-blog.example/fitzone")
+
+    async def scenario():
+        model = FakeModel(facts=[bad, golden_facts()])
+        wid = await start(make_runner(model))
+        return wid, model
+
+    wid, model = run(scenario())
+    r = row(wid)
+    assert [v["verdict"] for v in r["validationResults"]] == ["revise", "pass"]
+    first = r["validationResults"][0]["violations"]
+    assert {v["code"] for v in first} == {"EVIDENCE_URL_NOT_ALLOWED", "UNSUPPORTED_ITEMS", "UNSUPPORTED_CONTACT"}
+    assert all(v["severity"] == "revise" for v in first)
+    assert "not an allowed source" in model.all_prompt_text()      # the agent was told why
+    assert r["status"] == "AwaitingApproval" and r["retryCount"] == 1
+
+
+def test_persistent_off_list_citation_ends_in_a_recorded_safe_failure():
+    async def scenario():
+        return await start(make_runner(FakeModel(facts=facts_citing("https://random-blog.example/fitzone"))))
+
+    wid = run(scenario())
+    r = row(wid)
+    assert r["status"] == "Failed" and "EVIDENCE_URL_NOT_ALLOWED" in r["finalOutcome"]
+    assert len(r["validationResults"]) == 3 and r["approvalStatus"] == "none"
+    assert stored_details() is None and stored_workouts() is None
+
+
+def test_citing_a_page_that_was_never_fetched_is_caught():
+    async def scenario():
+        return await start(make_runner(FakeModel(facts=facts_citing(WEBSITE + "/hidden-page"))))
+
+    r = row(run(scenario()))
+    assert r["status"] == "Failed" and "EVIDENCE_URL_NOT_RETRIEVED" in r["finalOutcome"]
+
+
+def test_empty_result_never_reaches_approval_and_is_never_published():
+    """The 'Elite Gym' case: nothing found, moderate confidence."""
+    empty = golden_facts(equipment=[], classes=[], phone=None, email=None, opening_hours=None, evidence=[], confidence=0.6)
+
+    async def scenario():
+        return await start(make_runner(FakeModel(facts=empty)))
+
+    wid = run(scenario())
+    r = row(wid)
+    assert r["status"] == "Failed" and r["approvalStatus"] == "none"
+    assert "NO_EQUIPMENT_OR_CLASSES" in r["finalOutcome"]
+    assert [v["verdict"] for v in r["validationResults"]] == ["revise", "revise", "revise"]  # retried, then stopped
+    assert "approval_gate" not in agents(wid)
+    assert stored_details() is None
+
+
+def test_unusable_request_website_is_rejected_without_retrying():
+    async def scenario():
+        model = FakeModel(tool_calls=[])
+        return await start(make_runner(model), gym_request(website="http://127.0.0.1:8000"))
+
+    wid = run(scenario())
+    r = row(wid)
+    assert r["status"] == "Failed" and "REQUEST_WEBSITE_INVALID" in r["finalOutcome"]
+    assert len(r["validationResults"]) == 1                          # reject: no retry loop
+    assert r["validationResults"][0]["violations"][0]["severity"] == "reject"
+
+
+def test_search_route_accepts_an_allow_listed_source_it_actually_retrieved(monkeypatch):
+    page = "https://www.tripadvisor.com/fitzone-colombo"
+    text = f"Source: {page}\nWe have treadmills, squat racks and dumbbells. Classes: Yoga, Spin."
+    monkeypatch.setitem(tool_registry._REGISTRY, "search_gym_info", fake_search_tool(text))
+    facts = golden_facts(
+        phone=None, email=None, opening_hours=None, confidence=0.7,
+        evidence=[
+            {"field": "equipment", "source_url": page, "snippet": "We have treadmills, squat racks and dumbbells."},
+            {"field": "classes", "source_url": page, "snippet": "Classes: Yoga, Spin."},
+        ],
+    )
+    calls = [{"name": "search_gym_info", "args": {"query": "FitZone Colombo"}, "id": "s1", "type": "tool_call"}]
+
+    async def scenario():
+        model = FakeModel(tool_calls=calls, facts=facts)
+        return await start(make_runner(model), gym_request(website=None))
+
+    r = row(run(scenario()))
+    assert r["plan"]["route"] == "search"
+    assert r["status"] == "AwaitingApproval" and [v["verdict"] for v in r["validationResults"]] == ["pass"]
+
+
+def test_search_route_rejects_a_source_that_was_not_in_the_results(monkeypatch):
+    real = "https://www.tripadvisor.com/fitzone-colombo"
+    text = f"Source: {real}\nWe have treadmills, squat racks and dumbbells. Classes: Yoga, Spin."
+    monkeypatch.setitem(tool_registry._REGISTRY, "search_gym_info", fake_search_tool(text))
+    made_up = "https://www.yelp.com/biz/fitzone-made-up"
+    facts = golden_facts(
+        phone=None, email=None, opening_hours=None, confidence=0.7,
+        evidence=[
+            {"field": "equipment", "source_url": made_up, "snippet": "We have treadmills, squat racks and dumbbells."},
+            {"field": "classes", "source_url": made_up, "snippet": "Classes: Yoga, Spin."},
+        ],
+    )
+    calls = [{"name": "search_gym_info", "args": {"query": "FitZone"}, "id": "s1", "type": "tool_call"}]
+
+    async def scenario():
+        return await start(make_runner(FakeModel(tool_calls=calls, facts=facts)), gym_request(website=None))
+
+    r = row(run(scenario()))
+    assert r["status"] == "Failed" and "EVIDENCE_URL_NOT_RETRIEVED" in r["finalOutcome"]
+
+
+def test_analysis_agent_is_told_which_sources_it_may_cite():
+    async def scenario():
+        model = FakeModel()
+        await start(make_runner(model))
+        return model
+
+    text = run(scenario()).all_prompt_text()
+    assert "Allowed evidence sources (cite only these hosts): fitzone.lk, facebook.com" in text
+    assert "source_url is required" in text

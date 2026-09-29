@@ -21,12 +21,22 @@ class GymDetails(Base):
     """Cached equipment/classes for a gym, keyed by its map-provider place id.
 
     `source` tracks how trustworthy the equipment/classes fields are:
-      - "verified"    : entered by the gym owner/admin - never overwritten by the agent
+      - "verified"    : approved by a Gym_Owner/Admin through a workflow; never overwritten by AI
       - "ai-scraped"   : extracted by the LLM from the gym's own website
+      - "ai-inferred"  : the LLM's best guess from partial data
       - "ai-generic"   : the LLM's best guess with no website to read (low confidence)
+
+    A row can only be `verified` if `verified_workflow_id` points at the workflow whose
+    approval promoted it. The CHECK constraint makes the database refuse anything else.
     """
 
     __tablename__ = "gym_agent_details"
+    __table_args__ = (
+        CheckConstraint(
+            "source <> 'verified' OR verified_workflow_id IS NOT NULL",
+            name="ck_gym_details_verified_has_workflow",
+        ),
+    )
 
     place_id = Column(String(255), primary_key=True)
     name = Column(String(255), nullable=False)
@@ -40,6 +50,16 @@ class GymDetails(Base):
     source = Column(String(20), nullable=False, default="ai-generic")
     equipment = Column(JSON, nullable=False, default=list)
     classes = Column(JSON, nullable=False, default=list)
+
+    # Provenance of a `verified` row: which approved workflow, who approved, and when.
+    # RESTRICT: a workflow that vouches for published data cannot be deleted.
+    verified_workflow_id = Column(
+        String(36),
+        ForeignKey("gym_agent_workflows.id", ondelete="RESTRICT", name="fk_gym_details_verified_workflow"),
+        nullable=True,
+    )
+    verified_by = Column(String(100), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
 
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

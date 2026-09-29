@@ -41,8 +41,13 @@ namespace VitroFit.API.Features.GymAgent
             ?? string.Empty;
         private bool IsApprover => ApproverRoleList.Contains(UserRole);
 
-        /// <summary>Start a workflow for one gym. The result waits for human approval before anything is published.</summary>
+        /// <summary>
+        /// Start a workflow for one gym (Admin or Gym_Owner). Each run uses the LLM, so it is limited by role and
+        /// rate; the result waits for human approval before anything is published.
+        /// </summary>
         [HttpPost]
+        [Authorize(Roles = ApproverRoles)]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(GymAgentRateLimiting.PolicyName)]
         [ProducesResponseType(typeof(StartedWorkflowDto), StatusCodes.Status202Accepted)]
         public async Task<IActionResult> Start([FromBody] StartGymWorkflowRequest request, CancellationToken ct)
         {

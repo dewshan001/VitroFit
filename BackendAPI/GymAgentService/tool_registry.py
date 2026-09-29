@@ -8,16 +8,15 @@ exceptions, except PermissionError, which is a programming/escalation error.
 """
 
 import asyncio
-import ipaddress
 import os
 import re
 import time
 from dataclasses import dataclass
-from urllib.parse import urlparse
 
 from pydantic import ValidationError
 
 import tools as gym_tools
+from url_policy import host_is_internal, normalise_host
 
 # role -> tool names that role may call. Anything absent means "no tools".
 TOOL_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -67,22 +66,6 @@ def sanitize_untrusted_text(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> st
     return "\n".join(kept)[:limit]
 
 
-def _host_is_internal(host: str) -> bool:
-    if host in ("localhost", "") or host.endswith(".local") or host.endswith(".internal"):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
-
-
-def _normalise_host(url: str) -> str:
-    if not url.startswith(("http://", "https://")):
-        url = f"https://{url}"
-    return (urlparse(url).hostname or "").lower().removeprefix("www.")
-
-
 def _result(tool: str, ok: bool, output: str, code: str | None, started: float) -> ToolResult:
     return ToolResult(tool, ok, output, code, int((time.perf_counter() - started) * 1000))
 
@@ -112,8 +95,8 @@ async def call_tool(
             return _result(name, False, "", "INVALID_INPUT", started)
 
     if name == "scrape_gym_website":
-        target_host = _normalise_host(args.get("url", ""))
-        if not website or target_host != _normalise_host(website) or _host_is_internal(target_host):
+        target_host = normalise_host(args.get("url", ""))
+        if not website or target_host != normalise_host(website) or host_is_internal(target_host):
             return _result(name, False, "", "TARGET_NOT_ALLOWED", started)
 
     try:
