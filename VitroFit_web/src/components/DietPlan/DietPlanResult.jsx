@@ -217,7 +217,10 @@ export default function DietPlanResult({
         </p>
         {attemptSteps.length > 0 && (
           <div className="dp-disclaimer" style={{ textAlign: 'left', marginTop: '1rem' }}>
-            <strong>What happened:</strong>
+            <p style={{ margin: 0 }}>
+              Our system tried {attemptSteps.length === 1 ? 'once' : `${attemptSteps.length} times`} to build a
+              plan around your preferences:
+            </p>
             <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
               {attemptSteps.map((step, i) => (
                 <li key={i}>{describeAttemptStep(step)}</li>
@@ -322,20 +325,23 @@ function AgentProgressText() {
   return AGENT_PROGRESS_STEPS[stepIndex];
 }
 
-/** Readable label for one validator attempt's outcome, used in the error breakdown below. */
+/** Plain-language, non-technical summary of one validator attempt, for customers rather than engineers. */
 function describeAttemptStep(step) {
-  const attemptLabel = step.attempt ? `Attempt ${step.attempt}` : 'Attempt';
+  const tryLabel = step.attempt ? `Try ${step.attempt}` : 'This try';
+  const isSafetyIssue = (step.violations || []).some((v) => v.code === 'RESTRICTION_VIOLATION' || v.code === 'BELOW_SAFE_FLOOR');
+
   if (step.verdict === 'pass') {
-    return `${attemptLabel}: ${step.attemptCalories} kcal (target ${step.targetCalories}) — passed all checks.`;
+    return `${tryLabel}: matched your calorie target and passed all checks.`;
   }
-  const calorieNote = step.targetCalories
-    ? `${step.attemptCalories} kcal vs ${step.targetCalories} kcal target (${step.diffPct}% off)`
-    : null;
-  const violationNote = (step.violations || [])
-    .map((v) => v.message)
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('; ');
-  const verdictLabel = step.verdict === 'reject' ? 'rejected' : 'needed revision';
-  return [`${attemptLabel}: ${verdictLabel}`, calorieNote, violationNote].filter(Boolean).join(' — ');
+  if (isSafetyIssue) {
+    // A dietary-safety issue (an ingredient conflicting with a restriction/
+    // allergy, or a target below a safe calorie floor) is the real reason,
+    // not the calorie miss - lead with that in plain terms.
+    return `${tryLabel}: one of the suggested meals conflicted with a restriction, allergy, or safe calorie minimum you set.`;
+  }
+  if (step.targetCalories) {
+    const direction = step.attemptCalories < step.targetCalories ? 'short of' : 'over';
+    return `${tryLabel}: came out to about ${step.attemptCalories} calories — ${step.diffPct}% ${direction} your ${step.targetCalories}-calorie target.`;
+  }
+  return `${tryLabel}: didn't quite match your preferences.`;
 }

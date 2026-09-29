@@ -106,11 +106,18 @@ def _violations_to_message(violations: list[dict]) -> str:
     summary for the immediate error message.
     """
     if not violations:
-        return "We couldn't generate a safe plan for these preferences. Please adjust and try again."
+        return (
+            "We couldn't generate a plan that's safe for your preferences. "
+            "Please review your restrictions and medical conditions, or adjust your calorie target, and try again."
+        )
     messages = [v.get("message", v.get("code", "")) for v in violations if v.get("severity") == "reject"] or [
         v.get("message", v.get("code", "")) for v in violations
     ]
-    return "We couldn't generate a safe plan: " + "; ".join(m for m in messages if m)
+    detail = "; ".join(m for m in messages if m)
+    return (
+        "We couldn't generate a plan that's safe for your preferences. "
+        f"Specifically: {detail}. Please adjust your restrictions, medical conditions, or budget and try again."
+    )
 
 
 @app.post("/api/diet/generate")

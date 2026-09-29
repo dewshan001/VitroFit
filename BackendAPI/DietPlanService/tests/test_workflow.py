@@ -58,14 +58,21 @@ async def test_run_workflow_revise_then_pass(mock_generate_meals, db_session):
 
 
 @pytest.mark.asyncio
-async def test_run_workflow_retry_limit_gives_failed(mock_generate_meals, db_session):
+async def test_run_workflow_retry_limit_soft_degrades_instead_of_failing(mock_generate_meals, db_session):
+    # A "revise" verdict (as opposed to "reject") is a tolerance miss, not a
+    # safety violation - exhausting retries on it should still hand back the
+    # closest attempt (withinTolerance=false), not leave the user with
+    # nothing, matching the pre-existing /generate behaviour.
     bad_meals = make_meals(calories_each=(TARGET_CALORIES * 1.18) / 4, count=4)  # ~18% over -> always revise, never reject
     mock_generate_meals.return_value = {"meals": bad_meals, "withinTolerance": False}
 
     wf = await run_workflow("generate_diet_plan", dict(VALID_PREFS), user_id=1, session=db_session)
 
-    assert wf.status == "failed"
-    assert wf.retry_count == 3  # incremented past _MAX_REVISE_RETRIES (2) before giving up
+    assert wf.status == "completed"
+    assert wf.final_outcome["withinTolerance"] is False
+    assert wf.meals is not None
+    assert wf.retry_count == 2  # incremented past _MAX_REVISE_RETRIES (1) before soft-degrading
+    assert mock_generate_meals.call_count == 2  # exactly 2 total attempts, as limited
 
 
 @pytest.mark.asyncio

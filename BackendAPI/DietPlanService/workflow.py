@@ -37,7 +37,8 @@ _TOOL_TIMEOUTS = {
     "generate_meals": 220,
 }
 _OVERALL_TIME_BUDGET_SECONDS = 230
-_MAX_REVISE_RETRIES = 2
+# 1 retry = 2 total meal-generation attempts (the initial one plus one revise).
+_MAX_REVISE_RETRIES = 1
 
 _analyst = NutritionAnalystAgent()
 _generator = MealGeneratorAgent()
@@ -232,9 +233,27 @@ async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> Di
         # verdict == "revise"
         wf.retry_count += 1
         if wf.retry_count > _MAX_REVISE_RETRIES:
-            return _fail("Max revise retries exceeded.", final_outcome={
-                "reason": "max_retries_exceeded", "last_violations": validation["violations"],
-            })
+            # Soft-degrade rather than hard-fail: a "revise" verdict (as
+            # opposed to "reject") means no safety/restriction rule was
+            # broken - the meals are usable, just not within the calorie
+            # tolerance. The pre-existing /generate behaviour (before this
+            # workflow existed) always returned a plan and let
+            # withinTolerance=false show a warning banner instead of
+            # blocking the user outright; matching that here means retries
+            # being exhausted doesn't leave the user with nothing.
+            wf.status = "completed"
+            wf.final_outcome = {
+                "totalCalories": wf.targets["totalCalories"],
+                "macros": wf.targets["macros"],
+                "withinTolerance": False,
+                "note": "Closest attempt after retries - calories didn't land within the usual tolerance.",
+            }
+            wf.approval_status = "pending" if wf.risk_level == "high" else "auto_approved"
+            wf.events = events
+            wf.completed_steps = completed_steps
+            session.commit()
+            session.refresh(wf)
+            return wf
         if _deadline_exceeded():
             return _fail("Workflow exceeded 90s time budget.")
 
