@@ -23,5 +23,5 @@ def test_assess_risk_low_for_healthy_adult():
 @pytest.mark.asyncio
 async def test_agent_tool_allowlists_are_scoped():
     assert NutritionAnalystAgent.allowed_tools == ["calculate_targets", "assess_risk", "lookup_budget"]
-    assert MealGeneratorAgent.allowed_tools == ["generate_meals"]
+    assert MealGeneratorAgent.allowed_tools == ["generate_meals", "refine_meals"]
     assert SafetyValidatorAgent.allowed_tools == ["validate_plan"]

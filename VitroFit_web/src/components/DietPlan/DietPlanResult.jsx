@@ -127,6 +127,10 @@ export default function DietPlanResult({
   onDeletePlan,
   onBack,
   onDelete,
+  onRefine,
+  refineStatus = 'idle',
+  refineMessage = '',
+  refineLiveSteps = [],
 }) {
   if (state === 'empty') {
     return (
@@ -280,10 +284,17 @@ export default function DietPlanResult({
     <div className="dp-result dp-fade-up">
       <PlanDetails plan={plan} hasMedicalConditions={hasMedicalConditions} />
 
+      <RefineBox
+        onRefine={onRefine}
+        refineStatus={refineStatus}
+        refineMessage={refineMessage}
+        refineLiveSteps={refineLiveSteps}
+      />
+
       {/* Actions */}
       <div className="dp-result-actions">
         <button className="btn-secondary" onClick={onEdit}>
-          Edit Preferences
+          Start Over
         </button>
         <button
           className="btn-primary"
@@ -346,16 +357,72 @@ function describeLiveStep(step) {
       : '✓ Nutrition Analyst checked whether this plan needs extra safety review.';
   }
   if (step.agent === 'MealGeneratorAgent') {
+    if (step.refine) return '✓ Meal Generator applied your requested change.';
     return step.retry
       ? `↻ Meal Generator drafted a revised set of meals (try ${step.retry + 1}).`
       : '✓ Meal Generator drafted a full day of meals.';
   }
   if (step.agent === 'SafetyValidatorAgent') {
+    if (step.refine) {
+      if (step.verdict === 'reject') return '✗ Safety Validator found that change would break one of your restrictions.';
+      return '✓ Safety Validator confirmed the change is still safe.';
+    }
     if (step.verdict === 'pass') return '✓ Safety Validator confirmed the plan meets your targets.';
     if (step.verdict === 'reject') return '✗ Safety Validator found a safety issue with this plan.';
     return `↻ Safety Validator flagged this attempt as not quite on target — asking for another try.`;
   }
   return `✓ ${step.agent} finished.`;
+}
+
+/** A free-text "edit this plan" box, used on the result screen instead of restarting the whole form. */
+function RefineBox({ onRefine, refineStatus, refineMessage, refineLiveSteps }) {
+  const [instruction, setInstruction] = useState('');
+  if (!onRefine) return null;
+
+  const applying = refineStatus === 'applying';
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = instruction.trim();
+    if (!trimmed || applying) return;
+    onRefine(trimmed);
+    setInstruction('');
+  };
+
+  return (
+    <div className="dp-disclaimer" style={{ textAlign: 'left', marginBottom: '1rem' }}>
+      <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Want a small change?</p>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          value={instruction}
+          onChange={(e) => setInstruction(e.target.value)}
+          placeholder="e.g. instead of rice, include something else at lunch"
+          disabled={applying}
+          maxLength={300}
+          style={{
+            flex: '1 1 260px', padding: '0.55rem 0.75rem', borderRadius: '6px',
+            border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'inherit',
+          }}
+        />
+        <button type="submit" className="btn-secondary" disabled={applying || !instruction.trim()}>
+          {applying ? 'Applying…' : 'Apply Change'}
+        </button>
+      </form>
+      {applying && (
+        <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+          {refineLiveSteps.length === 0 ? (
+            <li>Looking at your plan…</li>
+          ) : (
+            refineLiveSteps.filter((s) => s.refine).map((s, i) => <li key={i}>{describeLiveStep(s)}</li>)
+          )}
+        </ul>
+      )}
+      {(refineStatus === 'note' || refineStatus === 'error') && refineMessage && (
+        <p className="dp-field-err-text" style={{ marginTop: '0.5rem' }}>{refineMessage}</p>
+      )}
+    </div>
+  );
 }
 
 /** Plain-language, non-technical summary of one validator attempt, for customers rather than engineers. */

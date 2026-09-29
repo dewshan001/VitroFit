@@ -17,7 +17,7 @@ from auth import get_current_user_id, get_current_user_claims
 from security import require_roles, _extract_role
 import workflow_models  # noqa: F401 - registers DietWorkflow with Base before create_all
 from workflow_models import DietWorkflow
-from workflow import create_workflow, execute_workflow
+from workflow import create_workflow, execute_workflow, execute_refine
 from validators import validate_plan
 
 # Holds strong references to in-flight background workflow tasks so asyncio
@@ -65,6 +65,17 @@ app.add_middleware(
 )
 
 
+def _sanitize_free_text(v: str | None, max_len: int) -> str | None:
+    """Strips control characters and caps length on any free-text field sent
+    to the LLM (dislikes, refine instructions) - keeps user text well-formed
+    data, never something that could be used to pad/break the JSON prompt.
+    """
+    if not v:
+        return v
+    cleaned = "".join(c for c in v if c.isprintable() or c in " \n")
+    return cleaned[:max_len]
+
+
 class DietPlanPreferences(BaseModel):
     age: int = Field(..., ge=10, le=100)
     gender: GenderLiteral
@@ -83,10 +94,7 @@ class DietPlanPreferences(BaseModel):
     @field_validator("dislikes")
     @classmethod
     def _sanitize_dislikes(cls, v: str | None) -> str | None:
-        if not v:
-            return v
-        cleaned = "".join(c for c in v if c.isprintable() or c in " \n")
-        return cleaned[:500]
+        return _sanitize_free_text(v, max_len=500)
 
 
 class ConfirmPlanRequest(BaseModel):
@@ -355,6 +363,11 @@ def _workflow_message(wf: DietWorkflow) -> str | None:
         return _violations_to_message((wf.final_outcome or {}).get("violations", []))
     if wf.status == "failed":
         return wf.error or "Something went wrong while generating your plan. Please try again."
+    if wf.status == "completed" and wf.error:
+        # A requested edit (execute_refine) couldn't be applied - the plan
+        # itself is still fine (kept unchanged), this is just a heads-up on
+        # why the specific change didn't go through.
+        return wf.error
     return None
 
 
@@ -470,3 +483,44 @@ def get_workflow_trace(
         "events": wf.events,
         "retryCount": wf.retry_count,
     }
+
+
+class RefinePlanRequest(BaseModel):
+    instruction: str = Field(..., min_length=1)
+
+    @field_validator("instruction")
+    @classmethod
+    def _sanitize_instruction(cls, v: str) -> str:
+        cleaned = _sanitize_free_text(v, max_len=300)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("instruction cannot be empty.")
+        return cleaned
+
+
+@app.post("/api/diet/workflows/{workflow_id}/refine")
+async def refine_plan(
+    workflow_id: str,
+    req: RefinePlanRequest,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    """Applies one free-text edit (e.g. "swap the rice at lunch for
+    something else") to an already-generated plan, instead of the user
+    having to go back through the whole preferences form. Same start-now,
+    poll-for-progress pattern as /generate: returns immediately, runs in the
+    background, poll GET /workflows/{id} for the result.
+    """
+    wf = _get_workflow_or_404(workflow_id, session)
+    if wf.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Workflow not found.")
+    if wf.status != "completed":
+        raise HTTPException(status_code=409, detail=f"This plan isn't ready to edit yet (status={wf.status}).")
+
+    wf.status = "running"
+    session.commit()
+
+    task = asyncio.create_task(execute_refine(wf.id, req.instruction))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+    return {"workflowId": str(wf.id), "status": wf.status}

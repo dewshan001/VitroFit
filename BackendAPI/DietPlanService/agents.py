@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from calculator import calculate_targets
 from budget_reference import resolve_tier
-from meal_agent import generate_meals
+from meal_agent import generate_meals, refine_meals
 from validators import validate_plan
 
 _CALORIE_FLOOR = 1200
@@ -119,6 +119,10 @@ class MealGeneratorInput(BaseModel):
     targets: dict
     prefs: dict
     corrective_note: str | None = None
+    # Set together to request a targeted edit to an existing plan (via the
+    # refine_meals tool) instead of a fresh generation (generate_meals).
+    current_meals: list[dict] | None = None
+    instruction: str | None = None
 
 
 class MealItem(BaseModel):
@@ -141,24 +145,28 @@ class MealGeneratorOutput(BaseModel):
 
 
 class MealGeneratorAgent:
-    """Generates a day's meals via the existing NVIDIA NIM LLM call. Cannot
-    touch the database, and cannot compute calories/macros - those come in
-    already fixed via `targets`.
+    """Generates (or, via refine_meals, targeted-edits) a day's meals through
+    the existing NVIDIA NIM LLM call. Cannot touch the database, and cannot
+    compute calories/macros - those come in already fixed via `targets`.
     """
 
     name = "MealGeneratorAgent"
-    allowed_tools = ["generate_meals"]
+    allowed_tools = ["generate_meals", "refine_meals"]
 
     async def run(self, input: MealGeneratorInput) -> MealGeneratorOutput:
-        prefs = dict(input.prefs)
-        if input.corrective_note:
-            # meal_agent._build_prompt reads this key and surfaces it to the
-            # LLM as previousAttemptFeedback, so a workflow-level revise
-            # retry actually targets the Safety Validator's specific
-            # violations instead of just repeating the same prompt.
-            prefs["_corrective_note"] = input.corrective_note
+        if input.current_meals is not None and input.instruction:
+            result = await refine_meals(input.targets, input.prefs, input.current_meals, input.instruction)
+        else:
+            prefs = dict(input.prefs)
+            if input.corrective_note:
+                # meal_agent._build_prompt reads this key and surfaces it to
+                # the LLM as previousAttemptFeedback, so a workflow-level
+                # revise retry actually targets the Safety Validator's
+                # specific violations instead of just repeating the same
+                # prompt.
+                prefs["_corrective_note"] = input.corrective_note
+            result = await generate_meals(input.targets, prefs)
 
-        result = await generate_meals(input.targets, prefs)
         if "error" in result:
             return MealGeneratorOutput(meals=[], withinTolerance=False, error=result["error"])
 

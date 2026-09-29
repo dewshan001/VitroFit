@@ -121,3 +121,88 @@ def test_workflow_trace_shows_all_three_agents(client, auth_headers, mock_genera
     assert "NutritionAnalystAgent" in agents_seen
     assert "MealGeneratorAgent" in agents_seen
     assert "SafetyValidatorAgent" in agents_seen
+
+
+def test_refine_plan_applies_targeted_edit(client, auth_headers, mock_generate_meals, mock_refine_meals):
+    mock_generate_meals.return_value = {
+        "meals": make_meals(calories_each=TARGET_CALORIES / 4, name="Rice bowl", count=4),
+        "withinTolerance": True,
+    }
+    headers = auth_headers(user_id=106)
+    gen_resp = client.post("/api/diet/generate", json=VALID_PREFS, headers=headers)
+    workflow_id = gen_resp.json()["workflowId"]
+    poll_workflow(client, workflow_id, headers)
+
+    mock_refine_meals.return_value = {
+        "meals": make_meals(calories_each=TARGET_CALORIES / 4, name="Quinoa bowl", count=4),
+        "withinTolerance": True,
+    }
+    refine_resp = client.post(
+        f"/api/diet/workflows/{workflow_id}/refine",
+        json={"instruction": "instead of rice in lunch, include something else"},
+        headers=headers,
+    )
+    assert refine_resp.status_code == 200
+    assert refine_resp.json()["status"] == "running"
+
+    detail = poll_workflow(client, workflow_id, headers)
+    assert detail["status"] == "completed"
+    assert detail["message"] is None
+    assert detail["meals"][0]["items"][0]["name"] == "Quinoa bowl"
+    mock_refine_meals.assert_awaited_once()
+
+
+def test_refine_plan_reverts_when_edit_is_unsafe(client, auth_headers, mock_generate_meals, mock_refine_meals):
+    mock_generate_meals.return_value = {
+        "meals": make_meals(calories_each=TARGET_CALORIES / 4, name="Rice bowl", count=4),
+        "withinTolerance": True,
+    }
+    headers = auth_headers(user_id=107)
+    prefs = dict(VALID_PREFS, restrictions=["vegetarian"])
+    gen_resp = client.post("/api/diet/generate", json=prefs, headers=headers)
+    workflow_id = gen_resp.json()["workflowId"]
+    original = poll_workflow(client, workflow_id, headers)
+    assert original["status"] == "completed"
+
+    # The LLM ignores the restriction and suggests chicken - the Safety
+    # Validator must still catch this even though it's a user-requested edit.
+    mock_refine_meals.return_value = {
+        "meals": make_meals(calories_each=TARGET_CALORIES / 4, name="Grilled chicken breast", count=4),
+        "withinTolerance": True,
+    }
+    refine_resp = client.post(
+        f"/api/diet/workflows/{workflow_id}/refine",
+        json={"instruction": "add more protein to lunch"},
+        headers=headers,
+    )
+    assert refine_resp.status_code == 200
+
+    detail = poll_workflow(client, workflow_id, headers)
+    assert detail["status"] == "completed"
+    assert detail["message"] is not None
+    # Plan stays exactly as it was before the rejected edit.
+    assert detail["meals"] == original["meals"]
+
+
+def test_refine_plan_requires_owned_completed_workflow(client, auth_headers):
+    headers = auth_headers(user_id=108)
+    resp = client.post(
+        "/api/diet/workflows/00000000-0000-0000-0000-000000000000/refine",
+        json={"instruction": "swap the rice"},
+        headers=headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_refine_plan_rejects_empty_instruction(client, auth_headers, mock_generate_meals):
+    mock_generate_meals.return_value = {
+        "meals": make_meals(calories_each=TARGET_CALORIES / 4, count=4),
+        "withinTolerance": True,
+    }
+    headers = auth_headers(user_id=109)
+    gen_resp = client.post("/api/diet/generate", json=VALID_PREFS, headers=headers)
+    workflow_id = gen_resp.json()["workflowId"]
+    poll_workflow(client, workflow_id, headers)
+
+    resp = client.post(f"/api/diet/workflows/{workflow_id}/refine", json={"instruction": "   "}, headers=headers)
+    assert resp.status_code == 422

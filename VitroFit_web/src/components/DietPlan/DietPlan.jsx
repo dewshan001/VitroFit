@@ -6,6 +6,7 @@ import DietPlanResult from './DietPlanResult';
 import {
   generateDietPlan,
   pollDietWorkflow,
+  refineDietPlan,
   confirmDietPlan,
   updateDietPlan,
   deleteDietPlan,
@@ -27,6 +28,9 @@ export default function DietPlan() {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorSteps, setErrorSteps] = useState([]);
   const [liveSteps, setLiveSteps] = useState([]);
+  const [refineStatus, setRefineStatus] = useState('idle'); // idle | applying | note | error
+  const [refineMessage, setRefineMessage] = useState('');
+  const [refineLiveSteps, setRefineLiveSteps] = useState([]);
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
@@ -100,6 +104,8 @@ export default function DietPlan() {
     setPhase('loading');
     setConfirmStatus('idle');
     setLiveSteps([]);
+    setRefineStatus('idle');
+    setRefineMessage('');
     try {
       const { workflowId } = await generateDietPlan(toApiPrefs(prefs));
       const result = await pollDietWorkflow(workflowId, {
@@ -112,6 +118,30 @@ export default function DietPlan() {
       setErrorMessage(err.message || 'Something went wrong while generating your diet plan.');
       setErrorSteps(err.completedSteps || []);
       setPhase('error');
+    }
+  };
+
+  /** Applies one free-text edit (e.g. "swap rice for something else at lunch") to the freshly generated, not-yet-saved plan, instead of restarting the whole form. */
+  const handleRefine = async (instruction) => {
+    if (!plan?.workflowId) return;
+    setRefineStatus('applying');
+    setRefineMessage('');
+    setRefineLiveSteps([]);
+    try {
+      await refineDietPlan(plan.workflowId, instruction);
+      const result = await pollDietWorkflow(plan.workflowId, {
+        onProgress: (detail) => setRefineLiveSteps(detail.completedSteps || []),
+      });
+      setPlan(result);
+      if (result.note) {
+        setRefineMessage(result.note);
+        setRefineStatus('note');
+      } else {
+        setRefineStatus('idle');
+      }
+    } catch (err) {
+      setRefineMessage(err.message || "Couldn't apply that change. Please try again.");
+      setRefineStatus('error');
     }
   };
 
@@ -160,6 +190,8 @@ export default function DietPlan() {
     setLastPrefs(initialPrefs);
     setConfirmStatus('idle');
     setConfirmErrorMessage('');
+    setRefineStatus('idle');
+    setRefineMessage('');
     setPhase('form');
   };
 
@@ -286,6 +318,10 @@ export default function DietPlan() {
               onEdit={handleEdit}
               onConfirm={handleConfirm}
               onBack={handleBackToBrowse}
+              onRefine={handleRefine}
+              refineStatus={refineStatus}
+              refineMessage={refineMessage}
+              refineLiveSteps={refineLiveSteps}
             />
           )}
 

@@ -79,6 +79,10 @@ export async function pollDietWorkflow(workflowId, { onProgress, intervalMs = 20
           plan: detail.plan,
           completedSteps: detail.completedSteps,
           requiresApproval: detail.approvalStatus === 'pending',
+          // Set (only) when a requested edit couldn't be applied — the plan
+          // above is still the last good one, this just explains why a
+          // refine() call didn't change it.
+          note: detail.message || null,
         };
       }
       const error = new Error(detail.message || 'Could not generate a diet plan. Please try again.');
@@ -90,6 +94,29 @@ export async function pollDietWorkflow(workflowId, { onProgress, intervalMs = 20
   }
 
   throw new Error('Generating your plan is taking longer than expected. Please try again.');
+}
+
+/**
+ * Requests a targeted, free-text edit to an already-generated plan (e.g.
+ * "instead of rice at lunch, include something else") instead of starting
+ * over from the preferences form. Returns immediately with status "running";
+ * poll with pollDietWorkflow(workflowId) exactly as after generateDietPlan()
+ * to watch progress and get the updated plan.
+ */
+export async function refineDietPlan(workflowId, instruction) {
+  const response = await fetch(`${DIET_AGENT_API_URL}/workflows/${workflowId}/refine`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ instruction }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data?.detail || 'Could not apply that change. Please try again.');
+  }
+
+  return data;
 }
 
 /**

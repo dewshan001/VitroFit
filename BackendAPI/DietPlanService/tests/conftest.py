@@ -123,3 +123,11 @@ def mock_generate_meals(monkeypatch):
     mock = AsyncMock()
     monkeypatch.setattr(agents, "generate_meals", mock)
     return mock
+
+
+@pytest.fixture
+def mock_refine_meals(monkeypatch):
+    """Same idea as mock_generate_meals, for the refine_meals reference."""
+    mock = AsyncMock()
+    monkeypatch.setattr(agents, "refine_meals", mock)
+    return mock

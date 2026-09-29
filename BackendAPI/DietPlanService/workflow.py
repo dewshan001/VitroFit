@@ -38,6 +38,7 @@ from workflow_models import DietWorkflow
 _DEFAULT_TOOL_TIMEOUT_SECONDS = 10
 _TOOL_TIMEOUTS = {
     "generate_meals": 220,
+    "refine_meals": 220,  # same underlying LLM call, same real-world latency
 }
 _OVERALL_TIME_BUDGET_SECONDS = 230
 # 1 retry = 2 total meal-generation attempts (the initial one plus one revise).
@@ -177,6 +178,105 @@ async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> Di
     await execute_workflow(wf.id, prefs)
     session.refresh(wf)
     return wf
+
+
+async def execute_refine(workflow_id, instruction: str) -> None:
+    """Applies one free-text edit request to an already-generated plan (e.g.
+    "swap the rice at lunch for something else") instead of regenerating from
+    scratch. Meant to run as a detached asyncio task, same pattern as
+    execute_workflow() - its own DB session, must always leave the row in a
+    terminal status.
+
+    Never leaves the user with a broken plan: if the edit can't be produced,
+    or the Safety Validator rejects it (it still runs on every edit - an
+    instruction can never bypass restrictions/medical rules), the previous
+    meals are kept as-is and wf.error carries a plain-language reason instead
+    of the plan disappearing.
+    """
+    session = SessionLocal()
+    wf = None
+    try:
+        wf = session.get(DietWorkflow, workflow_id)
+        if wf is None:
+            return
+
+        original_meals = wf.meals
+        events = list(wf.events)
+        completed_steps = list(wf.completed_steps)
+        wf.error = None
+        step_counter = max([s.get("step", 0) for s in completed_steps], default=0) + 1
+
+        gen_result = await call_tool(
+            _generator, "refine_meals",
+            MealGeneratorInput(targets=wf.targets, prefs=wf.inputs, current_meals=original_meals, instruction=instruction),
+            events, step=step_counter,
+        )
+        gen_data = gen_result["data"] or {}
+        completed_steps.append({"step": step_counter, "agent": "MealGeneratorAgent", "status": "done", "refine": True})
+        wf.completed_steps = completed_steps
+        wf.events = events
+        session.commit()
+        step_counter += 1
+
+        if not gen_result["ok"] or gen_data.get("error"):
+            wf.error = gen_result["error"] or gen_data.get("error") or "Couldn't apply that change. Please try again."
+            wf.status = "completed"
+            session.commit()
+            return
+
+        new_meals = gen_data["meals"]
+        validator_result = await call_tool(
+            _validator, "validate_plan",
+            SafetyValidatorInput(meals=new_meals, targets=wf.targets, prefs=wf.inputs), events, step=step_counter,
+        )
+        validation = validator_result["data"] or {}
+        completed_steps.append({
+            "step": step_counter, "agent": "SafetyValidatorAgent", "status": "done", "refine": True,
+            "verdict": validation.get("verdict"),
+        })
+        wf.completed_steps = completed_steps
+        wf.events = events
+        session.commit()
+
+        if not validator_result["ok"]:
+            wf.error = f"Couldn't verify that change was safe: {validator_result['error']}"
+            wf.status = "completed"
+            session.commit()
+            return
+
+        if validation.get("verdict") == "reject":
+            reasons = "; ".join(v["message"] for v in validation["violations"][:3] if v.get("message"))
+            wf.error = (
+                f"Couldn't make that change safely: {reasons}" if reasons
+                else "That change would break one of your dietary restrictions or safety limits."
+            )
+            wf.status = "completed"
+            session.commit()
+            return
+
+        # "pass" or "revise" both apply the edit - a revise-tier tolerance
+        # miss here follows the same soft-degrade philosophy as the main
+        # generation flow: don't block a user's requested edit over a
+        # calorie-tolerance nuance, only over a genuine safety issue.
+        wf.meals = new_meals
+        wf.validation_results = validation
+        wf.status = "completed"
+        wf.final_outcome = {
+            "totalCalories": wf.targets["totalCalories"],
+            "macros": wf.targets["macros"],
+            "withinTolerance": validation.get("verdict") == "pass",
+        }
+        session.commit()
+    except Exception as e:
+        if wf is not None:
+            try:
+                wf.status = "completed"
+                wf.error = f"Couldn't apply that change: {e}"
+                session.commit()
+            except Exception:
+                session.rollback()
+    finally:
+        session.close()
 
 
 async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
