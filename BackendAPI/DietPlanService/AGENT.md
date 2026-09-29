@@ -37,7 +37,7 @@ The LLM never computes calories or macros — `calculator.py` is the only source
 | 5. Deterministic validation before acceptance; bad output revised/rejected | `validators.py`, `workflow.run_workflow()`'s revise/reject branches |
 | 6. High-impact action pauses for approval | `agents._assess_risk()`, `main.py` `/workflows/{id}/approve`, `/reject`, `approval_status` |
 | 7. Auditable trace (agent runs, tool calls, timings, validation, errors, retries, approval, outcome) | `workflow.call_tool()` events, `DietWorkflow.events`/`.completed_steps`, `GET /workflows/{id}/trace` |
-| 8. Security: RBAC, input/output validation, secret protection, timeouts, retry limit, safe failure | `security.require_roles`, `main.py` `Literal` enums, `auth.py` (secret from `VitroFit.API`, no logging), `workflow.py` (`_TOOL_TIMEOUT_SECONDS`, `_MAX_REVISE_RETRIES`, `_OVERALL_TIME_BUDGET_SECONDS`) |
+| 8. Security: RBAC, input/output validation, secret protection, timeouts, retry limit, safe failure | `security.require_roles`, `main.py` `Literal` enums, `auth.py` (secret from `VitroFit.API`, no logging), `workflow.py` (`_TOOL_TIMEOUTS`, `_MAX_REVISE_RETRIES`, `_OVERALL_TIME_BUDGET_SECONDS`) |
 
 ## Calling this from other services
 
@@ -51,6 +51,6 @@ Status values: `running` → `completed` | `failed` | `rejected`. Approval value
 
 ## Known tradeoffs / judgment calls
 
-- **Inline 90s execution ceiling.** `run_workflow()` runs synchronously inside `POST /api/diet/generate`, so a single request can take up to ~90s (2 revise retries × meal_agent's own 40s LLM timeout, capped at 25s per tool call here). A polling design (`/generate` returns `workflowId` immediately, client polls `/workflows/{id}`) would remove this ceiling but requires a frontend change, which is out of scope for this backend-only task.
+- **Inline 90s execution ceiling.** `run_workflow()` runs synchronously inside `POST /api/diet/generate`, so a single request can take close to the 90s overall budget (`generate_meals` alone gets up to 85s, since `meal_agent.py` internally may try two model calls plus one corrective retry, each up to 40s). A polling design (`/generate` returns `workflowId` immediately, client polls `/workflows/{id}`) would remove this ceiling but requires a frontend change, which is out of scope for this backend-only task.
 - **`requiresApproval` triggers only on `risk_level == "high"`**, not `"medium"` — otherwise every under-18 user or anyone with a mild medical condition would always block on a trainer. This threshold is a judgment call and easy to tighten later (`agents._assess_risk`).
 - **Known, pre-existing, deliberately untouched issues:** `db.py`'s hardcoded fallback DB password and the git-tracked `.env` file; the frontend's default API port (8002) doesn't match `.env.example`'s `PORT=8003`. Both were flagged and left alone per explicit scope decisions for this task.

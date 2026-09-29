@@ -7,11 +7,10 @@ what happened.
 
 Tradeoff (flagged for the reader / AGENT.md): run_workflow() executes fully
 inline inside the POST /api/diet/generate request, so a single HTTP call can
-legitimately take up to ~90s (up to 2 revise retries, each bounded by
-meal_agent's own 40s LLM timeout, itself capped by this file's 25s per-tool
-timeout). A true fix would have /generate return the workflowId immediately
-and have the frontend poll GET /api/diet/workflows/{id} - but the frontend is
-out of scope for this task, so this stays inline and documented instead.
+legitimately take close to the 90s overall budget below. A true fix would
+have /generate return the workflowId immediately and have the frontend poll
+GET /api/diet/workflows/{id} - but the frontend is out of scope for this
+task, so this stays inline and documented instead.
 """
 import time
 from datetime import datetime, timezone
@@ -23,7 +22,17 @@ from agents import (
 )
 from workflow_models import DietWorkflow
 
-_TOOL_TIMEOUT_SECONDS = 25
+# Per-tool timeouts. calculate_targets/assess_risk/lookup_budget/validate_plan
+# are pure Python with no I/O, so a short timeout is just a safety net.
+# generate_meals wraps meal_agent.generate_meals, which has its own internal
+# timeout logic (up to two 40s model attempts, plus one 40s corrective retry
+# on tolerance failure - meal_agent._CALL_TIMEOUT_SECONDS) - it needs enough
+# room for that to actually run, or every real LLM call gets cut off here
+# before meal_agent even gets a chance to respond.
+_DEFAULT_TOOL_TIMEOUT_SECONDS = 10
+_TOOL_TIMEOUTS = {
+    "generate_meals": 85,
+}
 _OVERALL_TIME_BUDGET_SECONDS = 90
 _MAX_REVISE_RETRIES = 2
 
@@ -71,14 +80,15 @@ async def call_tool(agent, tool: str, payload, events: list, step: int) -> dict:
         })
         return {"ok": False, "data": None, "error": f"Tool '{tool}' not permitted for {agent.name}."}
 
+    timeout = _TOOL_TIMEOUTS.get(tool, _DEFAULT_TOOL_TIMEOUT_SECONDS)
     try:
-        result = await asyncio.wait_for(agent.run(payload), timeout=_TOOL_TIMEOUT_SECONDS)
+        result = await asyncio.wait_for(agent.run(payload), timeout=timeout)
         duration_ms = int((time.monotonic() - started) * 1000)
         events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": True, "error": None, "duration_ms": duration_ms})
         return {"ok": True, "data": result.model_dump(), "error": None}
     except asyncio.TimeoutError:
         duration_ms = int((time.monotonic() - started) * 1000)
-        error = f"Tool '{tool}' timed out after {_TOOL_TIMEOUT_SECONDS}s."
+        error = f"Tool '{tool}' timed out after {timeout}s."
         events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": False, "error": error, "duration_ms": duration_ms})
         return {"ok": False, "data": None, "error": error}
     except Exception as e:
