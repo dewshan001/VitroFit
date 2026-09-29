@@ -183,6 +183,17 @@ def test_refine_plan_reverts_when_edit_is_unsafe(client, auth_headers, mock_gene
     # Plan stays exactly as it was before the rejected edit.
     assert detail["meals"] == original["meals"]
 
+    # The live step trace (what the frontend polls during "applying…") carries
+    # the actual violation, not just a pass/fail flag - the user should see
+    # *why* their requested change was rejected while it's happening.
+    refine_validator_steps = [
+        s for s in detail["completedSteps"]
+        if s.get("agent") == "SafetyValidatorAgent" and s.get("refine")
+    ]
+    assert refine_validator_steps
+    assert refine_validator_steps[-1]["verdict"] == "reject"
+    assert any(v["code"] == "RESTRICTION_VIOLATION" for v in refine_validator_steps[-1]["violations"])
+
 
 def test_refine_plan_requires_owned_completed_workflow(client, auth_headers):
     headers = auth_headers(user_id=108)

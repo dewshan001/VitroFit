@@ -233,6 +233,7 @@ async def execute_refine(workflow_id, instruction: str) -> None:
         completed_steps.append({
             "step": step_counter, "agent": "SafetyValidatorAgent", "status": "done", "refine": True,
             "verdict": validation.get("verdict"),
+            "violations": (validation.get("violations") or [])[:5],
         })
         wf.completed_steps = completed_steps
         wf.events = events

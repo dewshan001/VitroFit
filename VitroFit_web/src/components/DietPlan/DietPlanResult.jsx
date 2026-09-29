@@ -357,18 +357,32 @@ function describeLiveStep(step) {
       : '✓ Nutrition Analyst checked whether this plan needs extra safety review.';
   }
   if (step.agent === 'MealGeneratorAgent') {
-    if (step.refine) return '✓ Meal Generator applied your requested change.';
+    if (step.refine) return '✓ Meal Generator drafted your requested change — now checking it\'s safe…';
     return step.retry
       ? `↻ Meal Generator drafted a revised set of meals (try ${step.retry + 1}).`
       : '✓ Meal Generator drafted a full day of meals.';
   }
   if (step.agent === 'SafetyValidatorAgent') {
+    const reason = (step.violations || []).map((v) => v.message).filter(Boolean).slice(0, 2).join('; ');
     if (step.refine) {
-      if (step.verdict === 'reject') return '✗ Safety Validator found that change would break one of your restrictions.';
+      if (step.verdict === 'reject') {
+        return reason
+          ? `✗ Safety Validator rejected that change: ${reason}`
+          : '✗ Safety Validator found that change would break one of your restrictions.';
+      }
+      if (step.verdict === 'revise') {
+        return reason
+          ? `⚠ Safety Validator flagged an issue but is applying the change anyway: ${reason}`
+          : '⚠ Safety Validator flagged a minor issue but applied the change.';
+      }
       return '✓ Safety Validator confirmed the change is still safe.';
     }
     if (step.verdict === 'pass') return '✓ Safety Validator confirmed the plan meets your targets.';
-    if (step.verdict === 'reject') return '✗ Safety Validator found a safety issue with this plan.';
+    if (step.verdict === 'reject') {
+      return reason
+        ? `✗ Safety Validator rejected this plan: ${reason}`
+        : '✗ Safety Validator found a safety issue with this plan.';
+    }
     return `↻ Safety Validator flagged this attempt as not quite on target — asking for another try.`;
   }
   return `✓ ${step.agent} finished.`;
@@ -390,28 +404,26 @@ function RefineBox({ onRefine, refineStatus, refineMessage, refineLiveSteps }) {
   };
 
   return (
-    <div className="dp-disclaimer" style={{ textAlign: 'left', marginBottom: '1rem' }}>
-      <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Want a small change?</p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+    <div className="dp-refine-box">
+      <p className="dp-refine-box-label">Want a small change?</p>
+      <form onSubmit={handleSubmit} className="dp-refine-form">
         <input
           type="text"
+          className="dp-refine-input"
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           placeholder="e.g. instead of rice, include something else at lunch"
           disabled={applying}
           maxLength={300}
-          style={{
-            flex: '1 1 260px', padding: '0.55rem 0.75rem', borderRadius: '6px',
-            border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'inherit',
-          }}
         />
-        <button type="submit" className="btn-secondary" disabled={applying || !instruction.trim()}>
+        <button type="submit" className="btn-secondary dp-refine-submit" disabled={applying || !instruction.trim()}>
+          {applying && <span className="dp-refine-spinner" />}
           {applying ? 'Applying…' : 'Apply Change'}
         </button>
       </form>
       {applying && (
-        <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
-          {refineLiveSteps.length === 0 ? (
+        <ul className="dp-refine-progress">
+          {refineLiveSteps.filter((s) => s.refine).length === 0 ? (
             <li>Looking at your plan…</li>
           ) : (
             refineLiveSteps.filter((s) => s.refine).map((s, i) => <li key={i}>{describeLiveStep(s)}</li>)
@@ -419,7 +431,7 @@ function RefineBox({ onRefine, refineStatus, refineMessage, refineLiveSteps }) {
         </ul>
       )}
       {(refineStatus === 'note' || refineStatus === 'error') && refineMessage && (
-        <p className="dp-field-err-text" style={{ marginTop: '0.5rem' }}>{refineMessage}</p>
+        <p className="dp-field-err-text dp-refine-message">{refineMessage}</p>
       )}
     </div>
   );

@@ -486,6 +486,69 @@
   padding: 0.9rem 1.1rem;
 }
 
+.dp-refine-box {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+.dp-refine-box-label {
+  margin: 0 0 0.65rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+.dp-refine-form {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.dp-refine-input {
+  flex: 1 1 280px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 14px 16px;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  outline: none;
+  transition: var(--transition);
+}
+.dp-refine-input::placeholder {
+  color: var(--text-secondary);
+}
+.dp-refine-input:focus {
+  border-color: var(--accent);
+}
+.dp-refine-input:disabled {
+  opacity: 0.6;
+}
+.dp-refine-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dp-refine-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: dpSpin 0.7s linear infinite;
+}
+.dp-refine-progress {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.dp-refine-message {
+  margin-top: 0.65rem;
+}
+
 /* ================================================
    CTA SECTION
    ================================================ */
