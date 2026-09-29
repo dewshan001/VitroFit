@@ -42,13 +42,16 @@ _SYSTEM_INSTRUCTION = (
     "Respect all dietary restrictions, dislikes, and medical conditions absolutely - never include a "
     "restricted or disliked ingredient. Only suggest ingredients plausible at the given budget tier, "
     "using the reference price list as a guide to what's affordable. Match suggestions to the user's "
-    "cooking time/skill level (e.g. no-cook or very quick items only if they indicated limited time)."
+    "cooking time/skill level (e.g. no-cook or very quick items only if they indicated limited time). "
+    "If the input includes a previousAttemptFeedback field, that describes specific problems with your "
+    "last attempt (e.g. total calories too low/high, a disliked ingredient) - fix exactly those issues "
+    "in this attempt, don't just repeat the previous plan."
 )
 
 
 def _build_prompt(targets: dict, prefs: dict) -> str:
     tier = resolve_tier(prefs.get("budgetTier", "medium"), prefs.get("budgetCustomAmount"))
-    return json.dumps({
+    payload = {
         "dailyTargets": targets,
         "mealFrequency": prefs.get("mealFrequency"),
         "restrictions": prefs.get("restrictions", []),
@@ -60,7 +63,14 @@ def _build_prompt(targets: dict, prefs: dict) -> str:
             "guidance": tier["guidance"],
             "referencePricesLkr": tier["reference_items"],
         },
-    }, ensure_ascii=False)
+    }
+    # Set by workflow.py's revise loop when the Safety Validator returned
+    # "revise" - specific violation feedback so this retry can actually
+    # target what was wrong, not just repeat the same prompt.
+    corrective_note = prefs.get("_corrective_note")
+    if corrective_note:
+        payload["previousAttemptFeedback"] = corrective_note
+    return json.dumps(payload, ensure_ascii=False)
 
 
 _JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)

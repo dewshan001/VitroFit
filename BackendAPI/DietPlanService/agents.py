@@ -152,10 +152,10 @@ class MealGeneratorAgent:
     async def run(self, input: MealGeneratorInput) -> MealGeneratorOutput:
         prefs = dict(input.prefs)
         if input.corrective_note:
-            # Workflow-level framing only for v1 - meal_agent's own prompt
-            # builder does not read this key, so it has no effect on the LLM
-            # prompt yet. A future follow-up could thread it into
-            # meal_agent._build_prompt if revise-loop quality needs it.
+            # meal_agent._build_prompt reads this key and surfaces it to the
+            # LLM as previousAttemptFeedback, so a workflow-level revise
+            # retry actually targets the Safety Validator's specific
+            # violations instead of just repeating the same prompt.
             prefs["_corrective_note"] = input.corrective_note
 
         result = await generate_meals(input.targets, prefs)

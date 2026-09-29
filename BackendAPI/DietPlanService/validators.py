@@ -10,7 +10,13 @@ constant here must be kept at 0.10 to match meal_agent.py's own constant.
 """
 
 _TOLERANCE = 0.10  # +/-10%, keep in sync with meal_agent._TOLERANCE
-_REJECT_TOLERANCE = 0.25  # beyond this, not worth a revise cycle
+# Beyond this, treat the miss as unfixable rather than worth a revise cycle.
+# Raised from an initial 0.25 after real generations from the live model
+# (meta/llama-3.2-11b-vision-instruct) came in 30%+ off target on a normal
+# attempt - a value that low was rejecting plans outright instead of giving
+# the revise loop (which now actually forwards feedback to the LLM, see
+# meal_agent._build_prompt's previousAttemptFeedback) a chance to fix them.
+_REJECT_TOLERANCE = 0.50
 
 _CALORIE_FLOOR = 1200  # kcal/day, medically-oriented minimum
 _MAX_ITEM_CALORIES = 1500

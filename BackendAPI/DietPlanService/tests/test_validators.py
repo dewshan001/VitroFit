@@ -19,6 +19,15 @@ def test_validate_plan_revise_on_calorie_drift():
     assert any(v["code"] == "CALORIE_OUT_OF_TOLERANCE" for v in result["violations"])
 
 
+def test_validate_plan_revise_not_reject_on_large_calorie_miss():
+    # A real generation can miss by well over 25%; the reject threshold (0.50)
+    # should still give this a revise chance rather than rejecting outright.
+    targets = {"totalCalories": 2594, "macros": {}}
+    meals = make_meals(calories_each=1725.0 / 4, count=4)  # 34% under target
+    result = validate_plan(meals, targets, VALID_PREFS)
+    assert result["verdict"] == "revise"
+
+
 def test_validate_plan_reject_on_restriction_violation():
     targets = {"totalCalories": 2000, "macros": {}}
     meals = make_meals(calories_each=500.0, name="Grilled chicken breast", count=4)
