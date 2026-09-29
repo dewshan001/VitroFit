@@ -25,15 +25,18 @@ from workflow_models import DietWorkflow
 # Per-tool timeouts. calculate_targets/assess_risk/lookup_budget/validate_plan
 # are pure Python with no I/O, so a short timeout is just a safety net.
 # generate_meals wraps meal_agent.generate_meals, which has its own internal
-# timeout logic (up to two 40s model attempts, plus one 40s corrective retry
-# on tolerance failure - meal_agent._CALL_TIMEOUT_SECONDS) - it needs enough
-# room for that to actually run, or every real LLM call gets cut off here
-# before meal_agent even gets a chance to respond.
+# timeout logic (up to two model attempts, plus one corrective retry on
+# tolerance failure - meal_agent._CALL_TIMEOUT_SECONDS = 70s per attempt,
+# raised there after measuring the live NVIDIA endpoint this service actually
+# uses (meta/llama-3.2-11b-vision-instruct) at 65-118s per successful call.
+# Worst case is 3 attempts x 70s = 210s; the timeout below gives it room to
+# reach that rather than our wrapper cutting off a call that was still in
+# progress and about to succeed.
 _DEFAULT_TOOL_TIMEOUT_SECONDS = 10
 _TOOL_TIMEOUTS = {
-    "generate_meals": 85,
+    "generate_meals": 220,
 }
-_OVERALL_TIME_BUDGET_SECONDS = 90
+_OVERALL_TIME_BUDGET_SECONDS = 230
 _MAX_REVISE_RETRIES = 2
 
 _analyst = NutritionAnalystAgent()

@@ -26,7 +26,10 @@ if not NVIDIA_API_KEY:
 
 client = AsyncOpenAI(api_key=NVIDIA_API_KEY, base_url="https://integrate.api.nvidia.com/v1")
 
-_CALL_TIMEOUT_SECONDS = 40
+_CALL_TIMEOUT_SECONDS = 70  # measured live-call latency against the real NVIDIA
+# endpoint (meta/llama-3.2-11b-vision-instruct) ranged 65-118s on success -
+# raised from 40s, which was cutting off calls that were still in progress
+# and about to succeed.
 _TOLERANCE = 0.10  # +/-10%
 
 _SYSTEM_INSTRUCTION = (
