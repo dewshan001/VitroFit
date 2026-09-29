@@ -5,6 +5,7 @@ from typing import Literal
 
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -125,10 +126,26 @@ async def generate_plan(
         session=session,
     )
 
+    # completedSteps carries the real per-agent, per-attempt trace (verdict,
+    # attempt calories vs target, violations) so the frontend can explain
+    # *why* a plan was revised/rejected/failed instead of a single generic
+    # line - the same idea as showing an LLM's step-by-step reasoning.
     if wf.status == "failed":
-        raise HTTPException(status_code=502, detail=wf.error or "Workflow failed.")
+        return JSONResponse(status_code=502, content={
+            "detail": wf.error or "Workflow failed.",
+            "workflowId": str(wf.id),
+            "status": wf.status,
+            "plan": wf.plan,
+            "completedSteps": wf.completed_steps,
+        })
     if wf.status == "rejected":
-        raise HTTPException(status_code=422, detail=_violations_to_message(wf.final_outcome.get("violations", [])))
+        return JSONResponse(status_code=422, content={
+            "detail": _violations_to_message(wf.final_outcome.get("violations", [])),
+            "workflowId": str(wf.id),
+            "status": wf.status,
+            "plan": wf.plan,
+            "completedSteps": wf.completed_steps,
+        })
 
     return {
         "totalCalories": wf.targets["totalCalories"],
@@ -139,6 +156,7 @@ async def generate_plan(
         "status": wf.status,
         "riskLevel": wf.risk_level,
         "plan": wf.plan,
+        "completedSteps": wf.completed_steps,
         "requiresApproval": wf.approval_status == "pending",
     }
 

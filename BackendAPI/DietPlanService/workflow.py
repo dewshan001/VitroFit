@@ -101,6 +101,10 @@ async def call_tool(agent, tool: str, payload, events: list, step: int) -> dict:
         return {"ok": False, "data": None, "error": error}
 
 
+def _sum_calories(meals: list) -> float:
+    return sum(item.get("calories", 0) or 0 for meal in meals for item in meal.get("items", []))
+
+
 def _summarize_violations(violations: list[dict]) -> str:
     revise_violations = [v for v in violations if v["severity"] == "revise"]
     if not revise_violations:
@@ -192,7 +196,22 @@ async def run_workflow(objective: str, prefs: dict, user_id: int, session) -> Di
 
         validation = validator_result["data"]
         wf.validation_results = validation
-        completed_steps.append({"step": step_counter, "agent": "SafetyValidatorAgent", "status": "done"})
+
+        # Human-visible attempt detail (not just an internal ok/error flag),
+        # so the frontend can show why a plan was revised/rejected/failed
+        # instead of a single generic error line.
+        attempt_calories = _sum_calories(meals)
+        target_calories = wf.targets.get("totalCalories", 0) if wf.targets else 0
+        diff_pct = round(abs(attempt_calories - target_calories) / target_calories * 100) if target_calories else 0
+        completed_steps.append({
+            "step": step_counter, "agent": "SafetyValidatorAgent", "status": "done",
+            "attempt": wf.retry_count + 1,
+            "verdict": validation["verdict"],
+            "attemptCalories": round(attempt_calories),
+            "targetCalories": target_calories,
+            "diffPct": diff_pct,
+            "violations": validation["violations"][:5],
+        })
         wf.completed_steps = completed_steps
         wf.events = events
         session.commit()

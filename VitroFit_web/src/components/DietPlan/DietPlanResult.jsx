@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 const MEAL_ICONS = {
   breakfast: '🍳',
   lunch: '🥗',
@@ -109,6 +111,7 @@ export default function DietPlanResult({
   state,
   plan,
   errorMessage,
+  errorSteps = [],
   hasMedicalConditions,
   confirmStatus = 'idle',
   confirmErrorMessage,
@@ -204,6 +207,7 @@ export default function DietPlanResult({
   }
 
   if (state === 'error') {
+    const attemptSteps = (errorSteps || []).filter((s) => s.agent === 'SafetyValidatorAgent');
     return (
       <div className="dp-empty dp-fade-up">
         <div className="dp-empty-icon">⚠️</div>
@@ -211,6 +215,16 @@ export default function DietPlanResult({
         <p className="dp-empty-desc">
           {errorMessage || 'Something went wrong while generating your diet plan. Please try again.'}
         </p>
+        {attemptSteps.length > 0 && (
+          <div className="dp-disclaimer" style={{ textAlign: 'left', marginTop: '1rem' }}>
+            <strong>What happened:</strong>
+            <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+              {attemptSteps.map((step, i) => (
+                <li key={i}>{describeAttemptStep(step)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="dp-result-actions">
           <button className="btn-secondary" onClick={onEdit}>
             Edit Preferences
@@ -230,7 +244,7 @@ export default function DietPlanResult({
           <span className="dp-loader" />
           <h3 className="dp-loading-title">Generating your diet plan…</h3>
           <p className="dp-loading-desc">
-            {simulateLoadingText()}
+            <AgentProgressText />
           </p>
         </div>
         <div className="dp-skeleton-list">
@@ -285,7 +299,43 @@ export default function DietPlanResult({
   );
 }
 
-/* Random rotation of reassuring loader copy. */
-function simulateLoadingText() {
-  return 'Calculating calorie targets and planning portions for every meal…';
+/* Cycles through what the three agents are actually doing, in order, while
+   the (single, synchronous) /generate request is in flight. Not a live feed
+   of the real backend step - the request doesn't stream progress - but the
+   labels and order match the real agent sequence in workflow.build_plan(). */
+const AGENT_PROGRESS_STEPS = [
+  'Nutrition Analyst is calculating your calorie and macro targets…',
+  'Meal Generator is drafting a full day of meals…',
+  'Safety Validator is checking the plan against your restrictions and limits…',
+];
+
+function AgentProgressText() {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStepIndex((i) => Math.min(i + 1, AGENT_PROGRESS_STEPS.length - 1));
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return AGENT_PROGRESS_STEPS[stepIndex];
+}
+
+/** Readable label for one validator attempt's outcome, used in the error breakdown below. */
+function describeAttemptStep(step) {
+  const attemptLabel = step.attempt ? `Attempt ${step.attempt}` : 'Attempt';
+  if (step.verdict === 'pass') {
+    return `${attemptLabel}: ${step.attemptCalories} kcal (target ${step.targetCalories}) — passed all checks.`;
+  }
+  const calorieNote = step.targetCalories
+    ? `${step.attemptCalories} kcal vs ${step.targetCalories} kcal target (${step.diffPct}% off)`
+    : null;
+  const violationNote = (step.violations || [])
+    .map((v) => v.message)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('; ');
+  const verdictLabel = step.verdict === 'reject' ? 'rejected' : 'needed revision';
+  return [`${attemptLabel}: ${verdictLabel}`, calorieNote, violationNote].filter(Boolean).join(' — ');
 }

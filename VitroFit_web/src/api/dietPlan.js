@@ -26,8 +26,12 @@ export async function generateDietPlan(prefs) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = data?.detail || 'Could not generate a diet plan. Please try again.';
-    throw new Error(error);
+    const error = new Error(data?.detail || 'Could not generate a diet plan. Please try again.');
+    // completedSteps carries the real per-agent, per-attempt trace (which
+    // agent ran, what it produced, why a revise/reject happened) so the UI
+    // can show what actually happened instead of just one generic line.
+    error.completedSteps = data?.completedSteps || [];
+    throw error;
   }
 
   return data;

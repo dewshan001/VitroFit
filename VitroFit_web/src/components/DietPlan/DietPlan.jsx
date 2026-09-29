@@ -24,6 +24,7 @@ export default function DietPlan() {
   const [phase, setPhase] = useState('loading-plans');
   const [plan, setPlan] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorSteps, setErrorSteps] = useState([]);
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
@@ -103,6 +104,7 @@ export default function DietPlan() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setErrorMessage(err.message || 'Something went wrong while generating your diet plan.');
+      setErrorSteps(err.completedSteps || []);
       setPhase('error');
     }
   };
@@ -262,6 +264,7 @@ export default function DietPlan() {
             <DietPlanResult
               state="error"
               errorMessage={errorMessage}
+              errorSteps={errorSteps}
               onEdit={handleEdit}
               onRegenerate={() => runGenerate(lastPrefs)}
             />
