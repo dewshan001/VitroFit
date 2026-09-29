@@ -1,4 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+
+// Top-to-bottom order fields actually appear in the form, so when several
+// fail validation at once, the scroll-to-error lands on whichever one the
+// user would reach first, not an arbitrary object-key order.
+const FIELD_ORDER = [
+  'age', 'gender', 'heightCm', 'weightKg', 'activityLevel',
+  'goal', 'budgetTier', 'budgetCustomAmount', 'mealFrequency', 'cookingTime',
+];
 
 const ACTIVITY_OPTIONS = [
   { value: 'sedentary', label: 'Sedentary (little exercise)' },
@@ -130,6 +138,7 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
     cookingTime: initialPrefs?.cookingTime ?? 'moderate',
   });
   const [errors, setErrors] = useState({});
+  const fieldRefs = useRef({});
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -178,7 +187,13 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
     ev.preventDefault();
     const e = validate();
     setErrors(e);
-    if (Object.keys(e).some((k) => e[k])) return;
+
+    const firstInvalidField = FIELD_ORDER.find((key) => e[key]);
+    if (firstInvalidField) {
+      fieldRefs.current[firstInvalidField]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     onSubmit({
       ...form,
       budgetCustomAmount: form.budgetTier === 'custom' ? Number(form.budgetCustomAmount) : null,
@@ -198,7 +213,10 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
       <div className="dp-form-group">
         <h3 className="dp-form-group-title">Personal Details</h3>
         <div className="dp-field-grid">
-          <label className={`dp-field${errors.age ? ' dp-field-error' : ''}`}>
+          <label
+            className={`dp-field${errors.age ? ' dp-field-error' : ''}`}
+            ref={(el) => (fieldRefs.current.age = el)}
+          >
             <span className="dp-field-label">Age</span>
             <NumberStepper
               value={form.age}
@@ -211,16 +229,23 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
             {errors.age && <span className="dp-field-err-text">{errors.age}</span>}
           </label>
 
-          <label className={`dp-field${errors.gender ? ' dp-field-error' : ''}`}>
+          <label
+            className={`dp-field${errors.gender ? ' dp-field-error' : ''}`}
+            ref={(el) => (fieldRefs.current.gender = el)}
+          >
             <span className="dp-field-label">Gender</span>
             <select value={form.gender} onChange={(e) => setField('gender', e.target.value)}>
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
             </select>
+            {errors.gender && <span className="dp-field-err-text">{errors.gender}</span>}
           </label>
 
-          <label className={`dp-field${errors.heightCm ? ' dp-field-error' : ''}`}>
+          <label
+            className={`dp-field${errors.heightCm ? ' dp-field-error' : ''}`}
+            ref={(el) => (fieldRefs.current.heightCm = el)}
+          >
             <span className="dp-field-label">Height (cm)</span>
             <NumberStepper
               value={form.heightCm}
@@ -233,7 +258,10 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
             {errors.heightCm && <span className="dp-field-err-text">{errors.heightCm}</span>}
           </label>
 
-          <label className={`dp-field${errors.weightKg ? ' dp-field-error' : ''}`}>
+          <label
+            className={`dp-field${errors.weightKg ? ' dp-field-error' : ''}`}
+            ref={(el) => (fieldRefs.current.weightKg = el)}
+          >
             <span className="dp-field-label">Weight (kg)</span>
             <NumberStepper
               value={form.weightKg}
@@ -246,7 +274,10 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
             {errors.weightKg && <span className="dp-field-err-text">{errors.weightKg}</span>}
           </label>
 
-          <label className={`dp-field dp-field-wide${errors.activityLevel ? ' dp-field-error' : ''}`}>
+          <label
+            className={`dp-field dp-field-wide${errors.activityLevel ? ' dp-field-error' : ''}`}
+            ref={(el) => (fieldRefs.current.activityLevel = el)}
+          >
             <span className="dp-field-label">Activity Level</span>
             <select
               value={form.activityLevel}
@@ -261,7 +292,7 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
         </div>
       </div>
 
-      <div className="dp-form-group">
+      <div className="dp-form-group" ref={(el) => (fieldRefs.current.goal = el)}>
         <h3 className="dp-form-group-title">Your Primary Goal</h3>
         <div className="dp-chip-row">
           {GOAL_OPTIONS.map((g) => (
@@ -278,7 +309,7 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
         {errors.goal && <span className="dp-field-err-text">{errors.goal}</span>}
       </div>
 
-      <div className="dp-form-group">
+      <div className="dp-form-group" ref={(el) => (fieldRefs.current.budgetTier = el)}>
         <h3 className="dp-form-group-title">Food Budget</h3>
         <div className="dp-chip-row">
           {BUDGET_TIERS.map((b) => (
@@ -295,7 +326,10 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
         </div>
         {errors.budgetTier && <span className="dp-field-err-text">{errors.budgetTier}</span>}
         {form.budgetTier === 'custom' && (
-          <label className={`dp-field${errors.budgetCustomAmount ? ' dp-field-error' : ''}`}>
+          <label
+            className={`dp-field${errors.budgetCustomAmount ? ' dp-field-error' : ''}`}
+            ref={(el) => (fieldRefs.current.budgetCustomAmount = el)}
+          >
             <span className="dp-field-label">Daily budget (Rs.)</span>
             <NumberStepper
               value={form.budgetCustomAmount}
@@ -328,7 +362,7 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
         <p className="dp-field-hint">Select any that apply (optional).</p>
       </div>
 
-      <div className="dp-form-group">
+      <div className="dp-form-group" ref={(el) => (fieldRefs.current.mealFrequency = el)}>
         <h3 className="dp-form-group-title">Meal Frequency</h3>
         <div className="dp-chip-row">
           {MEAL_FREQUENCIES.map((m) => (
@@ -365,7 +399,7 @@ export default function DietPlanPreferenceForm({ initialPrefs, onSubmit, onCance
         </p>
       </div>
 
-      <div className="dp-form-group">
+      <div className="dp-form-group" ref={(el) => (fieldRefs.current.cookingTime = el)}>
         <h3 className="dp-form-group-title">Cooking Time / Skill</h3>
         <div className="dp-chip-row">
           {COOKING_TIMES.map((c) => (
