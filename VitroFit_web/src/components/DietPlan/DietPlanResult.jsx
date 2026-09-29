@@ -9,8 +9,8 @@ const MEAL_ICONS = {
 
 const MEAL_FALLBACK_ICON = '🍽️';
 
-/** Shared summary + meal breakdown, used by both the unsaved result preview and a saved plan's read-only view. */
-function PlanDetails({ plan, hasMedicalConditions }) {
+/** Shared summary + meal breakdown, used by both the unsaved result preview and a saved plan's read-only view. `changedItemKeys` (a Set of "mealType::itemName") highlights items a refine edit just changed, until the plan is confirmed. */
+function PlanDetails({ plan, hasMedicalConditions, changedItemKeys }) {
   const totalCalories = plan?.totalCalories ?? 0;
   const macros = plan?.macros ?? { protein: 0, carbs: 0, fat: 0 };
   const meals = plan?.meals ?? [];
@@ -66,20 +66,26 @@ function PlanDetails({ plan, hasMedicalConditions }) {
               <span className="dp-meal-calories">{mealCalories(meal)} kcal</span>
             </div>
             <ul className="dp-meal-items">
-              {(meal.items || []).map((item, j) => (
-                <li className="dp-meal-item" key={j}>
-                  <div className="dp-meal-item-info">
-                    <span className="dp-meal-item-name">{item.name}</span>
-                    <span className="dp-meal-item-portion">{item.portion}</span>
-                  </div>
-                  <div className="dp-meal-item-meta">
-                    <span className="dp-meal-item-cal">{item.calories} kcal</span>
-                    <span className="dp-meal-item-macros">
-                      P {item.macros?.protein ?? 0} · C {item.macros?.carbs ?? 0} · F {item.macros?.fat ?? 0}
-                    </span>
-                  </div>
-                </li>
-              ))}
+              {(meal.items || []).map((item, j) => {
+                const isChanged = changedItemKeys?.has(`${i}::${j}`);
+                return (
+                  <li className={`dp-meal-item${isChanged ? ' dp-meal-item-changed' : ''}`} key={j}>
+                    <div className="dp-meal-item-info">
+                      <span className="dp-meal-item-name">
+                        {item.name}
+                        {isChanged && <span className="dp-meal-item-changed-badge">Changed</span>}
+                      </span>
+                      <span className="dp-meal-item-portion">{item.portion}</span>
+                    </div>
+                    <div className="dp-meal-item-meta">
+                      <span className="dp-meal-item-cal">{item.calories} kcal</span>
+                      <span className="dp-meal-item-macros">
+                        P {item.macros?.protein ?? 0} · C {item.macros?.carbs ?? 0} · F {item.macros?.fat ?? 0}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
@@ -130,7 +136,7 @@ export default function DietPlanResult({
   onRefine,
   refineStatus = 'idle',
   refineMessage = '',
-  refineLiveDetail = null,
+  changedItemKeys = null,
 }) {
   if (state === 'empty') {
     return (
@@ -282,15 +288,36 @@ export default function DietPlanResult({
   }
 
   // state === 'result'
+  // The agent cards from generation don't vanish once the plan is ready -
+  // they stay visible until the user confirms, using the same shape
+  // describeLiveStep() expects (plan itself carries completedSteps/riskLevel/
+  // meals from the finished workflow; targets is reconstructed from the
+  // flattened totalCalories/macros the result screen already uses).
+  // Only the original generation's steps - a later refine edit appends its
+  // own step entries to the same array, but those shouldn't resurface the
+  // full agent breakdown; the changed-item highlight below covers an edit instead.
+  const resultSteps = (plan?.completedSteps || []).filter((s) => !s.refine);
+  const resultDetail = {
+    targets: { totalCalories: plan?.totalCalories, macros: plan?.macros },
+    riskLevel: plan?.riskLevel,
+    meals: plan?.meals,
+  };
   return (
     <div className="dp-result dp-fade-up">
-      <PlanDetails plan={plan} hasMedicalConditions={hasMedicalConditions} />
+      {resultSteps.length > 0 && (
+        <div className="dp-agent-cards">
+          {resultSteps.map((step, i) => (
+            <LiveStepCard key={i} step={step} detail={resultDetail} allSteps={resultSteps} />
+          ))}
+        </div>
+      )}
+
+      <PlanDetails plan={plan} hasMedicalConditions={hasMedicalConditions} changedItemKeys={changedItemKeys} />
 
       <RefineBox
         onRefine={onRefine}
         refineStatus={refineStatus}
         refineMessage={refineMessage}
-        refineLiveDetail={refineLiveDetail}
       />
 
       {/* Actions */}
@@ -337,42 +364,19 @@ const AGENT_META = {
 };
 
 const RISK_FLAG_TEXT = {
-  UNDER_18: "you're under 18",
-  MEDICAL_CONDITIONS_PRESENT: 'you mentioned a medical condition',
-  BELOW_SAFE_FLOOR: 'your calorie target would fall below a safe daily minimum (1,200 kcal)',
-  STEEP_DEFICIT: "this plan cuts calories well below what your body burns at rest — a steep deficit",
+  UNDER_18: 'under 18',
+  MEDICAL_CONDITIONS_PRESENT: 'medical condition declared',
+  BELOW_SAFE_FLOOR: 'below the 1,200 kcal safe minimum',
+  STEEP_DEFICIT: 'steep calorie deficit',
 };
-
-function explainRisk(riskLevel, riskFlags) {
-  const flagPhrases = (riskFlags || []).map((f) => RISK_FLAG_TEXT[f.code]).filter(Boolean);
-  const intro =
-    'Before any meals are drafted, I check a few safety signals: your age, any medical conditions you listed, ' +
-    'and whether this target represents a steep calorie deficit compared to what your body actually burns.';
-
-  if (riskLevel === 'low' || flagPhrases.length === 0) {
-    return `${intro} None of those applied here, so this is a standard plan — it'll be generated and saved automatically, no extra sign-off needed.`;
-  }
-  const flagText = flagPhrases.join(' and ');
-  if (riskLevel === 'high') {
-    return (
-      `${intro} Here, ${flagText}. Because of that, this plan is marked high risk: once it's generated, ` +
-      `it will wait for a Trainer or Admin to personally review and approve it, rather than saving automatically.`
-    );
-  }
-  return (
-    `${intro} Here, ${flagText}. That's enough to flag for a closer look, but it doesn't block anything — ` +
-    `this plan will still be generated and can be saved normally.`
-  );
-}
 
 /**
  * Turns one real completedSteps entry (as polled live from
- * GET /workflows/{id}) into a detailed, plain-language explanation - not just
- * what happened, but what it means and why it matters. `detail` is the full
- * polled workflow response, used to pull in numbers (targets, risk, drafted
- * meals) a bare step entry doesn't carry by itself. Returns
- * {icon, label, variant, body} for LiveStepCard to render - this reflects
- * what the backend has actually finished, never a simulated guess.
+ * GET /workflows/{id}) into a few short, plan-focused bullet points - facts
+ * and numbers about THIS plan, not an explanation of what the agents are
+ * allowed to do. `detail` is the full polled workflow response, used to pull
+ * in numbers (targets, risk, drafted meals) a bare step entry doesn't carry
+ * by itself. Returns {icon, label, variant, points} for LiveStepCard.
  */
 function describeLiveStep(step, detail, allSteps) {
   const meta = AGENT_META[step.agent] || { icon: '✓', label: step.agent };
@@ -380,23 +384,22 @@ function describeLiveStep(step, detail, allSteps) {
   if (step.agent === 'NutritionAnalystAgent') {
     if (step.step === 1) {
       const t = detail?.targets;
-      const body = t
-        ? `Using your age, weight, height, and activity level, I worked out a daily target of ` +
-          `${t.totalCalories} kcal. That's made up of ${t.macros?.protein}g of protein (what your body uses to ` +
-          `repair and build muscle), ${t.macros?.carbs}g of carbohydrates (your main source of everyday energy), ` +
-          `and ${t.macros?.fat}g of fat (needed for hormone production and absorbing certain vitamins). ` +
-          `The Meal Generator will now try to fill in real meals that add up to these numbers — it's never allowed ` +
-          `to invent its own target.`
-        : 'Calculating your daily calorie and macro targets from your age, weight, height, and activity level…';
-      return { ...meta, variant: 'default', body };
+      const points = t
+        ? [
+            `Daily target: ${t.totalCalories} kcal`,
+            `Protein ${t.macros?.protein}g · Carbs ${t.macros?.carbs}g · Fat ${t.macros?.fat}g`,
+          ]
+        : ['Calculating your calorie and macro targets…'];
+      return { ...meta, variant: 'default', points };
     }
     const flags = step.riskFlags ?? detail?.riskFlags;
     const risk = step.riskLevel ?? detail?.riskLevel;
-    const body = risk
-      ? explainRisk(risk, flags)
-      : 'Checking whether anything about this plan (age, medical conditions, how big a calorie deficit it is) needs extra review…';
-    const variant = risk === 'high' ? 'revise' : 'default';
-    return { ...meta, variant, body };
+    if (!risk) return { ...meta, variant: 'default', points: ['Checking risk level…'] };
+    const flagPhrases = (flags || []).map((f) => RISK_FLAG_TEXT[f.code]).filter(Boolean);
+    const points = [`Risk level: ${risk.charAt(0).toUpperCase()}${risk.slice(1)}`];
+    points.push(flagPhrases.length ? `Why: ${flagPhrases.join(', ')}` : 'No safety concerns found');
+    if (risk === 'high') points.push('Needs Trainer/Admin approval before saving');
+    return { ...meta, variant: risk === 'high' ? 'revise' : 'default', points };
   }
 
   if (step.agent === 'MealGeneratorAgent') {
@@ -407,26 +410,15 @@ function describeLiveStep(step, detail, allSteps) {
     const isLatestGenStep = !allSteps || allSteps.indexOf(step) === lastGenIndex;
     const meals = isLatestGenStep ? detail?.meals : null;
     const mealList = meals?.length ? meals.map((m) => m.label || m.type).join(', ') : null;
-    const intro =
-      "Meal Generator is the only agent allowed to call the AI model, and it can't touch the database or invent " +
-      "its own calorie numbers — it only chooses real food items that add up toward the target Nutrition Analyst already set.";
 
-    if (step.refine) {
-      const body = mealList
-        ? `${intro} For your requested change, it drafted an updated version of the plan (${mealList}) — Safety Validator will now re-check the whole thing before it's applied.`
-        : `${intro} It's drafting an updated version of your plan based on what you asked for.`;
-      return { ...meta, variant: 'default', body };
-    }
     if (step.retry) {
-      const body = mealList
-        ? `${intro} The previous attempt didn't pass Safety Validator's checks, so this is try ${step.retry + 1}, using the specific feedback from that check: ${mealList}.`
-        : `${intro} The previous attempt didn't pass Safety Validator's checks, so this is try ${step.retry + 1}, using that specific feedback to adjust.`;
-      return { ...meta, variant: 'revise', body };
+      const points = mealList
+        ? [`Revised meals (try ${step.retry + 1}): ${mealList}`]
+        : [`Revising meals (try ${step.retry + 1})…`];
+      return { ...meta, variant: 'revise', points };
     }
-    const body = mealList
-      ? `${intro} For today, it drafted ${meals.length} meals: ${mealList}.`
-      : `${intro} It's drafting a full day of meals now.`;
-    return { ...meta, variant: 'default', body };
+    const points = mealList ? [`Drafted ${meals.length} meals: ${mealList}`] : ['Drafting meals…'];
+    return { ...meta, variant: 'default', points };
   }
 
   if (step.agent === 'SafetyValidatorAgent') {
@@ -441,54 +433,29 @@ function describeLiveStep(step, detail, allSteps) {
     const direction = step.attemptCalories != null && step.targetCalories
       ? (step.attemptCalories < step.targetCalories ? 'under' : 'over')
       : null;
-    const calorieNote = step.targetCalories
-      ? `This attempt totals ${step.attemptCalories} kcal, which is ${step.diffPct}% ${direction} your ${step.targetCalories} kcal target`
+    const calorieLine = step.targetCalories
+      ? `Total: ${step.attemptCalories} kcal (target ${step.targetCalories} kcal, ${step.diffPct}% ${direction})`
       : null;
-    const intro =
-      "Safety Validator doesn't use AI at all — it runs fixed rules against the drafted meals: do the calories " +
-      "land within about 10% of your daily target (VitroFit's tolerance band, so the numbers stay meaningful), " +
-      "do the macros roughly add up, and does anything conflict with your dietary restrictions or medical conditions.";
-
-    if (step.refine) {
-      if (step.verdict === 'reject') {
-        const body = reason
-          ? `${intro} For your requested change, it found a problem: ${reason}. Because that's a dietary-safety rule and not just a numbers issue, the change is rejected outright and your plan stays exactly as it was.`
-          : `${intro} For your requested change, it found the result would conflict with one of your restrictions, so the change was rejected and your plan stays exactly as it was.`;
-        return { ...meta, variant: 'reject', body };
-      }
-      if (step.verdict === 'revise') {
-        const body = reason
-          ? `${intro} It flagged a minor issue (${reason}) but nothing that breaks a safety rule, so the change was still applied.`
-          : `${intro} It flagged a minor issue but nothing that breaks a safety rule, so the change was still applied.`;
-        return { ...meta, variant: 'revise', body };
-      }
-      return { ...meta, variant: 'pass', body: `${intro} Your requested change passed every check, so it's now part of your plan.` };
-    }
 
     if (step.verdict === 'pass') {
-      const body = calorieNote
-        ? `${intro} ${calorieNote} — comfortably inside that 10% margin, and nothing conflicts with your restrictions, so this plan passes.`
-        : `${intro} This plan passes every check.`;
-      return { ...meta, variant: 'pass', body };
+      const points = calorieLine ? [calorieLine, '✓ Within tolerance — approved'] : ['✓ Passed all checks'];
+      return { ...meta, variant: 'pass', points };
     }
     if (step.verdict === 'reject') {
-      const body = reason
-        ? `${intro} It found a problem that can't just be fixed by trying again: ${reason}. Since that's a safety rule, not a numbers nuance, VitroFit stops here instead of retrying.`
-        : `${intro} It found a safety issue serious enough that trying again wouldn't help, so it stopped here.`;
-      return { ...meta, variant: 'reject', body };
+      const points = [reason ? `✗ Rejected: ${reason}` : '✗ Rejected — safety issue found'];
+      return { ...meta, variant: 'reject', points };
     }
     // revise
-    const attemptLabel = step.attempt ? `attempt ${step.attempt}` : 'this attempt';
-    const body = calorieNote
-      ? `${intro} For ${attemptLabel}, ${calorieNote} — that's outside the 10% margin${otherReasons ? `, and: ${otherReasons}` : ''}. Rather than accepting an inaccurate plan, it's sending specific feedback back to Meal Generator to try again.`
-      : `${intro} ${attemptLabel} wasn't quite on target, so it's asking Meal Generator to try again.`;
-    return { ...meta, variant: 'revise', body };
+    const points = calorieLine
+      ? [calorieLine, '⚠ Outside tolerance — revising', ...(otherReasons ? [`Also: ${otherReasons}`] : [])]
+      : ['⚠ Not quite on target — revising'];
+    return { ...meta, variant: 'revise', points };
   }
 
-  return { icon: '✓', label: step.agent, variant: 'default', body: 'Finished this step.' };
+  return { icon: '✓', label: step.agent, variant: 'default', points: ['Done'] };
 }
 
-/** One agent's progress explanation, styled as a themed card - larger, higher-contrast text than the surrounding page, color-coded by outcome. */
+/** One agent's progress, styled as a themed card of short bullet points - larger, higher-contrast text than the surrounding page, color-coded by outcome. */
 function LiveStepCard({ step, detail, allSteps }) {
   const info = describeLiveStep(step, detail, allSteps);
   return (
@@ -497,18 +464,19 @@ function LiveStepCard({ step, detail, allSteps }) {
         <span className="dp-agent-card-icon">{info.icon}</span>
         <span>{info.label}</span>
       </div>
-      <p className="dp-agent-card-body">{info.body}</p>
+      <ul className="dp-agent-card-points">
+        {info.points.map((point, i) => <li key={i}>{point}</li>)}
+      </ul>
     </div>
   );
 }
 
 /** A free-text "edit this plan" box, used on the result screen instead of restarting the whole form. */
-function RefineBox({ onRefine, refineStatus, refineMessage, refineLiveDetail }) {
+function RefineBox({ onRefine, refineStatus, refineMessage }) {
   const [instruction, setInstruction] = useState('');
   if (!onRefine) return null;
 
   const applying = refineStatus === 'applying';
-  const refineSteps = (refineLiveDetail?.completedSteps || []).filter((s) => s.refine);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -536,17 +504,7 @@ function RefineBox({ onRefine, refineStatus, refineMessage, refineLiveDetail }) 
           {applying ? 'Applying…' : 'Apply Change'}
         </button>
       </form>
-      {applying && (
-        <div className="dp-agent-cards dp-agent-cards-compact">
-          {refineSteps.length === 0 ? (
-            <p className="dp-refine-progress-placeholder">Looking at your plan…</p>
-          ) : (
-            refineSteps.map((s, i) => (
-              <LiveStepCard key={i} step={s} detail={refineLiveDetail} allSteps={refineSteps} />
-            ))
-          )}
-        </div>
-      )}
+      {applying && <p className="dp-refine-progress-placeholder">Applying your change…</p>}
       {(refineStatus === 'note' || refineStatus === 'error') && refineMessage && (
         <p className="dp-field-err-text dp-refine-message">{refineMessage}</p>
       )}

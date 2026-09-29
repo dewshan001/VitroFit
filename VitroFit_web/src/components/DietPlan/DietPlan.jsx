@@ -70,6 +70,30 @@ async function pollWithPacedReveal(workflowId, onStepRevealed) {
   }
 }
 
+/**
+ * Set of "mealIndex::itemIndex" positions (within `nextMeals`) whose item
+ * name differs from the same position in the same meal in `prevMeals` - used
+ * to highlight exactly what a refine edit changed. Positional, not name-based
+ * on purpose: two different items can share a name (e.g. a meal already
+ * containing "Mixed vegetables" and the refined swap also becoming "Mixed
+ * vegetables") which a name-existence check can't tell apart, but comparing
+ * the same slot before and after can.
+ */
+function diffMealItems(prevMeals, nextMeals) {
+  const prevByType = new Map((prevMeals || []).map((meal) => [meal.type, meal]));
+  const changed = new Set();
+  (nextMeals || []).forEach((meal, mealIndex) => {
+    const prevMeal = prevByType.get(meal.type);
+    (meal.items || []).forEach((item, itemIndex) => {
+      const prevItem = prevMeal?.items?.[itemIndex];
+      if (!prevItem || prevItem.name !== item.name) {
+        changed.add(`${mealIndex}::${itemIndex}`);
+      }
+    });
+  });
+  return changed;
+}
+
 export default function DietPlan() {
   const { auth, getFullName } = useAuth();
   const user = auth?.user ?? {};
@@ -82,7 +106,9 @@ export default function DietPlan() {
   const [liveDetail, setLiveDetail] = useState(null);
   const [refineStatus, setRefineStatus] = useState('idle'); // idle | applying | note | error
   const [refineMessage, setRefineMessage] = useState('');
-  const [refineLiveDetail, setRefineLiveDetail] = useState(null);
+  // Which meal items were just changed by a refine edit ("mealType::itemName"
+  // keys) - highlighted in the plan until the user confirms or starts over.
+  const [changedItemKeys, setChangedItemKeys] = useState(new Set());
   const [confirmStatus, setConfirmStatus] = useState('idle'); // idle | saving | saved | error
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
@@ -180,6 +206,7 @@ export default function DietPlan() {
     setLiveDetail(null);
     setRefineStatus('idle');
     setRefineMessage('');
+    setChangedItemKeys(new Set());
     try {
       const { workflowId } = await generateDietPlan(toApiPrefs(prefs));
       // Don't flip to the result screen the moment the backend is done - wait
@@ -196,16 +223,17 @@ export default function DietPlan() {
     }
   };
 
-  /** Applies one free-text edit (e.g. "swap rice for something else at lunch") to the freshly generated, not-yet-saved plan, instead of restarting the whole form. */
+  /** Applies one free-text edit (e.g. "swap rice for something else at lunch") to the freshly generated, not-yet-saved plan, instead of restarting the whole form. No step-by-step breakdown here - just apply it, then highlight whatever actually changed. */
   const handleRefine = async (instruction) => {
     if (!plan?.workflowId) return;
     setRefineStatus('applying');
     setRefineMessage('');
-    setRefineLiveDetail(null);
+    const previousMeals = plan.meals;
     try {
       await refineDietPlan(plan.workflowId, instruction);
-      const result = await pollWithPacedReveal(plan.workflowId, setRefineLiveDetail);
+      const result = await pollDietWorkflow(plan.workflowId);
       setPlan(result);
+      setChangedItemKeys(result.note ? new Set() : diffMealItems(previousMeals, result.meals));
       if (result.note) {
         setRefineMessage(result.note);
         setRefineStatus('note');
@@ -251,6 +279,7 @@ export default function DietPlan() {
       }
       setConfirmStatus('saved');
       setConfirmErrorMessage('');
+      setChangedItemKeys(new Set());
       await refreshSavedPlans();
     } catch (err) {
       setConfirmErrorMessage(err.message || "Couldn't save your plan. Please try again.");
@@ -266,6 +295,7 @@ export default function DietPlan() {
     setConfirmErrorMessage('');
     setRefineStatus('idle');
     setRefineMessage('');
+    setChangedItemKeys(new Set());
     setPhase('form');
   };
 
@@ -395,7 +425,7 @@ export default function DietPlan() {
               onRefine={handleRefine}
               refineStatus={refineStatus}
               refineMessage={refineMessage}
-              refineLiveDetail={refineLiveDetail}
+              changedItemKeys={changedItemKeys}
             />
           )}
 
