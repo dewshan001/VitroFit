@@ -6,3 +6,6 @@ export const SOURCE_LABELS = {
   'ai-inferred': 'AI best guess (partial site data)',
   'ai-generic': 'AI best guess (no site data)',
 };
+
+/** True when an admin/gym owner approved the gym's details (GymDetails.source === 'verified'). */
+export const isVerifiedSource = (source) => source === 'verified';

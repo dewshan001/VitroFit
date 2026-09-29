@@ -23,7 +23,19 @@ approval_gate: approve → publish | reject → end | revise (max 2) → workout
 
 Controls: every tool call goes through `call_tool` (role allow-list, plan narrowing, input schema, scrape only the gym's own public host, timeout, sanitised output). Contact details must be backed by a snippet found in the retrieved text. Scraped text and reviewer feedback are treated as untrusted. Retries and time budget are bounded. Failures end in `safe_fail` with nothing published.
 
-State: LangGraph `AsyncPostgresSaver` (`thread_id = workflow id`, so a paused approval survives restarts) plus tables `gym_agent_workflows` (plan, steps, tool results, validation results, errors, approval, outcome) and `gym_agent_events` (one row per agent/tool step with timing). No prompts, reasoning or secrets are stored.
+State (all in PostgreSQL): LangGraph `AsyncPostgresSaver` (`thread_id = workflow id`, so a paused approval survives restarts) plus normalised tables:
+
+| Table | Holds |
+|---|---|
+| `gym_agent_workflows` | objective, request, plan, facts, recommendations, validation results, errors, status, **approval fields** (`approval_status`, `approved_by`, `approver_role`, `approval_note`, `decided_at`), final outcome, retry count |
+| `gym_agent_steps` | one row per agent/node run: `seq`, agent, summary, ok, error, duration (FK → workflow, unique `(workflow_id, seq)`, cascade delete) |
+| `gym_agent_tool_calls` | one row per tool call: agent, tool, input summary, ok, error code, duration (FK → workflow and → step, cascade delete) |
+
+A node's step, tool calls and workflow update are written in one transaction, so the audit trail can never disagree with the state. No prompts, reasoning or secrets are stored. Status and approval values are protected by check constraints.
+
+Admins (and Gym_Owners) review runs on the React page `/admin/gym-approvals`, backed by `/api/gym-agent/workflows/*`.
+
+Flow: on **Find Gyms**, an Admin/Gym_Owner clicks *Submit for verification* on a card → a workflow starts (a second click while one is active shows *Already under review*) → the run appears in **Gym Approvals** → *Approve* publishes it as `verified` → after a reload the Find Gyms card shows *Verified by gym* (the legacy details endpoint returns `verified` rows unchanged).
 
 ## Setup and startup order
 
@@ -40,3 +52,5 @@ The legacy `/api/gyms/details` and `/api/gyms/workouts` endpoints still exist fo
 ## Tests
 
 `venv/Scripts/python -m pytest` (no network, database server or paid model needed: SQLite, in-memory checkpointer, scripted model).
+
+Against a real PostgreSQL test database (also exercises the Postgres checkpointer and schema): create an empty database, then `TEST_DATABASE_URL=postgresql+psycopg2://user:pw@localhost:5432/gym_test venv/Scripts/python -m pytest`.

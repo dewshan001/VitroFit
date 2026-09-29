@@ -15,6 +15,7 @@ import asyncio
 import logging
 import operator
 import time
+from datetime import datetime, timezone
 from typing import Annotated, Any, Callable
 
 from langgraph.errors import GraphBubbleUp
@@ -79,6 +80,20 @@ def _error_code(exc: Exception) -> str:
     return "INTERNAL_ERROR"
 
 
+def _error_detail(exc: Exception) -> str:
+    """Safe, short reason for the audit trail: exception type and, for schema errors, which
+    fields failed and why. Never the model's text, prompts, or provider error bodies."""
+    cause = exc.__cause__ or exc
+    if isinstance(cause, ValidationError):
+        problems = sorted({f"{'.'.join(str(p) for p in e['loc'])}:{e['type']}" for e in cause.errors()})
+        return f"{type(cause).__name__}: {'; '.join(problems)}"[:300]
+    if isinstance(exc, AgentOutputError):
+        # Our own messages only; never the message of a wrapped third-party exception.
+        inner = f" <- {cause}" if isinstance(cause, AgentOutputError) and cause is not exc else ""
+        return f"{type(exc).__name__}: {exc}{inner}"
+    return type(exc).__name__
+
+
 def _step(agent: str, summary: str) -> dict:
     return {"agent": agent, "summary": summary[:200]}
 
@@ -103,36 +118,27 @@ def build_graph(
                 raise  # interrupt() must pass through untouched
             except Exception as exc:
                 error = _error_code(exc)
-                logger.warning("Node %s failed for %s: %s", agent, wid, error)
+                detail = _error_detail(exc)[:300]
+                logger.warning("Node %s failed for %s: %s (%s)", agent, wid, error, detail)
                 delta = {
                     "status": "Failed",
                     "approval_status": "none" if agent != "approval_gate" else "pending",
                     "final_outcome": f"Workflow stopped safely ({error}); nothing was published.",
-                    "errors": [{"agent": agent, "code": error}],
+                    "errors": [{"agent": agent, "code": error, "detail": detail}],
                 }
             duration = int((time.perf_counter() - started) * 1000)
-            for rec in delta.get("tool_results", []):
-                await io(
-                    store.add_event,
-                    wid,
-                    rec["agent"],
-                    tool=rec["tool"],
-                    ok=rec["ok"],
-                    duration_ms=rec["durationMs"],
-                    error=rec.get("error"),
-                    input_summary=rec.get("input"),
-                )
             steps = delta.get("completed_steps") or []
             await io(
-                store.add_event,
+                store.record_node,
                 wid,
                 agent,
                 ok=error is None,
                 duration_ms=duration,
                 error=error,
-                output_summary=steps[-1]["summary"] if steps else delta.get("final_outcome"),
+                summary=steps[-1]["summary"] if steps else delta.get("final_outcome"),
+                tool_calls=delta.get("tool_results", []),
+                delta=delta,
             )
-            await io(store.apply, wid, delta)
             return delta
 
         return wrapper
@@ -226,6 +232,10 @@ def build_graph(
         decision = ApprovalDecision.model_validate(raw)
         summary = f"{decision.decision} by {decision.actor_role} ({decision.actor_id})"
         base = {"approval": decision.model_dump(mode="json")}
+        decided = {
+            "approver_role": decision.actor_role,
+            "decided_at": datetime.now(timezone.utc).isoformat(),
+        }
 
         if decision.actor_role not in APPROVER_ROLES:
             return {
@@ -237,6 +247,7 @@ def build_graph(
         if decision.decision == "approve":
             return {
                 **base,
+                **decided,
                 "approval_status": "approved",
                 "approved_by": decision.actor_id,
                 "approval_note": decision.reason or None,
@@ -245,6 +256,7 @@ def build_graph(
         if decision.decision == "reject":
             return {
                 **base,
+                **decided,
                 "status": "Rejected",
                 "approval_status": "rejected",
                 "approved_by": decision.actor_id,
@@ -255,6 +267,7 @@ def build_graph(
         humans = state.get("human_revisions", 0) + 1
         delta = {
             **base,
+            **decided,
             "human_revisions": humans,
             "approved_by": decision.actor_id,
             "approval_note": decision.reason or None,

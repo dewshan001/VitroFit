@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getUsersByRole, createUser, deleteUser } from '../api/admin';
 import './AdminDashboardPage.css';
 
@@ -117,6 +117,7 @@ export default function AdminDashboardPage() {
             <h1 className="admin-title">Admin <span>Dashboard</span></h1>
             <p className="admin-subtitle">Manage platform users, trainers, and gym owners</p>
           </div>
+          <Link to="/admin/gym-approvals" className="btn-primary">Gym Approvals</Link>
         </div>
       </div>
 

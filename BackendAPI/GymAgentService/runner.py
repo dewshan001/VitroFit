@@ -107,7 +107,16 @@ class WorkflowRunner:
             "errors": [{"agent": "runner", "code": code}],
         }
         try:
-            await asyncio.to_thread(self.store.add_event, workflow_id, "runner", ok=False, error=code)
-            await asyncio.to_thread(self.store.apply, workflow_id, delta)
+            await asyncio.to_thread(
+                self.store.record_node,
+                workflow_id,
+                "runner",
+                ok=False,
+                duration_ms=0,
+                error=code,
+                summary=delta["final_outcome"],
+                tool_calls=[],
+                delta=delta,
+            )
         except Exception:
             logger.exception("Could not record failure for workflow %s", workflow_id)

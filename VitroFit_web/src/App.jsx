@@ -13,6 +13,7 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import GymApprovalsPage from './pages/GymApprovalsPage';
 import FindGymsPage from './pages/FindGymsPage';
 import DietPlansPage from './pages/DietPlansPage';
 
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/profile"        element={<ProfilePage />} />
         <Route path="/admin"          element={<AdminDashboardPage />} />
+        <Route path="/admin/gym-approvals" element={<GymApprovalsPage />} />
       </Routes>
       {!isAuthPage && <Chatbot />}
       {!isAuthPage && <Footer />}

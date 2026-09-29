@@ -89,7 +89,7 @@ def golden_recs(**overrides) -> Recommendations:
 class FakeModel:
     """Scripted stand-in for the chat model. Used as the `llm_factory` itself."""
 
-    def __init__(self, tool_calls=None, facts=None, recs=None, fail=None, delay=0.0):
+    def __init__(self, tool_calls=None, facts=None, recs=None, fail=None, delay=0.0, bad_extraction=False):
         self.tool_calls = tool_calls if tool_calls is not None else [
             {"name": "scrape_gym_website", "args": {"url": WEBSITE}, "id": "call-1", "type": "tool_call"}
         ]
@@ -97,6 +97,7 @@ class FakeModel:
         self.recs_queue = list(recs) if recs else [golden_recs()]
         self.fail = fail
         self.delay = delay
+        self.bad_extraction = bad_extraction
         self.bound_tool_names: list[str] = []
         self.prompts: list[list] = []
 
@@ -127,6 +128,11 @@ class FakeModel:
             async def ainvoke(self, messages):
                 await outer._gate(messages)
                 if schema is GymFacts:
+                    if outer.bad_extraction:
+                        # What a model that ignores the schema produces: out-of-range and unknown values.
+                        GymFacts.model_validate(
+                            {"confidence": 5, "evidence": [{"field": "bogus", "snippet": "x" * 500}]}
+                        )
                     return outer.facts
                 recs = outer.recs_queue[0] if len(outer.recs_queue) == 1 else outer.recs_queue.pop(0)
                 return recs

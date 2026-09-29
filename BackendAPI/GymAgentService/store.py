@@ -9,7 +9,7 @@ import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from db import SessionLocal
 from models import (
@@ -52,6 +52,8 @@ def workflow_to_dict(row: GymWorkflow, steps: list | None = None, tool_calls: li
     return {
         "id": row.id,
         "placeId": row.place_id,
+        "gymName": (row.request or {}).get("name"),
+        "website": (row.request or {}).get("website"),
         "requestedBy": row.requested_by,
         "objective": row.objective,
         "status": row.status,
@@ -128,60 +130,135 @@ class WorkflowStore:
             s.commit()
         return workflow_id
 
-    def apply(self, workflow_id: str, delta: dict) -> None:
+    @staticmethod
+    def _merge(row: GymWorkflow, delta: dict) -> None:
         """Merge a node's state delta onto the row (lists append, scalars replace)."""
+        for key in SCALAR_COLUMNS:
+            if key in delta:
+                setattr(row, key, _decided_at(delta[key]) if key == "decided_at" else delta[key])
+        for key in LIST_COLUMNS:
+            if delta.get(key):
+                setattr(row, key, list(getattr(row, key) or []) + list(delta[key]))
+
+    def apply(self, workflow_id: str, delta: dict) -> None:
         with SessionLocal() as s:
             row = s.get(GymWorkflow, workflow_id)
-            if row is None:
-                return
-            for key in SCALAR_COLUMNS:
-                if key in delta:
-                    setattr(row, key, _decided_at(delta[key]) if key == "decided_at" else delta[key])
-            for key in LIST_COLUMNS:
-                if delta.get(key):
-                    setattr(row, key, list(getattr(row, key) or []) + list(delta[key]))
-            s.commit()
+            if row is not None:
+                self._merge(row, delta)
+                s.commit()
 
-    def add_event(
+    def record_node(
         self,
         workflow_id: str,
         agent: str,
         *,
-        tool: str | None = None,
-        ok: bool = True,
-        duration_ms: int = 0,
-        error: str | None = None,
-        input_summary: str | None = None,
-        output_summary: str | None = None,
+        ok: bool,
+        duration_ms: int,
+        error: str | None,
+        summary: str | None,
+        tool_calls: list[dict],
+        delta: dict,
     ) -> None:
-        with SessionLocal() as s:
-            s.add(
-                GymWorkflowEvent(
-                    workflow_id=workflow_id,
-                    agent=agent,
-                    tool=tool,
-                    ok=ok,
-                    duration_ms=duration_ms,
-                    error=error,
-                    input_summary=(input_summary or "")[:300] or None,
-                    output_summary=(output_summary or "")[:300] or None,
+        """Persist one node run atomically: its step row, its tool-call rows, and the
+        workflow state delta. Either all of it is recorded or none, so the audit trail
+        can never disagree with the workflow state."""
+        with SessionLocal() as s, s.begin():
+            seq = (
+                s.scalar(
+                    select(func.coalesce(func.max(GymWorkflowStep.seq), 0)).where(
+                        GymWorkflowStep.workflow_id == workflow_id
+                    )
                 )
+                or 0
+            ) + 1
+            step = GymWorkflowStep(
+                workflow_id=workflow_id,
+                seq=seq,
+                agent=agent,
+                summary=(summary or "")[:300] or None,
+                ok=ok,
+                error=error,
+                duration_ms=duration_ms,
             )
-            s.commit()
+            s.add(step)
+            s.flush()
+            for rec in tool_calls:
+                s.add(
+                    GymWorkflowToolCall(
+                        workflow_id=workflow_id,
+                        step_id=step.id,
+                        agent=rec["agent"],
+                        tool=rec["tool"],
+                        input_summary=(rec.get("input") or "")[:300] or None,
+                        ok=rec["ok"],
+                        error_code=rec.get("error"),
+                        duration_ms=rec["durationMs"],
+                    )
+                )
+            row = s.get(GymWorkflow, workflow_id)
+            if row is not None:
+                self._merge(row, delta)
 
     def get(self, workflow_id: str) -> dict | None:
         with SessionLocal() as s:
             row = s.get(GymWorkflow, workflow_id)
-            return workflow_to_dict(row) if row else None
+            if row is None:
+                return None
+            steps, calls = self._children(s, workflow_id)
+            return workflow_to_dict(
+                row, [step_to_dict(x) for x in steps], [tool_call_to_dict(x) for x in calls]
+            )
+
+    @staticmethod
+    def _children(s, workflow_id: str):
+        steps = s.scalars(
+            select(GymWorkflowStep)
+            .where(GymWorkflowStep.workflow_id == workflow_id)
+            .order_by(GymWorkflowStep.seq)
+        ).all()
+        calls = s.scalars(
+            select(GymWorkflowToolCall)
+            .where(GymWorkflowToolCall.workflow_id == workflow_id)
+            .order_by(GymWorkflowToolCall.id)
+        ).all()
+        return steps, calls
 
     def events(self, workflow_id: str) -> list[dict]:
+        """Chronological timeline: each step preceded by the tool calls it made."""
         with SessionLocal() as s:
-            rows = s.scalars(
-                select(GymWorkflowEvent)
-                .where(GymWorkflowEvent.workflow_id == workflow_id)
-                .order_by(GymWorkflowEvent.id)
-            ).all()
-            return [event_to_dict(r) for r in rows]
+            steps, calls = self._children(s, workflow_id)
+            by_step: dict[int, list[GymWorkflowToolCall]] = {}
+            for c in calls:
+                by_step.setdefault(c.step_id, []).append(c)
+
+            timeline: list[dict] = []
+
+            def add(**item) -> None:
+                timeline.append({"id": len(timeline) + 1, **item})
+
+            for step in steps:
+                for c in by_step.get(step.id, []):
+                    add(
+                        agent=c.agent,
+                        tool=c.tool,
+                        ok=c.ok,
+                        durationMs=c.duration_ms,
+                        error=c.error_code,
+                        inputSummary=c.input_summary,
+                        outputSummary=None,
+                        createdAt=_iso(c.created_at),
+                    )
+                add(
+                    agent=step.agent,
+                    tool=None,
+                    ok=step.ok,
+                    durationMs=step.duration_ms,
+                    error=step.error,
+                    inputSummary=None,
+                    outputSummary=step.summary,
+                    createdAt=_iso(step.created_at),
+                )
+            return timeline
 
     def list_workflows(
         self, *, status: str | None = None, requested_by: str | None = None, limit: int = 50
@@ -279,5 +356,7 @@ class WorkflowStore:
             wf.status = "Published"
             wf.approval_status = "approved"
             wf.approved_by = actor["actor_id"]
+            wf.approver_role = actor.get("actor_role")
+            wf.decided_at = datetime.now(timezone.utc)
             wf.approval_note = actor.get("reason") or None
             wf.final_outcome = "Approved and published as verified gym data."

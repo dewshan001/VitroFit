@@ -5,7 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import { fetchGymDetails } from '../../api/gyms';
 import GymList from './GymList';
 import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
-import { SOURCE_LABELS } from './gymSourceLabels';
+import { SOURCE_LABELS, isVerifiedSource } from './gymSourceLabels';
+import VerifiedBadge from './VerifiedBadge';
 import './GymMap.css';
 
 /* ─────────────────────────────────────────
@@ -343,6 +344,7 @@ export default function GymMap() {
                       <div className="gym-place-popup-card">
                         <div className="gym-place-popup-header">
                           <div className="gym-place-popup-badge">Gym / Fitness</div>
+                          {isVerifiedSource(gymDetails[placeId]?.data?.source) && <VerifiedBadge />}
                           {distance && <span className="gym-place-popup-dist">{distance} km away</span>}
                         </div>
                         <div className="gym-place-popup-title">{placeName}</div>

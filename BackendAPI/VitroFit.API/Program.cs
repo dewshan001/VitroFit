@@ -5,10 +5,12 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using VitroFit.API.Data;
 using VitroFit.API.Entities;
+using VitroFit.API.Features.GymAgent;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
 
@@ -56,6 +58,14 @@ builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(
 
 // Bind SMTP settings from appsettings.json → EmailSettings section
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.Configure<GymAgentSettings>(builder.Configuration.GetSection(GymAgentSettings.SectionName));
+builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GymAgentSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+});
 
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -138,13 +148,17 @@ using (var scope = app.Services.CreateScope())
 }
 
 var sidecarProcesses = new List<Process>();
-foreach (var (serviceName, relativeDir, port) in new[]
+var gymAgentKey = builder.Configuration[$"{GymAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
+foreach (var (serviceName, relativeDir, port, arguments, environment) in new (string, string, int, string, Dictionary<string, string>)[]
 {
-    ("GymAgentService", "GymAgentService", 8001),
-    ("chatbot_service", "chatbot_service", 8000),
+    // server.py (not `uvicorn main:app`): the Postgres checkpointer needs a selector event loop on Windows.
+    // The shared key is passed through the environment so API and agent service can't drift apart.
+    ("GymAgentService", "GymAgentService", 8001, "server.py",
+        gymAgentKey.Length > 0 ? new() { ["GYM_AGENT_KEY"] = gymAgentKey } : new()),
+    ("chatbot_service", "chatbot_service", 8000, "-m uvicorn main:app --port 8000", new()),
 })
 {
-    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port);
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port, arguments, environment);
     if (process != null)
     {
         sidecarProcesses.Add(process);
@@ -172,7 +186,9 @@ app.Run();
 /// </summary>
 static class PythonServiceSidecar
 {
-    public static Process? StartIfAvailable(ILogger logger, string serviceName, string relativeDir, int port)
+    public static Process? StartIfAvailable(
+        ILogger logger, string serviceName, string relativeDir, int port,
+        string arguments, IReadOnlyDictionary<string, string> environment)
     {
         if (IsPortInUse(port))
         {
@@ -201,11 +217,15 @@ static class PythonServiceSidecar
             var startInfo = new ProcessStartInfo
             {
                 FileName = pythonExe,
-                Arguments = $"-m uvicorn main:app --port {port}",
+                Arguments = arguments,
                 WorkingDirectory = serviceDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
+            foreach (var (name, value) in environment)
+            {
+                startInfo.Environment[name] = value;
+            }
 
             var process = Process.Start(startInfo);
             logger.LogInformation("Started {ServiceName} sidecar (pid {Pid}) on port {Port}.", serviceName, process?.Id, port);

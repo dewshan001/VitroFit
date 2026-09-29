@@ -327,7 +327,7 @@ def test_model_outage_fails_safely_and_records_the_error():
     wid = run(scenario())
     r = row(wid)
     assert r["status"] == "Failed"
-    assert {"agent": "gym_analysis", "code": "MODEL_UNAVAILABLE"} in r["errors"]
+    assert [(e["agent"], e["code"]) for e in r["errors"]] == [("gym_analysis", "MODEL_UNAVAILABLE")]
     assert "nothing was published" in r["finalOutcome"]
     assert stored_details() is None
 
@@ -465,3 +465,33 @@ def test_workflow_table_rejects_invalid_status():
         s.add(GymWorkflow(id="x", place_id="p", requested_by="u", objective="o", status="Bogus", request={}))
         with pytest.raises(IntegrityError):
             s.commit()
+
+
+def test_unusable_model_output_is_recorded_with_a_safe_reason():
+    async def scenario():
+        return await start(make_runner(FakeModel(bad_extraction=True)))
+
+    wid = run(scenario())
+    r = row(wid)
+    assert r["status"] == "Failed"
+    (error,) = r["errors"]
+    assert (error["agent"], error["code"]) == ("gym_analysis", "OUTPUT_INVALID")
+    # The reason names what was wrong with the output (here the model replied with non-JSON text)...
+    assert "AgentOutputError" in error["detail"] and "no JSON object" in error["detail"]
+    # ...and is short and never echoes model text.
+    assert len(error["detail"]) <= 300 and "xxxx" not in error["detail"]
+    assert r["approvalStatus"] == "none" and stored_details() is None
+
+
+def test_schema_violations_report_field_names_but_not_values():
+    from graph import _error_detail
+    from contracts import GymFacts
+    from pydantic import ValidationError
+
+    secret = "SECRET-" + "x" * 500
+    try:
+        GymFacts.model_validate({"confidence": 5, "evidence": [{"field": "bogus", "snippet": secret}]})
+    except ValidationError as exc:
+        detail = _error_detail(exc)
+    assert "confidence:less_than_equal" in detail and "evidence.0.field:literal_error" in detail
+    assert "SECRET" not in detail
