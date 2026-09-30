@@ -13,6 +13,10 @@ public static class FitnessModule
             client.BaseAddress = new Uri(configuration["FitnessAgent:BaseUrl"] ?? "http://127.0.0.1:8002");
             client.Timeout = TimeSpan.FromSeconds(120);
         });
+        services.AddHttpClient<TimeManagementAgentClient>(client => {
+            client.BaseAddress = new Uri(configuration["TimeManagementAgent:BaseUrl"] ?? "http://127.0.0.1:8003");
+            client.Timeout = TimeSpan.FromSeconds(120);
+        });
         services.AddScoped<FitnessWorkflowService>();
         return services;
     }
@@ -31,5 +35,21 @@ public sealed class FitnessAgentClient(HttpClient client, IConfiguration configu
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<AgentResult>(cancellation)
             ?? throw new InvalidOperationException("Empty fitness response.");
+    }
+}
+
+public record TimeManagementRequest(Guid WorkflowId, Guid RunId, WorkoutPlan Plan, ProfileInput Profile, string Preferences = "");
+public record TimeManagementResult(string Status, System.Text.Json.JsonElement? Timetable, string LongTermImpact, List<string> Errors);
+
+public sealed class TimeManagementAgentClient(HttpClient client, IConfiguration configuration)
+{
+    public async Task<TimeManagementResult> GenerateTimetable(TimeManagementRequest request, CancellationToken cancellation)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/internal/generate_timetable");
+        message.Content = JsonContent.Create(request);
+        using var response = await client.SendAsync(message, cancellation);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TimeManagementResult>(cancellation)
+            ?? throw new InvalidOperationException("Empty time management response.");
     }
 }

@@ -60,7 +60,7 @@ async def propose_timetable(request: GenerateRequest, errors: list[str]) -> Time
         "outputSchema": Timetable.model_json_schema(),
     }
     messages = [
-        {"role": "system", "content": "You are a time management scheduler. Output strictly JSON matching the outputSchema. Assign a startTime and endTime for each day in the provided plan based on typical user preferences or standard times (e.g. 18:00 to 19:30). Ensure durationMinutes matches the plan."},
+        {"role": "system", "content": "You are a time management scheduler. Output strictly JSON matching the outputSchema. Create a HIGHLY DETAILED and COMPLICATED weekly schedule. For the workout days provided in the plan, assign them a specific time slot matching their focus and duration. ADDITIONALLY, generate multiple extra lifestyle and recovery slots for EVERY SINGLE DAY of the week (Days 1 through 7). Include slots such as 'Morning Cardio', 'Meal Prep', 'Active Recovery', 'Mobility & Stretching', 'Yoga', and 'Rest Day'. Generate at least 3 to 4 slots for EVERY day of the week, resulting in a rich, complicated, and fully-packed timetable of around 21 to 28 slots total."},
         {"role": "user", "content": json.dumps(context)}
     ]
     resp = await _call_openrouter(messages, format_json=True)

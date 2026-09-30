@@ -206,6 +206,40 @@ export default function Timetable() {
     }
   }
 
+  async function handleDropSlot(slotId, newDay, newHour) {
+    const slot = slots.find(s => s.id === slotId);
+    if (!slot) return;
+    
+    const oldStartFrac = timeToHourFraction(toInputTime(slot.startTime));
+    const oldEndFrac = timeToHourFraction(toInputTime(slot.endTime));
+    const durationFrac = oldEndFrac - oldStartFrac;
+    
+    const newStartStr = hourToInputTime(newHour);
+    const newEndHour = newHour + durationFrac;
+    const newEndH = Math.floor(newEndHour);
+    const newEndM = Math.round((newEndHour - newEndH) * 60);
+    const newEndStr = `${String(newEndH).padStart(2, '0')}:${String(newEndM).padStart(2, '0')}`;
+    
+    const payload = {
+      day: newDay,
+      startTime: toApiTime(newStartStr),
+      endTime: toApiTime(newEndStr),
+      title: slot.title,
+      workoutId: slot.workoutId,
+    };
+    
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateSlot(slot.id, payload);
+      setSlots(prev => prev.map(s => s.id === slot.id ? updated : s));
+    } catch (err) {
+      setError("Failed to move slot: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="tt-page">
@@ -284,9 +318,22 @@ export default function Timetable() {
                         key={`${d.value}-${hour}`}
                         className="tt-cell"
                         onClick={() => !slot && openAddForm(d.value, hour)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={async (e) => {
+                          e.preventDefault();
+                          const slotId = e.dataTransfer.getData('text/plain');
+                          if (slotId) {
+                            await handleDropSlot(Number(slotId), d.value, hour);
+                          }
+                        }}
                       >
                         {slot && (
-                          <div className="tt-event" onClick={(e) => { e.stopPropagation(); openEditForm(slot); }}>
+                          <div 
+                            className="tt-event" 
+                            draggable={true}
+                            onDragStart={(e) => e.dataTransfer.setData('text/plain', slot.id)}
+                            onClick={(e) => { e.stopPropagation(); openEditForm(slot); }}
+                          >
                             <div className="tt-event-title">{slot.title}</div>
                             <div className="tt-event-time">
                               {toInputTime(slot.startTime)} - {toInputTime(slot.endTime)}

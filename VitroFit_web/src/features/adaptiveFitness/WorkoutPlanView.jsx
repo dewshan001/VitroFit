@@ -7,6 +7,57 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
   const sortedPlans = [...plans].sort((a, b) => (a.plan?.week || 0) - (b.plan?.week || 0));
   const plansByWeek = new Map(sortedPlans.map(item => [item.plan.week, item.plan]));
   const latestPlan = sortedPlans.at(-1)?.plan;
+
+  const renderTimetable = () => {
+    if (!timetable) return null;
+    return (
+      <section className="fitness-timetable-section" aria-labelledby="fitness-timetable-title">
+        <div className="fitness-week-heading">
+          <div>
+            <span className="fitness-eyebrow">Smart Scheduling</span>
+            <h3 id="fitness-timetable-title">Your Automated Timetable</h3>
+          </div>
+        </div>
+        
+        {longTermImpact && (
+          <div className="fitness-long-term-impact fitness-progression-note">
+            <span className="fitness-eyebrow">Long-term Impact</span>
+            <p>{longTermImpact}</p>
+          </div>
+        )}
+        
+        <div className="fitness-timetable-grid">
+          {timetable.slots?.map((slot, idx) => {
+            const session = latestPlan?.days.find(item => item.day === slot.day);
+            return (
+              <div key={idx} className="fitness-timetable-card">
+                <span className="fitness-eyebrow">{weekdays[slot.day - 1]}</span>
+                <h4>{slot.focus}</h4>
+                <p><strong>Time:</strong> {slot.startTime} &mdash; {slot.endTime} ({slot.durationMinutes} min)</p>
+                
+                {session && (
+                  <>
+                    <p style={{ marginTop: '0.5rem', marginBottom: '1rem', color: '#ccc' }}>Warm up {session.warmupMinutes} min · Cool down {session.cooldownMinutes} min</p>
+                    <ul className="fitness-exercise-list">{session.exercises.map(item => {
+                      const exercise = catalog.find(value => value.id === item.exerciseId);
+                      return <li key={item.exerciseId}>
+                        <strong className="fitness-exercise-name">{exercise?.name || `Exercise ${item.exerciseId}`}</strong>
+                        <span className="fitness-exercise-prescription">{item.sets} sets × {item.repetitions} reps</span>
+                        <small className="fitness-exercise-rest">Rest {item.restSeconds} sec</small>
+                        {item.adaptedFromExerciseId && <small className="fitness-adaptation-reason">Adapted from exercise {item.adaptedFromExerciseId}: {item.adaptationReason || 'changed to account for your pain report'}</small>}
+                      </li>;
+                    })}</ul>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
+
   if (latestPlan?.week > 4) return <section className="fitness-week-grid fitness-block-plan" aria-labelledby="fitness-week-title">
     <div className="fitness-week-heading">
       <div><span className="fitness-eyebrow">Progressive workout block</span><h3 id="fitness-week-title">Block {latestPlan.week - 4}</h3></div>
@@ -26,6 +77,7 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
         </li>;
       })}</ul>
     </li>)}</ol>
+    {renderTimetable()}
   </section>;
 
   return <section className="fitness-week-grid" aria-labelledby="fitness-week-title">
@@ -103,31 +155,6 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
       </table>
     </div>
 
-    {timetable && (
-      <section className="fitness-timetable-section" aria-labelledby="fitness-timetable-title" style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-        <div className="fitness-week-heading">
-          <span className="fitness-eyebrow">Smart Scheduling</span>
-          <h3 id="fitness-timetable-title">Your Automated Timetable</h3>
-        </div>
-        
-        {longTermImpact && (
-          <div className="fitness-long-term-impact" style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#e9ecef', borderRadius: '6px' }}>
-            <strong>Long-term Impact:</strong>
-            <p style={{ margin: '0.5rem 0 0 0' }}>{longTermImpact}</p>
-          </div>
-        )}
-        
-        <div className="fitness-timetable-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-          {timetable.slots?.map((slot, idx) => (
-            <div key={idx} className="fitness-timetable-card" style={{ padding: '1rem', border: '1px solid #dee2e6', borderRadius: '6px', backgroundColor: '#ffffff' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0' }}>{weekdays[slot.day - 1]}</h4>
-              <p style={{ margin: '0' }}><strong>Time:</strong> {slot.startTime} - {slot.endTime}</p>
-              <p style={{ margin: '0' }}><strong>Focus:</strong> {slot.focus}</p>
-              <p style={{ margin: '0' }}><strong>Duration:</strong> {slot.durationMinutes} min</p>
-            </div>
-          ))}
-        </div>
-      </section>
-    )}
+    {renderTimetable()}
   </section>;
 }

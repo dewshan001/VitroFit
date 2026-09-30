@@ -1551,3 +1551,51 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* Timetable specific styles */
+.fitness-timetable-section {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid rgba(200, 240, 0, 0.28);
+}
+
+.fitness-timetable-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.fitness-timetable-card {
+  padding: 20px;
+  background: #111611;
+  border: 1px solid rgba(200, 240, 0, 0.2);
+  border-radius: 4px;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.fitness-timetable-card:hover {
+  background: #151b15;
+  transform: translateY(-2px);
+  border-color: rgba(200, 240, 0, 0.5);
+}
+
+.fitness-timetable-card h4 {
+  margin: 6px 0 12px;
+  color: #fff;
+  font-family: var(--font-display, "Oswald", sans-serif);
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fitness-timetable-card p {
+  margin: 4px 0;
+  color: #c1c9ba;
+  font-size: 0.9rem;
+}
+
+.fitness-timetable-card strong {
+  color: #d9ded1;
+  font-weight: 600;
+}

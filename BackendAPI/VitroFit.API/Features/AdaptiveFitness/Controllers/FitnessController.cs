@@ -162,6 +162,68 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
         return workflow is null ? NotFound() : Ok(Details(workflow));
     }
 
+    [HttpPost("workflows/{id:guid}/timetable")]
+    public async Task<IActionResult> GenerateTimetable(Guid id, [FromServices] TimeManagementAgentClient timeAgent, CancellationToken cancellation)
+    {
+        var workflow = await db.Workflows.SingleOrDefaultAsync(w => w.Id == id && w.UserId == UserId && w.Status == "Ready");
+        if (workflow?.PlanJson is null) return NotFound(new { message = "Workout plan not found or not ready." });
+        var profile = await db.Profiles.FindAsync(UserId);
+        if (profile is null) return BadRequest(new { message = "Profile not found." });
+
+        var plan = FitnessJson.Read<WorkoutPlan>(workflow.PlanJson);
+        var request = new TimeManagementRequest(workflow.Id, Guid.NewGuid(), plan, profile.ToInput(), "");
+        
+        try
+        {
+            var result = await timeAgent.GenerateTimetable(request, cancellation);
+            if (result.Status == "Failed")
+            {
+                return BadRequest(new { message = "Agent failed to generate timetable", errors = result.Errors });
+            }
+
+            // Delete old timetable slots for the user
+            var existingSlots = await appDb.TimetableSlots.Where(t => t.UserId == UserId).ToListAsync(cancellation);
+            appDb.TimetableSlots.RemoveRange(existingSlots);
+
+            if (result.Timetable.HasValue && result.Timetable.Value.TryGetProperty("slots", out var slotsElement))
+            {
+                foreach(var slotElement in slotsElement.EnumerateArray())
+                {
+                    var focus = slotElement.GetProperty("focus").GetString() ?? "Adaptive Workout";
+                    var workout = await appDb.Workouts.FirstOrDefaultAsync(w => w.Name == focus, cancellation);
+                    if (workout == null)
+                    {
+                        workout = new VitroFit.API.Entities.Workout { Name = focus, Category = "Adaptive" };
+                        appDb.Workouts.Add(workout);
+                        await appDb.SaveChangesAsync(cancellation);
+                    }
+
+                    var dayInt = slotElement.GetProperty("day").GetInt32();
+                    var dayOfWeek = dayInt == 7 ? DayOfWeek.Sunday : (DayOfWeek)dayInt;
+                    var startTime = slotElement.GetProperty("startTime").GetString() ?? "00:00";
+                    var endTime = slotElement.GetProperty("endTime").GetString() ?? "00:00";
+
+                    appDb.TimetableSlots.Add(new VitroFit.API.Entities.TimetableSlot
+                    {
+                        UserId = UserId,
+                        WorkoutId = workout.Id,
+                        Day = dayOfWeek,
+                        StartTime = TimeSpan.Parse(startTime),
+                        EndTime = TimeSpan.Parse(endTime),
+                        Title = focus
+                    });
+                }
+            }
+            await appDb.SaveChangesAsync(cancellation);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(503, new { message = "Timetable generation failed.", details = ex.Message });
+        }
+    }
+
     [HttpGet("workflows/{id:guid}/history")]
     public async Task<IActionResult> History(Guid id)
     {
