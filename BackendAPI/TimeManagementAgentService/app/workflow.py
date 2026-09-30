@@ -71,7 +71,7 @@ async def execute(request: GenerateRequest, record, proposer=llm.propose_timetab
     graph.add_edge("analyst", "validator")
     graph.add_conditional_edges("validator", lambda s: "scheduler" if s["status"] == "Planning" else END)
     
-    config = {"configurable": {"thread_id": str(request.runId)}, "recursion_limit": 10}
+    config = {"configurable": {"thread_id": str(request.runId)}, "recursion_limit": 20}
     state = await graph.compile(checkpointer=checkpointer).ainvoke({"request": request.model_dump(mode="json")}, config)
     
     result_tt = Timetable.model_validate(state["timetable"]) if state.get("timetable") else None

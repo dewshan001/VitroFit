@@ -8,7 +8,7 @@ from .main import app
 
 
 def main() -> None:
-    config = uvicorn.Config(app, host="127.0.0.1", port=8002, loop="none")
+    config = uvicorn.Config(app, host="127.0.0.1", port=8003, loop="none")
     server = uvicorn.Server(config)
     if sys.platform == "win32":
         asyncio.run(server.serve(), loop_factory=asyncio.SelectorEventLoop)
