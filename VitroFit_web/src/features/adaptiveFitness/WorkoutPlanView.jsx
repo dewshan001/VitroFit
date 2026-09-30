@@ -1,7 +1,7 @@
 const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const weeks = [1, 2, 3, 4];
 
-export default function WorkoutPlanView({ plans = [], catalog = [], progressByWeek = {} }) {
+export default function WorkoutPlanView({ plans = [], catalog = [], progressByWeek = {}, timetable = null, longTermImpact = "" }) {
   if (!plans.length) return null;
 
   const sortedPlans = [...plans].sort((a, b) => (a.plan?.week || 0) - (b.plan?.week || 0));
@@ -102,5 +102,32 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
         </tbody>
       </table>
     </div>
+
+    {timetable && (
+      <section className="fitness-timetable-section" aria-labelledby="fitness-timetable-title" style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+        <div className="fitness-week-heading">
+          <span className="fitness-eyebrow">Smart Scheduling</span>
+          <h3 id="fitness-timetable-title">Your Automated Timetable</h3>
+        </div>
+        
+        {longTermImpact && (
+          <div className="fitness-long-term-impact" style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#e9ecef', borderRadius: '6px' }}>
+            <strong>Long-term Impact:</strong>
+            <p style={{ margin: '0.5rem 0 0 0' }}>{longTermImpact}</p>
+          </div>
+        )}
+        
+        <div className="fitness-timetable-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+          {timetable.slots?.map((slot, idx) => (
+            <div key={idx} className="fitness-timetable-card" style={{ padding: '1rem', border: '1px solid #dee2e6', borderRadius: '6px', backgroundColor: '#ffffff' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>{weekdays[slot.day - 1]}</h4>
+              <p style={{ margin: '0' }}><strong>Time:</strong> {slot.startTime} - {slot.endTime}</p>
+              <p style={{ margin: '0' }}><strong>Focus:</strong> {slot.focus}</p>
+              <p style={{ margin: '0' }}><strong>Duration:</strong> {slot.durationMinutes} min</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
   </section>;
 }
