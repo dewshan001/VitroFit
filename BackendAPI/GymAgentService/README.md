@@ -107,6 +107,27 @@ A `source_url` only counts as support when it is a public https URL (http only o
 
 ## Tests
 
-`venv/Scripts/python -m pytest` (no network, database server or paid model needed: SQLite, in-memory checkpointer, scripted model).
+```bash
+pip install -r requirements-test.txt
+pytest                                   # everything except the timing tests, on SQLite (about a minute)
+TEST_DATABASE_URL=postgresql+psycopg2://user:pw@localhost:5432/gym_test pytest   # real PostgreSQL: checkpointer, constraints, migrations
+pytest --cov                             # with coverage (fails under 80%; measured 83-84%)
+pytest -m evaluation                     # only the agent golden cases
+pytest -m perf                           # latency smoke tests (see perf/README.md)
+```
 
-Against a real PostgreSQL test database (also exercises the Postgres checkpointer and schema): create an empty database, then `TEST_DATABASE_URL=postgresql+psycopg2://user:pw@localhost:5432/gym_test venv/Scripts/python -m pytest`.
+No test needs the network, an API key or a real model: the model and the tools are scripted, and a safety net in
+`tests/conftest.py` makes any attempt to reach a real LLM, the real vector index or a non-local host fail loudly.
+
+| Layer | Where | What it proves |
+|---|---|---|
+| Unit and contract | `test_contracts_and_planner`, `test_validators`, `test_url_policy`, `test_injection_guard` | contracts reject unknown fields; validator rules, URL allow-list and injection guard behave, including obfuscation and false-positive checks |
+| Integration | `test_workflow`, `test_persistence`, `test_verified_enforcement`, `test_injection_workflow`, `test_tool_registry`, `test_logging_handler`, `test_api`, `test_internal_only` | the real graph, runner, store and HTTP API together; approval enforcement; durable state; the service is internal-only |
+| PostgreSQL | `test_postgres` (marker `postgres`) | schema, constraints, the real checkpointer surviving a restart, migrations |
+| Agent evaluation | `tests/evaluation` (marker `evaluation`) | 21 golden cases, rule-based (no LLM judge), mapped to the assignment's ten criteria; writes `reports/evaluation_report.md` |
+| Performance | `tests/perf`, `perf/` (marker `perf`) | see `perf/README.md` |
+
+Adding a golden case: add an entry to `CASES` in `tests/evaluation/cases.py`; the harness runs it, checks it and
+adds it to the report. The report shows, per case and per criterion, PASS, FAIL or "-" (not evidenced).
+
+CI (`.github/workflows/ci.yml`) runs all of this on every push and pull request to `main` and `development`.

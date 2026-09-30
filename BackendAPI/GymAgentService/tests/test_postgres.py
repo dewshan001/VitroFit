@@ -19,9 +19,10 @@ from runner import WorkflowRunner
 from store import WorkflowStore
 from tests.support import FakeModel, gym_request
 
-pytestmark = pytest.mark.skipif(
-    not DATABASE_URL.startswith("postgresql"), reason="needs TEST_DATABASE_URL pointing at PostgreSQL"
-)
+pytestmark = [
+    pytest.mark.postgres,
+    pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="needs TEST_DATABASE_URL pointing at PostgreSQL"),
+]
 
 
 def run_selector(coro):

@@ -422,6 +422,29 @@ to the web app at `/login` and access the admin dashboard at `/admin`.
 
 ---
 
+## Continuous integration
+
+[![CI](https://github.com/dewshan001/VitroFit/actions/workflows/ci.yml/badge.svg)](https://github.com/dewshan001/VitroFit/actions/workflows/ci.yml)
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main` and `development`:
+
+| Job | What it does |
+|---|---|
+| `dotnet` | restore, build (Release) and test `VitroFit.API.Tests` |
+| `gym-agent-service` | pytest on SQLite, then on a real PostgreSQL 17 service (with a coverage gate), the latency smoke tests, and a quick latency report; uploads coverage, JUnit, the agent evaluation report and the latency report as artifacts |
+| `web` | `npm ci`, lint, build |
+| `flutter` | `flutter analyze --no-fatal-infos` and `flutter test` |
+| `all checks passed` | one aggregate check to require in branch protection |
+
+To run the same checks locally, follow the commands in each job (the Python job needs CPU-only PyTorch first:
+`pip install torch --index-url https://download.pytorch.org/whl/cpu`).
+
+## Design records and evidence
+
+- [`docs/adr/`](docs/adr/README.md): architecture decision records (agent framework and orchestration; workflow-state schema).
+- [`docs/evaluation/gym-agent-evaluation-report.md`](docs/evaluation/gym-agent-evaluation-report.md): the Agentic AI evaluation (21 golden cases, ten criteria, rule-based).
+- [`docs/performance/gym-agent-latency.md`](docs/performance/gym-agent-latency.md): latency and load measurements, including real LLM timings from stored runs.
+
 ## Troubleshooting
 
 **The web app cannot talk to the API.**
