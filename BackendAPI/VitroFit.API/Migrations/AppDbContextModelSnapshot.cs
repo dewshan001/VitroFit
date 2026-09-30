@@ -60,7 +60,7 @@ namespace VitroFit.API.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("PasswordResetOtps", (string)null);
+                    b.ToTable("PasswordResetOtps");
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.RefreshToken", b =>
@@ -94,7 +94,49 @@ namespace VitroFit.API.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("VitroFit.API.Entities.TimetableSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Day")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WorkoutId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("WorkoutId");
+
+                    b.ToTable("TimetableSlots");
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.User", b =>
@@ -152,7 +194,37 @@ namespace VitroFit.API.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("VitroFit.API.Entities.Workout", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Workouts");
                 });
 
             modelBuilder.Entity("VitroFit.API.Entities.RefreshToken", b =>
@@ -166,9 +238,35 @@ namespace VitroFit.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VitroFit.API.Entities.TimetableSlot", b =>
+                {
+                    b.HasOne("VitroFit.API.Entities.User", "User")
+                        .WithMany("TimetableSlots")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VitroFit.API.Entities.Workout", "Workout")
+                        .WithMany("TimetableSlots")
+                        .HasForeignKey("WorkoutId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Workout");
+                });
+
             modelBuilder.Entity("VitroFit.API.Entities.User", b =>
                 {
                     b.Navigation("RefreshTokens");
+
+                    b.Navigation("TimetableSlots");
+                });
+
+            modelBuilder.Entity("VitroFit.API.Entities.Workout", b =>
+                {
+                    b.Navigation("TimetableSlots");
                 });
 #pragma warning restore 612, 618
         }

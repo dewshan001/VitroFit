@@ -1,10 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>4ed4cd03-79a6-45f7-9388-a6e2017667a6</UserSecretsId>
+    <UserSecretsId>VitroFit-Local-Development</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

@@ -13,6 +13,7 @@ using VitroFit.API.Entities;
 using VitroFit.API.Features.GymAgent;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
+using VitroFit.API.Features.AdaptiveFitness;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,7 @@ JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddAdaptiveFitness(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -133,6 +135,9 @@ using (var scope = app.Services.CreateScope())
     // Apply any pending EF Core migrations automatically (creates the DB on first run).
     context.Database.Migrate();
 
+    var fitnessContext = scope.ServiceProvider.GetRequiredService<FitnessDbContext>();
+    fitnessContext.Database.Migrate();
+
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     
     if (!context.Users.Any(u => u.Email == "admin@gmail.com"))
@@ -153,16 +158,17 @@ using (var scope = app.Services.CreateScope())
 
 var sidecarProcesses = new List<Process>();
 var gymAgentKey = builder.Configuration[$"{GymAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
-foreach (var (serviceName, relativeDir, port, arguments, environment) in new (string, string, int, string, Dictionary<string, string>)[]
+foreach (var (serviceName, relativeDir, port, customArgs, environment) in new (string, string, int, string?, Dictionary<string, string>?)[]
 {
     // server.py (not `uvicorn main:app`): the Postgres checkpointer needs a selector event loop on Windows.
     // The shared key is passed through the environment so API and agent service can't drift apart.
-    ("GymAgentService", "GymAgentService", 8001, "server.py",
-        gymAgentKey.Length > 0 ? new() { ["GYM_AGENT_KEY"] = gymAgentKey } : new()),
-    ("chatbot_service", "chatbot_service", 8000, "-m uvicorn main:app --port 8000", new()),
+    ("GymAgentService", "GymAgentService", 8001, "server.py", gymAgentKey.Length > 0 ? new() { ["GYM_AGENT_KEY"] = gymAgentKey } : null),
+    ("chatbot_service", "chatbot_service", 8000, null, null),
+    ("DietPlanService", "DietPlanService", 8003, null, null),
+    ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server", null),
 })
 {
-    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port, arguments, environment);
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, builder.Environment.ContentRootPath, serviceName, relativeDir, port, customArgs, environment);
     if (process != null)
     {
         sidecarProcesses.Add(process);
@@ -191,8 +197,8 @@ app.Run();
 static class PythonServiceSidecar
 {
     public static Process? StartIfAvailable(
-        ILogger logger, string serviceName, string relativeDir, int port,
-        string arguments, IReadOnlyDictionary<string, string> environment)
+        ILogger logger, string apiProjectDir, string serviceName, string relativeDir, int port,
+        string? customArgs = null, IReadOnlyDictionary<string, string>? environment = null)
     {
         if (IsPortInUse(port))
         {
@@ -200,19 +206,22 @@ static class PythonServiceSidecar
             return null;
         }
 
-        var apiProjectDir = Directory.GetCurrentDirectory();
         var serviceDir = Path.GetFullPath(Path.Combine(apiProjectDir, "..", relativeDir));
         var pythonExe = OperatingSystem.IsWindows()
-            ? Path.Combine(serviceDir, "venv", "Scripts", "python.exe")
-            : Path.Combine(serviceDir, "venv", "bin", "python");
+            ? (File.Exists(Path.Combine(serviceDir, ".venv", "Scripts", "python.exe"))
+                ? Path.Combine(serviceDir, ".venv", "Scripts", "python.exe")
+                : Path.Combine(serviceDir, "venv", "Scripts", "python.exe"))
+            : (File.Exists(Path.Combine(serviceDir, ".venv", "bin", "python"))
+                ? Path.Combine(serviceDir, ".venv", "bin", "python")
+                : Path.Combine(serviceDir, "venv", "bin", "python"));
 
         if (!File.Exists(pythonExe))
         {
             logger.LogWarning(
                 "{ServiceName} venv not found at {PythonExe} - skipping auto-start. " +
-                "Set it up with: cd BackendAPI/{RelativeDir} && python -m venv venv && " +
+                "Set it up in {ServiceDir} with a Python venv and install requirements.txt. " +
                 "venv/Scripts/pip install -r requirements.txt (see .env.example for required settings).",
-                serviceName, pythonExe, relativeDir);
+                serviceName, pythonExe, serviceDir);
             return null;
         }
 
@@ -221,17 +230,40 @@ static class PythonServiceSidecar
             var startInfo = new ProcessStartInfo
             {
                 FileName = pythonExe,
-                Arguments = arguments,
+                Arguments = customArgs ?? $"-m uvicorn main:app --port {port}",
                 WorkingDirectory = serviceDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
-            foreach (var (name, value) in environment)
+            if (environment != null)
             {
-                startInfo.Environment[name] = value;
+                foreach (var (name, value) in environment)
+                {
+                    startInfo.Environment[name] = value;
+                }
             }
 
             var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                logger.LogWarning("Failed to start {ServiceName} sidecar: no process was created.", serviceName);
+                return null;
+            }
+
+            process.OutputDataReceived += (_, eventArgs) =>
+            {
+                if (eventArgs.Data is not null)
+                    logger.LogInformation("{ServiceName}: {Output}", serviceName, eventArgs.Data);
+            };
+            process.ErrorDataReceived += (_, eventArgs) =>
+            {
+                if (eventArgs.Data is not null)
+                    logger.LogWarning("{ServiceName}: {Output}", serviceName, eventArgs.Data);
+            };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             logger.LogInformation("Started {ServiceName} sidecar (pid {Pid}) on port {Port}.", serviceName, process?.Id, port);
             return process;
         }

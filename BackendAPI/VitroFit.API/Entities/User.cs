@@ -38,5 +38,7 @@ namespace VitroFit.API.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+        public ICollection<TimetableSlot> TimetableSlots { get; set; } = new List<TimetableSlot>();
     }
 }

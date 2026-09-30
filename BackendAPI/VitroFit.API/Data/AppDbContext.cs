@@ -16,6 +16,10 @@ namespace VitroFit.API.Data
         /// <summary>Stores OTP codes used for the forgot-password / reset-password flow.</summary>
         public DbSet<PasswordResetOtp> PasswordResetOtps => Set<PasswordResetOtp>();
 
+        public DbSet<TimetableSlot> TimetableSlots => Set<TimetableSlot>();
+
+        public DbSet<Workout> Workouts => Set<Workout>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -56,6 +60,31 @@ namespace VitroFit.API.Data
                       .HasConversion<string>()
                       .HasMaxLength(30)
                       .HasDefaultValue(Entities.OtpPurpose.PasswordReset);
+            });
+
+            modelBuilder.Entity<TimetableSlot>(entity =>
+            {
+                entity.HasIndex(e => e.UserId);
+                entity.Property(e => e.Day)
+                      .HasConversion<string>()
+                      .HasMaxLength(20);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
+                entity.HasOne(s => s.User)
+                      .WithMany(u => u.TimetableSlots)
+                      .HasForeignKey(s => s.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(s => s.Workout)
+                      .WithMany(w => w.TimetableSlots)
+                      .HasForeignKey(s => s.WorkoutId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Workout>(entity =>
+            {
+                entity.HasIndex(e => e.Name).IsUnique();
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Description).HasMaxLength(500);
             });
         }
     }

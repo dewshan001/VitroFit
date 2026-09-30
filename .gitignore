@@ -3,6 +3,9 @@
 # .NET build output
 bin/
 obj/
+/.fitness-build/
+/.fitness-build-check/
+/.fitness-build-check-tests/
 
 # Node.js dependencies
 node_modules/
@@ -38,3 +41,12 @@ BackendAPI/GymAgentService/reports/
 BackendAPI/GymAgentService/.coverage
 BackendAPI/GymAgentService/coverage.xml
 BackendAPI/GymAgentService/junit.xml
+
+# Chroma DB files
+BackendAPI/GymAgentService/chroma_gym_data/
+
+AI_Adaptive_Fitness_Gym_Agent_Assignment_Prompt.md
+
+/.fitness-build-check-bin/
+BackendAPI/.fitness-build-check-obj/
+BackendAPI/.fitness-build-check-tests-bin/

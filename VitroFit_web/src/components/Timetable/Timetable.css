@@ -244,6 +244,13 @@
   color: #888888;
 }
 
+.tt-event-category {
+  font-size: 0.65rem;
+  color: #888888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .tt-event.highlighted .tt-event-time,
 .tt-event.highlighted .tt-event-trainer {
   color: rgba(0, 0, 0, 0.7);
@@ -310,6 +317,120 @@
   font-size: 1rem;
   max-width: 500px;
   margin-bottom: 2rem;
+}
+
+/* Toolbar / states */
+.tt-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2rem;
+}
+
+.tt-login-prompt,
+.tt-loading,
+.tt-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 3rem 0;
+  font-size: 1.1rem;
+}
+
+.tt-error {
+  text-align: center;
+  color: #ff6b6b;
+  margin-bottom: 1rem;
+}
+
+.tt-event-delete {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: var(--transition);
+}
+
+.tt-event-delete:hover {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+/* Add/Edit modal */
+.tt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.tt-modal {
+  background: #1e1e1e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.tt-modal h3 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.tt-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.tt-modal input,
+.tt-modal select {
+  background: #2b2b2b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.tt-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.tt-modal-actions button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  transition: var(--transition);
+}
+
+.tt-modal-delete {
+  border-color: #ff6b6b !important;
+  color: #ff6b6b !important;
+}
+
+.tt-modal-delete:hover {
+  background: #ff6b6b !important;
+  color: #1e1e1e !important;
 }
 
 /* Responsive */

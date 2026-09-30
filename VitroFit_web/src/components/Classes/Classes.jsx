@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
 import { useScrollAnimation } from '../../hooks/useScrollAnimation';
+import { Link } from 'react-router-dom';
 import './Classes.css';
 
 const classes = [
@@ -35,20 +35,7 @@ const classes = [
 ];
 
 export default function Classes() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const trackRef = useRef(null);
   const { ref, isVisible } = useScrollAnimation();
-
-  const goTo = (index) => {
-    setActiveIndex(index);
-    if (trackRef.current) {
-      const cardWidth = trackRef.current.children[0]?.offsetWidth + 24;
-      trackRef.current.style.transform = `translateX(-${index * cardWidth}px)`;
-    }
-  };
-
-  const prev = () => goTo(Math.max(0, activeIndex - 1));
-  const next = () => goTo(Math.min(classes.length - 1, activeIndex + 1));
 
   return (
     <section id="classes" className="section classes" ref={ref}>
@@ -59,39 +46,24 @@ export default function Classes() {
           </h2>
         </div>
 
-        <div className={`classes-nav fade-up delay-1 ${isVisible ? 'visible' : ''}`}>
-          <button className="classes-nav-btn" onClick={prev} aria-label="Previous">&#8592;</button>
-          <button className="classes-nav-btn" onClick={next} aria-label="Next">&#8594;</button>
-        </div>
-
         <div className="classes-carousel">
           <div className="classes-track-wrapper">
-            <div className="classes-track" ref={trackRef}>
-              {classes.map((cls, i) => (
-                <div className="class-card" key={cls.id}>
+            <div className="classes-track">
+              {classes.map((cls) => (
+                <Link className="class-card" key={cls.id} to="/adaptive-fitness" aria-label={`Create a self-fitness plan: ${cls.title}`}>
                   <img src={cls.image} alt={cls.title} className="class-card-image" />
-                  <button className="class-card-view-btn">VIEW MORE</button>
+                  <span className="class-card-view-btn" aria-hidden="true">VIEW MORE</span>
                   <div className="class-card-accent" />
                   <div className="class-card-overlay">
                     <div className="class-card-category">{cls.category}</div>
                     <div className={`class-card-title ${cls.active ? '' : 'no-underline'}`}>{cls.title}</div>
                     <div className="class-card-desc">{cls.desc}</div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
 
-          <div className="classes-indicators">
-            {classes.map((_, i) => (
-              <button
-                key={i}
-                className={`classes-indicator ${i === activeIndex ? 'active' : ''}`}
-                onClick={() => goTo(i)}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
-          </div>
         </div>
       </div>
     </section>
