@@ -1,0 +1,5 @@
+# Everything needed to run the test suite (CI installs this file).
+-r requirements.txt
+pytest>=8.0.0
+pytest-cov>=5.0.0
+pytest-timeout>=2.3.0

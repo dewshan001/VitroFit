@@ -1,0 +1,90 @@
+[
+  {
+    "id": 1,
+    "agent": "planner",
+    "tool": null,
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": "Plan created: route=scrape, 3 steps",
+    "createdAt": "2026-09-29T23:29:16.104526+05:30"
+  },
+  {
+    "id": 2,
+    "agent": "gym_analysis",
+    "tool": "scrape_gym_website",
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": "https://fitzone.lk",
+    "outputSummary": null,
+    "createdAt": "2026-09-29T23:29:16.114290+05:30"
+  },
+  {
+    "id": 3,
+    "agent": "gym_analysis",
+    "tool": null,
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": "3 equipment, 2 classes, confidence 0.85, 1 tool calls",
+    "createdAt": "2026-09-29T23:29:16.114290+05:30"
+  },
+  {
+    "id": 4,
+    "agent": "workout_recommendation",
+    "tool": "list_equipment_taxonomy",
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": null,
+    "createdAt": "2026-09-29T23:29:16.121144+05:30"
+  },
+  {
+    "id": 5,
+    "agent": "workout_recommendation",
+    "tool": null,
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": "4 workouts proposed",
+    "createdAt": "2026-09-29T23:29:16.121144+05:30"
+  },
+  {
+    "id": 6,
+    "agent": "validator",
+    "tool": null,
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": "attempt 1: pass, 0 violations",
+    "createdAt": "2026-09-29T23:29:16.125702+05:30"
+  },
+  {
+    "id": 7,
+    "agent": "approval_gate",
+    "tool": null,
+    "ok": true,
+    "durationMs": 0,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": "approve by Admin (owner-9)",
+    "createdAt": "2026-09-29T23:29:16.136401+05:30"
+  },
+  {
+    "id": 8,
+    "agent": "publish",
+    "tool": null,
+    "ok": true,
+    "durationMs": 6,
+    "error": null,
+    "inputSummary": null,
+    "outputSummary": "Published as verified",
+    "createdAt": "2026-09-29T23:29:16.146707+05:30"
+  }
+]

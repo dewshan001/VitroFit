@@ -1,5 +1,6 @@
 """LangChain tools the gym enrichment agent can call autonomously."""
 
+import json
 import os
 import httpx
 from bs4 import BeautifulSoup
@@ -115,10 +116,63 @@ def lookup_similar_gyms(gym_name: str, city: str) -> str:
         return f"Database lookup failed: {e}"
 
 
+# ── Tool 4: Workout taxonomy (read-only, offline) ───────────────────────
+
+WORKOUT_CATEGORIES = ["Strength", "Cardio", "HIIT", "Flexibility", "Endurance", "Mobility"]
+DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"]
+MIN_WORKOUT_MINUTES = 10
+MAX_WORKOUT_MINUTES = 120
+
+
+@tool
+def list_equipment_taxonomy() -> str:
+    """List the workout categories, difficulty levels and duration limits the platform
+    accepts. Read-only, no network access."""
+    return json.dumps(
+        {
+            "categories": WORKOUT_CATEGORIES,
+            "difficulties": DIFFICULTIES,
+            "duration_minutes": {"min": MIN_WORKOUT_MINUTES, "max": MAX_WORKOUT_MINUTES},
+            "always_available": ["bodyweight"],
+        }
+    )
+
+
 # ── Expose all tools ────────────────────────────────────────────────────
 
 
 def get_all_tools() -> list:
-    """Return all tools available to the enrichment agent."""
-    return [scrape_gym_website, search_gym_info, lookup_similar_gyms]
+    """Return every tool. Agents must NOT use this directly — go through
+    tool_registry.tools_for(role) / call_tool(role, ...) so allow-lists apply."""
+    return [scrape_gym_website, search_gym_info, lookup_similar_gyms, list_equipment_taxonomy]
 
+
+
+# ── Injection-guarded copies for the legacy single-agent path ───────────
+
+
+def guarded(tool):
+    """The same tool (name, description, schema) whose output passes the prompt-injection guard.
+
+    The four-agent workflow reaches tools only through tool_registry.call_tool, which guards them; the
+    legacy enrichment graph (Find Gyms) runs the tools through a plain ToolNode, so it uses these copies.
+    """
+    import asyncio
+
+    from langchain_core.tools import StructuredTool
+
+    import injection_guard
+
+    async def run(**kwargs):
+        if tool.coroutine is not None:
+            raw = await tool.coroutine(**kwargs)
+        else:
+            raw = await asyncio.to_thread(tool.func, **kwargs)
+        checked = injection_guard.guard_text(raw if isinstance(raw, str) else str(raw), source=tool.name, limit=_MAX_SITE_TEXT_CHARS)
+        if checked.blocked:
+            return "Error: this source was withheld because it looked like an attempt to give you instructions."
+        return checked.text
+
+    return StructuredTool.from_function(
+        coroutine=run, name=tool.name, description=tool.description, args_schema=tool.args_schema
+    )

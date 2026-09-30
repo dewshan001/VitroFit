@@ -5,10 +5,12 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using VitroFit.API.Data;
 using VitroFit.API.Entities;
+using VitroFit.API.Features.GymAgent;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
 using VitroFit.API.Features.AdaptiveFitness;
@@ -58,6 +60,17 @@ builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(
 
 // Bind SMTP settings from appsettings.json → EmailSettings section
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.Configure<GymAgentSettings>(builder.Configuration.GetSection(GymAgentSettings.SectionName));
+builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GymAgentSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    // Timeouts are applied per call by GymAgentClient (quick calls vs. AI calls), not globally.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddGymAgentRateLimiting(
+    builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:AiRequestsPerMinute") ?? new GymAgentSettings().AiRequestsPerMinute);
 
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -110,6 +123,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("DefaultCorsPolicy");
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -143,15 +157,18 @@ using (var scope = app.Services.CreateScope())
 }
 
 var sidecarProcesses = new List<Process>();
-foreach (var (serviceName, relativeDir, port, customArgs) in new (string, string, int, string?)[]
+var gymAgentKey = builder.Configuration[$"{GymAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
+foreach (var (serviceName, relativeDir, port, customArgs, environment) in new (string, string, int, string?, Dictionary<string, string>?)[]
 {
-    ("GymAgentService", "GymAgentService", 8001, null),
-    ("chatbot_service", "chatbot_service", 8000, null),
-    ("DietPlanService", "DietPlanService", 8003, null),
-    ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server"),
+    // server.py (not `uvicorn main:app`): the Postgres checkpointer needs a selector event loop on Windows.
+    // The shared key is passed through the environment so API and agent service can't drift apart.
+    ("GymAgentService", "GymAgentService", 8001, "server.py", gymAgentKey.Length > 0 ? new() { ["GYM_AGENT_KEY"] = gymAgentKey } : null),
+    ("chatbot_service", "chatbot_service", 8000, null, null),
+    ("DietPlanService", "DietPlanService", 8003, null, null),
+    ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server", null),
 })
 {
-    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, builder.Environment.ContentRootPath, serviceName, relativeDir, port, customArgs);
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, builder.Environment.ContentRootPath, serviceName, relativeDir, port, customArgs, environment);
     if (process != null)
     {
         sidecarProcesses.Add(process);
@@ -179,7 +196,9 @@ app.Run();
 /// </summary>
 static class PythonServiceSidecar
 {
-    public static Process? StartIfAvailable(ILogger logger, string apiProjectDir, string serviceName, string relativeDir, int port, string? customArgs = null)
+    public static Process? StartIfAvailable(
+        ILogger logger, string apiProjectDir, string serviceName, string relativeDir, int port,
+        string? customArgs = null, IReadOnlyDictionary<string, string>? environment = null)
     {
         if (IsPortInUse(port))
         {
@@ -218,6 +237,13 @@ static class PythonServiceSidecar
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            if (environment != null)
+            {
+                foreach (var (name, value) in environment)
+                {
+                    startInfo.Environment[name] = value;
+                }
+            }
 
             var process = Process.Start(startInfo);
             if (process is null)

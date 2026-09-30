@@ -227,8 +227,8 @@ Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the backend
 To run a service standalone (e.g. before its `venv` exists, or to see its logs directly):
 
 ```bash
-# from BackendAPI/GymAgentService
-venv/Scripts/python -m uvicorn main:app --port 8001
+# from BackendAPI/GymAgentService (server.py binds to 127.0.0.1 only)
+venv/Scripts/python server.py
 
 # from BackendAPI/chatbot_service
 venv/Scripts/python -m uvicorn main:app --port 8000
@@ -386,8 +386,12 @@ All routes are under `/api`, defined in the `Controllers/` folder.
 
 | Method | Route | Description |
 | ------ | ----- | ----------- |
-| GET | `/health` | Health check |
-| POST | `/api/gyms/details` | Get (and cache) enriched equipment/classes for a gym |
+| GET | `/health` | Liveness only |
+| POST | `/internal/gyms/details`, `/internal/gyms/workouts` | Behind `/api/gyms/*` |
+| `*` | `/internal/workflows/...` | Behind `/api/gym-agent/workflows/*` |
+
+Every `/internal/*` route requires the `X-Gym-Agent-Key` header. There is no CORS, no `/docs`, and requests must be
+addressed to `127.0.0.1` or `localhost`.
 
 ### Chatbot — `http://localhost:8000` (separate service)
 

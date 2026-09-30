@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SOURCE_LABELS } from './gymSourceLabels';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { startWorkflow } from '../../api/gymAgent';
+import { SOURCE_LABELS, isVerifiedSource } from './gymSourceLabels';
+import VerifiedBadge from './VerifiedBadge';
+import { buildVerificationRequest, canSubmitForVerification, placeIdOf } from './submitGymForVerification';
 import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
 import './GymList.css';
 
@@ -17,6 +22,11 @@ const IconLocation = () => (
 const IconDumbbell = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 4v16M18 4v16M4 9h4M16 9h4M4 15h4M16 15h4M8 4h8M8 20h8"/>
+  </svg>
+);
+const IconShield = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
   </svg>
 );
 const IconArrow = () => (
@@ -52,6 +62,13 @@ const IconClock = () => (
 );
 
 function GymDetailsBody({ status }) {
+  if (status?.authRequired) {
+    return (
+      <div className="gl-details gl-details--empty">
+        <Link to="/login">Sign in</Link> to see equipment and classes.
+      </div>
+    );
+  }
   if (!status || status.loading) {
     return (
       <div className="gl-details gl-details--loading">
@@ -135,7 +152,56 @@ function GymContactBlock({ raw, website, agentData }) {
   );
 }
 
-function GymCard({ place, index, status, onFindWorkouts }) {
+const CONFLICT = 409;
+
+/** Sends one gym to the four-agent workflow; nothing is published until an approver accepts it. */
+function SubmitForVerification({ place }) {
+  const [state, setState] = useState({ phase: 'idle', runId: null, error: '' });
+
+  const submit = async () => {
+    const body = buildVerificationRequest(place);
+    if (!body) {
+      setState({ phase: 'error', runId: null, error: 'This gym has no usable id or name.' });
+      return;
+    }
+    setState({ phase: 'sending', runId: null, error: '' });
+    try {
+      const started = await startWorkflow(body);
+      setState({ phase: 'started', runId: started.id, error: '' });
+    } catch (err) {
+      if (err.status === CONFLICT) setState({ phase: 'already', runId: null, error: '' });
+      else setState({ phase: 'error', runId: null, error: err.message });
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className="gl-card-workouts"
+        onClick={submit}
+        disabled={state.phase === 'sending' || state.phase === 'started' || state.phase === 'already'}
+      >
+        <IconShield /> {state.phase === 'sending' ? 'Submitting…' : 'Submit for verification'}
+      </button>
+      {state.phase === 'started' && (
+        <span className="gl-card-submit-status" role="status">
+          Submitted. The agents need a minute or two. <Link to={`/admin/gym-approvals?run=${encodeURIComponent(state.runId)}`}>Follow it</Link>
+        </span>
+      )}
+      {state.phase === 'already' && (
+        <span className="gl-card-submit-status" role="status">
+          Already under review. <Link to="/admin/gym-approvals">Open approvals</Link>
+        </span>
+      )}
+      {state.phase === 'error' && (
+        <span className="gl-card-submit-status gl-card-submit-status--error" role="alert">{state.error}</span>
+      )}
+    </>
+  );
+}
+
+function GymCard({ place, index, status, onFindWorkouts, canSubmit }) {
   const props = place.properties || {};
   const coords = place.geometry?.coordinates;
   const [lng, lat] = coords || [];
@@ -145,12 +211,17 @@ function GymCard({ place, index, status, onFindWorkouts }) {
   const address = props.formatted || props.address_line2 || '';
   const distance = props.distance != null ? (props.distance / 1000).toFixed(1) : null;
   const website = props.website || raw.website;
-  const placeId = props.place_id || `${lat}-${lng}`;
+  const placeId = placeIdOf(place);
+  // Already approved by an admin/owner: nothing left to submit.
+  const isVerified = isVerifiedSource(status?.data?.source);
 
   return (
     <div className={`gl-card gl-fade-up gl-d${(index % 5) + 1}`}>
       <div className="gl-card-header">
-        <div className="gl-card-badge"><IconDumbbell /> Gym / Fitness</div>
+        <div className="gl-card-badges">
+          <div className="gl-card-badge"><IconDumbbell /> Gym / Fitness</div>
+          {isVerified && <VerifiedBadge />}
+        </div>
         {distance && <div className="gl-card-distance"><IconLocation />{distance} km away</div>}
       </div>
 
@@ -189,6 +260,7 @@ function GymCard({ place, index, status, onFindWorkouts }) {
         >
           <IconDumbbell /> Find Possible Workouts
         </button>
+        {canSubmit && !isVerified && <SubmitForVerification place={place} />}
       </div>
     </div>
   );
@@ -206,6 +278,8 @@ function GymCardSkeleton({ index }) {
 }
 
 export default function GymList({ places, userCoords, loadingPlaces, gymDetails, onLoadDetails }) {
+  const { auth } = useAuth();
+  const canSubmit = canSubmitForVerification(auth?.user);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [workoutModalTarget, setWorkoutModalTarget] = useState(null);
   const workoutCacheRef = useRef(new Map());
@@ -303,6 +377,7 @@ export default function GymList({ places, userCoords, loadingPlaces, gymDetails,
                   index={idx}
                   status={gymDetails[placeId]}
                   onFindWorkouts={setWorkoutModalTarget}
+                  canSubmit={canSubmit}
                 />
               );
             })}

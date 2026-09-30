@@ -1,0 +1,21 @@
+[run]
+source = .
+branch = True
+omit =
+    tests/*
+    perf/*
+    venv/*
+    chroma_gym_data/*
+    reports/*
+    */__init__.py
+
+[report]
+# Measured 83% (SQLite run) and 84% (PostgreSQL run). The four-agent modules are 91-100%; the gap is the older
+# single-agent path (enrichment_agent, workout_agent) and the real network tools, which tests must not call.
+fail_under = 80
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError
+show_missing = False
+skip_empty = True

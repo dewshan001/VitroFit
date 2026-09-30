@@ -10,7 +10,9 @@ pydantic>=2.7.0
 langchain>=1.4.0              # High-level agent factories, LCEL chains
 langchain-core>=1.6.0         # @tool, Runnables, messages, parsers
 langchain-openai>=1.6.0       # ChatOpenAI (also works with OpenRouter via base_url)
-langgraph>=0.13.0             # StateGraph, ToolNode, checkpointing, HITL
+langgraph>=0.13.0             # StateGraph, checkpointing, interrupt() human approval
+langgraph-checkpoint-postgres==3.1.2   # durable workflow state + approval pause
+psycopg[binary,pool]>=3.2.0   # async driver for the Postgres checkpointer
 
 # ── Tools & Loaders ──
 langchain-community>=0.3.0    # WebBaseLoader, TavilySearchResults

@@ -413,6 +413,8 @@
   gap: 0.5rem;
 }
 
+.gym-place-popup-header .verified-badge { margin-right: auto; }
+
 .gym-place-popup-badge {
   font-family: var(--font-display);
   font-size: 0.68rem;

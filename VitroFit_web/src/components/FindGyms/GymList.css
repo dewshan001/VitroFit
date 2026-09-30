@@ -76,6 +76,13 @@
   flex-wrap: wrap;
 }
 
+.gl-card-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .gl-card-badge {
   display: flex;
   align-items: center;
@@ -334,3 +341,13 @@
   .gym-list-section { padding: 2rem 1.25rem 3.5rem; }
   .gl-grid { grid-template-columns: 1fr; }
 }
+
+.gl-card-workouts:disabled { opacity: 0.55; cursor: not-allowed; background: transparent; color: var(--accent); }
+
+.gl-card-submit-status {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.gl-card-submit-status a { color: var(--accent); }
+.gl-card-submit-status--error { color: #ef4444; }

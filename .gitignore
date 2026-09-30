@@ -36,6 +36,15 @@ Thumbs.db
 *.log
 logs/
 
+# Generated test/perf reports (CI uploads them as artifacts)
+BackendAPI/GymAgentService/reports/
+BackendAPI/GymAgentService/.coverage
+BackendAPI/GymAgentService/coverage.xml
+BackendAPI/GymAgentService/junit.xml
+
+# Chroma DB files
+BackendAPI/GymAgentService/chroma_gym_data/
+
 AI_Adaptive_Fitness_Gym_Agent_Assignment_Prompt.md
 
 /.fitness-build-check-bin/

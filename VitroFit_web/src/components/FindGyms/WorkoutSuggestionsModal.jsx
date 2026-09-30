@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchGymWorkouts } from '../../api/gyms';
+import { Link } from 'react-router-dom';
+import { fetchGymWorkouts, SignInRequiredError } from '../../api/gyms';
 import './WorkoutSuggestionsModal.css';
 
 const IconDumbbell = () => (
@@ -23,6 +24,7 @@ export default function WorkoutSuggestionsModal({ isOpen, onClose, gymName, plac
   const [entered, setEntered] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [workouts, setWorkouts] = useState([]);
   const [notes, setNotes] = useState('');
   const overlayRef = useRef(null);
@@ -43,6 +45,7 @@ export default function WorkoutSuggestionsModal({ isOpen, onClose, gymName, plac
     if (!isOpen || !place) {
       setLoading(false);
       setError('');
+      setNeedsSignIn(false);
       setWorkouts([]);
       setNotes('');
       return;
@@ -51,6 +54,7 @@ export default function WorkoutSuggestionsModal({ isOpen, onClose, gymName, plac
     if (cachedResult) {
       setLoading(false);
       setError('');
+      setNeedsSignIn(false);
       setWorkouts(cachedResult.workouts || []);
       setNotes(cachedResult.notes || '');
       return;
@@ -59,6 +63,7 @@ export default function WorkoutSuggestionsModal({ isOpen, onClose, gymName, plac
     const requestId = ++requestRef.current;
     setLoading(true);
     setError('');
+    setNeedsSignIn(false);
     setWorkouts([]);
     setNotes('');
 
@@ -72,6 +77,7 @@ export default function WorkoutSuggestionsModal({ isOpen, onClose, gymName, plac
       })
       .catch((err) => {
         if (requestId !== requestRef.current) return;
+        setNeedsSignIn(err instanceof SignInRequiredError);
         setError(err.message || 'Could not load workout suggestions.');
         setLoading(false);
       });
@@ -129,6 +135,7 @@ export default function WorkoutSuggestionsModal({ isOpen, onClose, gymName, plac
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
               {error}
+              {needsSignIn && <> <Link to="/login" onClick={onClose}>Sign in</Link></>}
             </div>
           )}
 

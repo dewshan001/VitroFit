@@ -2,10 +2,12 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fetchGymDetails } from '../../api/gyms';
+import { Link } from 'react-router-dom';
+import { fetchGymDetails, isSignedIn, SignInRequiredError } from '../../api/gyms';
 import GymList from './GymList';
 import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
-import { SOURCE_LABELS } from './gymSourceLabels';
+import { SOURCE_LABELS, isVerifiedSource } from './gymSourceLabels';
+import VerifiedBadge from './VerifiedBadge';
 import './GymMap.css';
 
 /* ─────────────────────────────────────────
@@ -105,6 +107,13 @@ function MapController({ coords, onCenterChange }) {
    when a marker's popup is opened)
 ───────────────────────────────────────── */
 function GymDetailsSection({ status }) {
+  if (status?.authRequired) {
+    return (
+      <div className="gym-place-popup-details gym-place-popup-details--empty">
+        <Link to="/login">Sign in</Link> to see equipment and classes.
+      </div>
+    );
+  }
   if (!status || status.loading) {
     return <div className="gym-place-popup-details gym-place-popup-details--loading">Loading equipment & classes…</div>;
   }
@@ -153,6 +162,13 @@ export default function GymMap() {
   const requestIdRef = useRef(0);
 
   const loadGymDetails = useCallback((placeId, place) => {
+    // Equipment/classes come from the AI service behind the API, which needs a login. Logged-out
+    // visitors still get the map and the list, and are asked to sign in instead of seeing an error.
+    if (!isSignedIn()) {
+      setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, authRequired: true } }));
+      return;
+    }
+
     setGymDetails((prev) => {
       if (prev[placeId] && (prev[placeId].loading || prev[placeId].data)) return prev;
       return { ...prev, [placeId]: { loading: true } };
@@ -160,7 +176,12 @@ export default function GymMap() {
 
     fetchGymDetails(place)
       .then((data) => setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, data } })))
-      .catch(() => setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, error: true } })));
+      .catch((err) => setGymDetails((prev) => ({
+        ...prev,
+        [placeId]: err instanceof SignInRequiredError
+          ? { loading: false, authRequired: true }
+          : { loading: false, error: true },
+      })));
   }, []);
 
   const apiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY || '').trim();
@@ -343,6 +364,7 @@ export default function GymMap() {
                       <div className="gym-place-popup-card">
                         <div className="gym-place-popup-header">
                           <div className="gym-place-popup-badge">Gym / Fitness</div>
+                          {isVerifiedSource(gymDetails[placeId]?.data?.source) && <VerifiedBadge />}
                           {distance && <span className="gym-place-popup-dist">{distance} km away</span>}
                         </div>
                         <div className="gym-place-popup-title">{placeName}</div>
