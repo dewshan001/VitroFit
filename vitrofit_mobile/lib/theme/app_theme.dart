@@ -62,7 +62,6 @@ class AppTheme {
         secondary: AppColors.accentDark,
         surface: AppColors.bgCard,
         onSurface: AppColors.textPrimary,
-        background: AppColors.bgPrimary,
         surfaceContainer: AppColors.bgCard,
         surfaceContainerHigh: AppColors.bgElevated,
         surfaceContainerHighest: AppColors.bgCardHover,

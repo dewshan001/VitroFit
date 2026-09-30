@@ -68,7 +68,7 @@ class AboutScreen extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        AppColors.bgPrimary.withOpacity(0.9),
+                        AppColors.bgPrimary.withValues(alpha: 0.9),
                         AppColors.bgPrimary,
                       ],
                     ),
@@ -266,7 +266,7 @@ class AboutScreen extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
                 ),
               ),
             ),

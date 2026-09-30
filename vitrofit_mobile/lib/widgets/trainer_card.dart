@@ -49,7 +49,7 @@ class TrainerCard extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        AppColors.bgCard.withOpacity(0.95),
+                        AppColors.bgCard.withValues(alpha: 0.95),
                       ],
                     ),
                   ),

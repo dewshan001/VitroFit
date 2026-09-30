@@ -130,7 +130,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: AppColors.accent.withOpacity(0.3),
+                                    color: AppColors.accent.withValues(alpha: 0.3),
                                     blurRadius: 10,
                                   ),
                                 ]

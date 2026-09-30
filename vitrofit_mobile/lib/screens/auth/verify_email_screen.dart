@@ -110,7 +110,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       color: AppColors.errorGlow,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppColors.error.withOpacity(0.5),
+                        color: AppColors.error.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(
@@ -129,7 +129,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       color: AppColors.successGlow,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppColors.success.withOpacity(0.5),
+                        color: AppColors.success.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(

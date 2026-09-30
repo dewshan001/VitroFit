@@ -115,7 +115,7 @@ class _InfoScreenState extends State<InfoScreen> {
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,
-        activeColor: AppColors.accent,
+        activeThumbColor: AppColors.accent,
         activeTrackColor: AppColors.accentGlow,
         title: Text(
           title,

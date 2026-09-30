@@ -30,7 +30,7 @@ class OutlineText extends StatelessWidget {
             foreground: Paint()
               ..style = PaintingStyle.stroke
               ..strokeWidth = strokeWidth
-              ..color = strokeColor.withOpacity(0.8),
+              ..color = strokeColor.withValues(alpha: 0.8),
           ),
         ),
         // Fill (Transparent/Empty to achieve outlined effect)

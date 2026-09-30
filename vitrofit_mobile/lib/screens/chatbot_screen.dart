@@ -106,8 +106,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             );
           } else {
             final idx = _messages.indexWhere((m) => m.id == botId);
-            if (idx != -1)
+            if (idx != -1) {
               _messages[idx] = _messages[idx].copyWith(text: botText);
+            }
           }
         });
         _scrollToBottom();
@@ -229,7 +230,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.errorGlow,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
@@ -409,7 +410,7 @@ class _MessageBubble extends StatelessWidget {
                           fontSize: 10,
                           color: isBot
                               ? AppColors.textMuted
-                              : AppColors.bgPrimary.withOpacity(0.6),
+                              : AppColors.bgPrimary.withValues(alpha: 0.6),
                         ),
                       ),
                     ],

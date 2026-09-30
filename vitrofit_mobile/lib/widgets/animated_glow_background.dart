@@ -125,9 +125,9 @@ class _AmbientGlowBackgroundState extends State<AmbientGlowBackground>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        spec.color.withOpacity(0.20),
-                        spec.color.withOpacity(0.08),
-                        spec.color.withOpacity(0.0),
+                        spec.color.withValues(alpha: 0.20),
+                        spec.color.withValues(alpha: 0.08),
+                        spec.color.withValues(alpha: 0.0),
                       ],
                       stops: const [0.0, 0.5, 1.0],
                     ),

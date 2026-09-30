@@ -108,7 +108,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.errorGlow,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                    border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
                   ),
                   child: Text(
                     _error!,
@@ -126,7 +126,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     color: AppColors.successGlow,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppColors.success.withOpacity(0.5),
+                      color: AppColors.success.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Text(

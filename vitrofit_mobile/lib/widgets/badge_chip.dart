@@ -27,7 +27,7 @@ class BadgeChip extends StatelessWidget {
         boxShadow: (isAccent || color != null)
             ? [
                 BoxShadow(
-                  color: fillColor.withOpacity(0.3),
+                  color: fillColor.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),

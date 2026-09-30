@@ -126,9 +126,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppColors.bgPrimary.withOpacity(0.92),
-                      AppColors.bgPrimary.withOpacity(0.75),
-                      AppColors.bgSecondary.withOpacity(0.55),
+                      AppColors.bgPrimary.withValues(alpha: 0.92),
+                      AppColors.bgPrimary.withValues(alpha: 0.75),
+                      AppColors.bgSecondary.withValues(alpha: 0.55),
                     ],
                   ),
                   border: Border.all(color: AppColors.borderAccent),
@@ -215,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.bgCard.withOpacity(0.85),
+                              color: AppColors.bgCard.withValues(alpha: 0.85),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppColors.border),
                             ),
@@ -731,7 +731,7 @@ class _Avatar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.accent.withOpacity(0.9), AppColors.accentDark],
+          colors: [AppColors.accent.withValues(alpha: 0.9), AppColors.accentDark],
         ),
         border: Border.all(color: AppColors.bgPrimary, width: 2),
         boxShadow: const [
@@ -821,8 +821,8 @@ class _WhyUsCardState extends State<_WhyUsCard> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        AppColors.accent.withOpacity(0.22),
-                        AppColors.accent.withOpacity(0.06),
+                        AppColors.accent.withValues(alpha: 0.22),
+                        AppColors.accent.withValues(alpha: 0.06),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),

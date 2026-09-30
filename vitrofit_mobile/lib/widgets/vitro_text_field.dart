@@ -111,8 +111,9 @@ class Validators {
   }
 
   static String? otp(String? value) {
-    if (value == null || value.trim().length != 6)
+    if (value == null || value.trim().length != 6) {
       return 'Enter the 6-digit code.';
+    }
     return null;
   }
 }

@@ -25,8 +25,9 @@ class WorkoutDetailSheet extends StatelessWidget {
     final rootContext = Navigator.of(sheetContext, rootNavigator: true).context;
     Navigator.of(sheetContext).pop();
     Future.microtask(() {
-      if (rootContext.mounted)
+      if (rootContext.mounted) {
         showTimetableSlotForm(rootContext, presetWorkout: workout);
+      }
     });
   }
 

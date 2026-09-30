@@ -88,8 +88,9 @@ class GymAgentApi {
       return 'Could not reach the gym service at $gymAgentBaseUrl. Check your connection and try again.';
     }
     final data = e.response?.data;
-    if (data is Map && data['detail'] is String)
+    if (data is Map && data['detail'] is String) {
       return data['detail'] as String;
+    }
     return 'Something went wrong. Please try again.';
   }
 }

@@ -324,7 +324,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                       color: AppColors.errorGlow,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppColors.error.withOpacity(0.5),
+                        color: AppColors.error.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(

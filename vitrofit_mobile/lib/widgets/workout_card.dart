@@ -10,14 +10,17 @@ import 'slanted_button.dart';
 IconData iconForCategory(String category) {
   final c = category.toLowerCase();
   if (c.contains('yoga') || c.contains('mind')) return Icons.self_improvement;
-  if (c.contains('strength') || c.contains('weight') || c.contains('lift'))
+  if (c.contains('strength') || c.contains('weight') || c.contains('lift')) {
     return Icons.fitness_center;
+  }
   if (c.contains('cardio') || c.contains('run')) return Icons.directions_run;
   if (c.contains('cycle') || c.contains('spin')) return Icons.directions_bike;
-  if (c.contains('pilates') || c.contains('core'))
+  if (c.contains('pilates') || c.contains('core')) {
     return Icons.accessibility_new;
-  if (c.contains('box') || c.contains('combat') || c.contains('hiit'))
+  }
+  if (c.contains('box') || c.contains('combat') || c.contains('hiit')) {
     return Icons.sports_kabaddi;
+  }
   return Icons.bolt;
 }
 
@@ -56,14 +59,14 @@ class _WorkoutCardState extends State<WorkoutCard> {
           boxShadow: _isHovered
               ? [
                   BoxShadow(
-                    color: AppColors.accent.withOpacity(0.2),
+                    color: AppColors.accent.withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 1,
                   ),
                 ]
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withValues(alpha: 0.4),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

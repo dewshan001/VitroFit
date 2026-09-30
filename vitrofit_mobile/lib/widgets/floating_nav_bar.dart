@@ -130,7 +130,7 @@ class _DockSlotState extends State<_DockSlot> {
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: widget.selected
-                    ? AppColors.accent.withOpacity(0.15)
+                    ? AppColors.accent.withValues(alpha: 0.15)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: widget.selected

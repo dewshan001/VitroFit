@@ -252,8 +252,9 @@ class _FindGymScreenState extends State<FindGymScreen>
 
   Future<void> _ensureDetails(Gym gym, {int delayMs = 0}) async {
     if (_detailsCache.containsKey(gym.placeId) ||
-        _detailsLoading.contains(gym.placeId))
+        _detailsLoading.contains(gym.placeId)) {
       return;
+    }
     _detailsLoading.add(gym.placeId);
     if (delayMs > 0) await Future.delayed(Duration(milliseconds: delayMs));
     if (!mounted) return;
@@ -559,7 +560,7 @@ class _FindGymScreenState extends State<FindGymScreen>
               duration: const Duration(milliseconds: 300),
               opacity: _locating ? 1 : 0,
               child: Container(
-                color: AppColors.bgPrimary.withOpacity(0.65),
+                color: AppColors.bgPrimary.withValues(alpha: 0.65),
                 alignment: Alignment.center,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

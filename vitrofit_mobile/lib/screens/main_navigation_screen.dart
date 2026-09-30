@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chatbot_fab.dart';
 import '../widgets/floating_nav_bar.dart';
-import '../widgets/liquid_glass.dart';
 import 'find_gym_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'timetable_screen.dart';
-import '../features/adaptive_fitness/fitness_screen.dart';
 import 'workouts_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -46,43 +41,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ];
   }
 
-  bool _handleScrollNotification(UserScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical) return false;
-    final direction = notification.direction;
-    if (direction == ScrollDirection.reverse && _navBarVisible) {
-      setState(() => _navBarVisible = false);
-    } else if (direction == ScrollDirection.forward && !_navBarVisible) {
-      setState(() => _navBarVisible = true);
-    }
-    return false;
-  }
-
-  void _showNotifications(BuildContext context) {
-    final appState = context.read<AppState>();
-    final upcoming = appState.timetableSlots.isNotEmpty
-        ? appState.timetableSlots.first
-        : null;
-    final message = upcoming == null
-        ? "No upcoming sessions on your timetable."
-        : "Next up: ${upcoming.title} — ${upcoming.day.label} @ ${upcoming.startTime.label}";
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text(
-          message,
-          style: GoogleFonts.inter(color: AppColors.textPrimary),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final hasUpcoming = context.select<AppState, bool>(
-      (s) => s.timetableSlots.isNotEmpty,
-    );
-
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       // App Header

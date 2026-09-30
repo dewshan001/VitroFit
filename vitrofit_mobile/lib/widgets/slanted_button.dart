@@ -61,8 +61,8 @@ class _SlantedButtonState extends State<SlantedButton> {
                   ? []
                   : [
                       BoxShadow(
-                        color: AppColors.accent.withOpacity(
-                          widget.isLoading ? 0.5 : 0.35,
+                        color: AppColors.accent.withValues(
+                          alpha: widget.isLoading ? 0.5 : 0.35,
                         ),
                         blurRadius: widget.isLoading ? 22 : 16,
                         spreadRadius: 1,
@@ -80,7 +80,7 @@ class _SlantedButtonState extends State<SlantedButton> {
                 ),
                 decoration: BoxDecoration(
                   color: widget.isSecondary
-                      ? AppColors.bgCard.withOpacity(0.55)
+                      ? AppColors.bgCard.withValues(alpha: 0.55)
                       : AppColors.accent,
                   border: widget.isSecondary
                       ? Border.all(color: AppColors.accent, width: 2)
