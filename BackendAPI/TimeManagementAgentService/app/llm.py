@@ -18,10 +18,17 @@ def parse_chat_completion(payload: dict) -> Timetable:
         content = choice["message"]["content"]
         if not isinstance(content, str) or not content.strip():
             raise PlannerError("MODEL_OUTPUT_EMPTY")
-        return Timetable.model_validate_json(content)
+        # Strip markdown fences if present
+        stripped = content.strip()
+        if stripped.startswith("```"):
+            lines = stripped.split("\n")
+            stripped = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+        return Timetable.model_validate_json(stripped)
     except PlannerError:
         raise
-    except ValidationError:
+    except ValidationError as e:
+        print(f"ValidationError: {e}")
+        print(f"Content: {content}")
         raise PlannerError("MODEL_OUTPUT_INVALID_PLAN_SCHEMA") from None
     except (KeyError, IndexError, TypeError, ValueError):
         raise PlannerError("MODEL_OUTPUT_INVALID_RESPONSE") from None
@@ -35,7 +42,7 @@ async def _call_openrouter(messages: list, format_json: bool = False):
             payload = {
                 "model": settings.openrouter_model,
                 "temperature": 0,
-                "max_tokens": 1500,
+                "max_tokens": 4000,
                 "messages": messages
             }
             if format_json:
@@ -60,7 +67,7 @@ async def propose_timetable(request: GenerateRequest, errors: list[str]) -> Time
         "outputSchema": Timetable.model_json_schema(),
     }
     messages = [
-        {"role": "system", "content": "You are a time management scheduler. Output strictly JSON matching the outputSchema. Create a HIGHLY DETAILED and COMPLICATED weekly schedule. For the workout days provided in the plan, assign them a specific time slot matching their focus and duration. ADDITIONALLY, generate multiple extra lifestyle and recovery slots for EVERY SINGLE DAY of the week (Days 1 through 7). Include slots such as 'Morning Cardio', 'Meal Prep', 'Active Recovery', 'Mobility & Stretching', 'Yoga', and 'Rest Day'. Generate at least 3 to 4 slots for EVERY day of the week, resulting in a rich, complicated, and fully-packed timetable of around 21 to 28 slots total. CAREFULLY INCORPORATE ANY SPECIFIC PREFERENCES PROVIDED IN THE CONTEXT. CRITICALLY IMPORTANT: For ANY newly generated activity slot (like 'Morning Cardio', 'Yoga', 'Mobility'), you MUST populate the `description` field with a detailed, comma-separated list of 3-5 specific exercises or activities to perform during that slot. Do NOT leave the description empty for these extra slots!\n\nReturn the output as a valid JSON object matching the provided schema exactly.\nDo not wrap it in markdown block quotes. Just output the raw JSON object."},
+        {"role": "system", "content": "You are a time management scheduling assistant. Output ONLY a raw JSON object matching the outputSchema. No markdown, no code fences, no explanation - just the JSON.\n\nCRITICAL STRUCTURE RULES:\n1. The output must have exactly ONE 'slots' array containing ALL slots for ALL 7 days combined in a single flat list. Do NOT output one 'slots' per day.\n2. Each slot must have: day (1-7), startTime (HH:MM), endTime (HH:MM), focus, durationMinutes, description.\n3. The 'description' field MUST contain a comma-separated list of 3-5 specific exercises/activities for EVERY slot.\n\nSCHEDULE REQUIREMENTS:\n- For each workout day in the plan, create a dedicated slot with the workout's focus.\n- For ALL 7 days, add 3-4 extra lifestyle slots such as Morning Cardio, Meal Prep, Active Recovery, Mobility & Stretching, Yoga.\n- Total slots: 21-28 across the full week."},
         {"role": "user", "content": json.dumps(context)}
     ]
     resp = await _call_openrouter(messages, format_json=True)
