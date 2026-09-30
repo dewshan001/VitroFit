@@ -163,7 +163,7 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
     }
 
     [HttpPost("workflows/{id:guid}/timetable")]
-    public async Task<IActionResult> GenerateTimetable(Guid id, [FromServices] TimeManagementAgentClient timeAgent, CancellationToken cancellation)
+    public async Task<IActionResult> GenerateTimetable(Guid id, [FromQuery] string? preferences, [FromServices] TimeManagementAgentClient timeAgent, CancellationToken cancellation)
     {
         var workflow = await db.Workflows.SingleOrDefaultAsync(w => w.Id == id && w.UserId == UserId && w.Status == "Ready");
         if (workflow?.PlanJson is null) return NotFound(new { message = "Workout plan not found or not ready." });
@@ -171,7 +171,7 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
         if (profile is null) return BadRequest(new { message = "Profile not found." });
 
         var plan = FitnessJson.Read<WorkoutPlan>(workflow.PlanJson);
-        var request = new TimeManagementRequest(workflow.Id, Guid.NewGuid(), plan, profile.ToInput(), "");
+        var request = new TimeManagementRequest(workflow.Id, Guid.NewGuid(), plan, profile.ToInput(), preferences ?? "");
         
         try
         {
@@ -190,13 +190,18 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
                 foreach(var slotElement in slotsElement.EnumerateArray())
                 {
                     var focus = slotElement.GetProperty("focus").GetString() ?? "Adaptive Workout";
+                    var description = slotElement.TryGetProperty("description", out var descElement) ? descElement.GetString() : null;
                     var workout = await appDb.Workouts.FirstOrDefaultAsync(w => w.Name == focus, cancellation);
                     if (workout == null)
                     {
-                        workout = new VitroFit.API.Entities.Workout { Name = focus, Category = "Adaptive" };
+                        workout = new VitroFit.API.Entities.Workout { Name = focus, Category = "Adaptive", Description = description };
                         appDb.Workouts.Add(workout);
-                        await appDb.SaveChangesAsync(cancellation);
                     }
+                    else if (!string.IsNullOrEmpty(description))
+                    {
+                        workout.Description = description;
+                    }
+                    await appDb.SaveChangesAsync(cancellation);
 
                     var dayInt = slotElement.GetProperty("day").GetInt32();
                     var dayOfWeek = dayInt == 7 ? DayOfWeek.Sunday : (DayOfWeek)dayInt;

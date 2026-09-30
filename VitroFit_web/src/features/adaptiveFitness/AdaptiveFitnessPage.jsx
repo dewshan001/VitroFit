@@ -24,6 +24,7 @@ export default function AdaptiveFitnessPage() {
   const [notice, setNotice] = useState('');
   const [feedbackTarget, setFeedbackTarget] = useState('page');
   const [timetableData, setTimetableData] = useState(null);
+  const [timetablePreferences, setTimetablePreferences] = useState('');
 
   const open = useCallback(async id => {
     const [workflow, audit] = await Promise.all([
@@ -221,13 +222,6 @@ export default function AdaptiveFitnessPage() {
           longTermImpact={timetableData?.longTermImpact}
         />
         <div className="fitness-plan-guidance">
-          <div className="fitness-progression-note"><span className="fitness-eyebrow">Smart Scheduling</span>
-            <p>Generate an automated time-table for your workouts, along with long-term impact analysis.</p>
-            <button disabled={busy} onClick={() => action(async () => {
-              const res = await fitnessRequest(`workflows/${selected.id}/timetable`, 'POST');
-              setTimetableData(res);
-            }, 'schedule')}>Generate Smart Timetable</button>
-          </div>
           <div className="fitness-progression-note"><span className="fitness-eyebrow">Progression guidance</span><p>{selected.summary}</p></div>
           <p className="fitness-safety-note"><strong>Safety reminder</strong>{selected.safetyNote}</p>
         </div>

@@ -11,6 +11,7 @@ class TimeSlot(Contract):
     endTime: str
     focus: str
     durationMinutes: int
+    description: str = Field(default="", description="Comma-separated list of exercises or activities for this slot")
 
 class Timetable(Contract):
     week: int
