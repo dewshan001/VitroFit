@@ -11,9 +11,9 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select, update
 
-from contracts import APPROVER_ROLES
-from db import SessionLocal
-from models import (
+from src.models.contracts import APPROVER_ROLES
+from src.utils.db import SessionLocal
+from src.models.db_models import (
     GymDetails,
     GymWorkflow,
     GymWorkflowStep,

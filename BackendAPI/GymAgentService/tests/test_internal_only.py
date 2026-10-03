@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.middleware.cors import CORSMiddleware
 
-import main
+import src.api.app as main
 import server
 
 KEY = os.environ["GYM_AGENT_KEY"]
@@ -119,7 +119,7 @@ def test_oversized_lists_are_rejected_before_any_work(client):
 def test_the_test_suite_cannot_reach_a_real_model_or_the_internet():
     import socket
 
-    import llm_config
+    import src.models.llm_client as llm_config
     from tests.conftest import RealServiceCallInTest
 
     with pytest.raises(RealServiceCallInTest):

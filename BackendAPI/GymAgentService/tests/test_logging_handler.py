@@ -11,14 +11,14 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.tools import StructuredTool
 
-import callbacks
-import llm_config
-from callbacks import GymAgentLoggingHandler, get_handler, safe
-from runner import WorkflowRunner
+import src.utils.logger as callbacks
+import src.models.llm_client as llm_config
+from src.utils.logger import GymAgentLoggingHandler, get_handler, safe
+from src.agent.runner import WorkflowRunner
 from tests.conftest import REAL_GET_LLM
 from tests.support import WEBSITE, FakeModel
 from tests.test_workflow import make_runner, run, start
-from tools import ScrapeInput
+from src.tools.tools import ScrapeInput
 
 
 @pytest.fixture(autouse=True)

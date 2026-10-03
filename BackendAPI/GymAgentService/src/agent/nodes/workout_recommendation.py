@@ -9,38 +9,17 @@ from typing import Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agents._common import (
+from src.agent.nodes._common import (
     TRANSIENT_ERRORS,
     AgentOutputError,
     parse_json_object,
     with_retries,
 )
-from contracts import RecommendInput, Recommendations
-from injection_guard import guard_field
-from tool_registry import call_tool, sanitize_untrusted_text
-
-SYSTEM_PROMPT = (
-    "You are the workout-recommendation agent of the VitroFit fitness app. Given a gym's "
-    "verified equipment/classes, suggest EXACTLY 4 varied, practical workouts a visitor could "
-    "do there today.\n"
-    "RULES:\n"
-    "- In equipment_used list only 1-3 items copied EXACTLY from the provided equipment/classes "
-    "lists, or the word 'bodyweight'. Never invent equipment.\n"
-    "- Vary category and difficulty. category, difficulty and duration must respect the "
-    "taxonomy below.\n"
-    "- If little or no equipment/class info is given, suggest bodyweight workouts and say so in notes.\n"
-    "- No medical claims, guarantees, or advice to train to exhaustion. Beginner workouts are at "
-    "most 60 minutes and never max-effort.\n"
-    "- Keep every description to 1-2 short sentences."
-)
-
-JSON_SHAPE = (
-    "\n\nRespond with ONLY a JSON object of this exact shape, no other text:\n"
-    '{"workouts": [{"name": "...", "category": "...", "duration_minutes": 30, '
-    '"difficulty": "Beginner|Intermediate|Advanced", "description": "...", '
-    '"equipment_used": ["..."]}], "notes": "..."}'
-)
-
+from src.models.contracts import RecommendInput, Recommendations
+from src.utils.injection_guard import guard_field
+from src.tools.tool_registry import call_tool, sanitize_untrusted_text
+from src.prompts.agent_prompts import WORKOUT_RECOMMENDATION_JSON_SHAPE
+from src.prompts.system_prompts import WORKOUT_RECOMMENDATION_SYSTEM_PROMPT
 
 def _messages(inp: RecommendInput, taxonomy: str, json_mode: bool) -> list:
     equipment = ", ".join(inp.facts.equipment) or "none listed"
@@ -57,7 +36,7 @@ def _messages(inp: RecommendInput, taxonomy: str, json_mode: bool) -> list:
             + "\n- ".join(sanitize_untrusted_text(f, 300) for f in inp.feedback)
         )
     parts.append("Suggest workouts for a visitor to this gym.")
-    system = SYSTEM_PROMPT + (JSON_SHAPE if json_mode else "")
+    system = WORKOUT_RECOMMENDATION_SYSTEM_PROMPT + (WORKOUT_RECOMMENDATION_JSON_SHAPE if json_mode else "")
     return [SystemMessage(content=system), HumanMessage(content="\n".join(parts))]
 
 

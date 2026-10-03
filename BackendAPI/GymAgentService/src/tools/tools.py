@@ -99,7 +99,7 @@ def lookup_similar_gyms(gym_name: str, city: str) -> str:
     Useful for inferring equipment/classes when no website data is available.
     Returns equipment and classes from similar gyms as reference."""
     try:
-        from vectorstore import find_similar_gyms
+        from src.models.vectorstore import find_similar_gyms
 
         docs = find_similar_gyms(gym_name, city, k=3)
         if not docs:
@@ -161,7 +161,7 @@ def guarded(tool):
 
     from langchain_core.tools import StructuredTool
 
-    import injection_guard
+    import src.utils.injection_guard as injection_guard
 
     async def run(**kwargs):
         if tool.coroutine is not None:

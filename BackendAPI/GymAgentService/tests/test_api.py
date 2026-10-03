@@ -6,11 +6,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import MemorySaver
 
-from graph import build_graph
-from runner import WorkflowRunner
-from store import WorkflowStore
+from src.agent.graph import build_graph
+from src.agent.runner import WorkflowRunner
+from src.agent.store import WorkflowStore
 from tests.support import FakeModel
-from workflow_api import router
+from src.api.routes import router
 
 KEY = os.environ["GYM_AGENT_KEY"]
 AUTH = {"X-Gym-Agent-Key": KEY}

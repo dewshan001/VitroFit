@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from db import SessionLocal
-from models import GymWorkflow, GymWorkflowStep, GymWorkflowToolCall
-from store import WorkflowStore
+from src.utils.db import SessionLocal
+from src.models.db_models import GymWorkflow, GymWorkflowStep, GymWorkflowToolCall
+from src.agent.store import WorkflowStore
 from tests.support import FakeModel, gym_request
 from tests.test_workflow import decide, make_runner, run, start
 

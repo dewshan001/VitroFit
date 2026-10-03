@@ -3,7 +3,7 @@
 import os
 from contextlib import asynccontextmanager
 
-from db import DATABASE_URL
+from src.utils.db import DATABASE_URL
 
 
 @asynccontextmanager

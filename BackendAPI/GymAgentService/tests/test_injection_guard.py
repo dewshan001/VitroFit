@@ -4,8 +4,8 @@ import string
 
 import pytest
 
-import injection_guard as ig
-from injection_guard import (
+import src.utils.injection_guard as ig
+from src.utils.injection_guard import (
     escape_for_fence,
     guard_field,
     guard_text,

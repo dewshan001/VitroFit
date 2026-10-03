@@ -30,9 +30,9 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from dotenv import load_dotenv
 
-from llm_config import get_llm
-from schemas import GymEnrichmentResult
-from tools import get_all_tools, guarded
+from src.models.llm_client import get_llm
+from src.models.schemas import GymEnrichmentResult
+from src.tools.tools import get_all_tools, guarded
 
 load_dotenv()
 

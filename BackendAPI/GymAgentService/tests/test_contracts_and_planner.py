@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from agents import planner
-from contracts import (
+from src.agent.nodes import planner
+from src.models.contracts import (
     AnalysisInput,
     ApprovalDecision,
     GymFacts,

@@ -14,32 +14,13 @@ import re
 import openai
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from llm_config import get_llm
-from schemas import WorkoutSuggestions
+from src.models.llm_client import get_llm
+from src.models.schemas import WorkoutSuggestions
+from src.prompts.system_prompts import LEGACY_WORKOUT_SYSTEM_PROMPT, LEGACY_WORKOUT_JSON_SYSTEM_PROMPT
 
 logger = logging.getLogger("gym_agent")
 
 MAX_RETRIES = int(os.getenv("AGENT_MAX_RETRIES", "2"))
-
-SYSTEM_PROMPT = (
-    "You are a fitness coach for the VitroFit app. Given a gym's name and its available "
-    "equipment/classes, suggest EXACTLY 4 varied, practical workouts a visitor could do there today. "
-    "Prefer workouts that make direct use of the listed equipment/classes, and vary the "
-    "categories and difficulty levels rather than repeating the same type of workout. "
-    "If little or no equipment/class info is given, suggest generic workouts a person could do "
-    "with typical gym basics or just bodyweight, and explain that in the notes field. "
-    "Keep every description to 1-2 short sentences — be concise, not exhaustive. "
-    "For each workout's equipment_used, list only the 1-3 most relevant items — never repeat "
-    "the gym's entire equipment/class list for every workout, even if the gym has many items."
-)
-
-JSON_SYSTEM_PROMPT = SYSTEM_PROMPT + (
-    "\n\nRespond with ONLY a JSON object of this exact shape, no other text:\n"
-    '{"workouts": [{"name": "...", "category": "...", "duration_minutes": 30, '
-    '"difficulty": "Beginner|Intermediate|Advanced", "description": "...", '
-    '"equipment_used": ["..."]}], "notes": "..."}'
-)
-
 
 def _build_messages(name: str, equipment: list[str], classes: list[str], system_prompt: str) -> list:
     equipment_str = ", ".join(equipment) if equipment else "unknown / not listed"
@@ -59,7 +40,7 @@ def _build_messages(name: str, equipment: list[str], classes: list[str], system_
 def _structured_call(name: str, equipment: list[str], classes: list[str]) -> dict:
     llm = get_llm(temperature=0.4, max_tokens=900)
     structured_llm = llm.with_structured_output(WorkoutSuggestions)
-    messages = _build_messages(name, equipment, classes, SYSTEM_PROMPT)
+    messages = _build_messages(name, equipment, classes, LEGACY_WORKOUT_SYSTEM_PROMPT)
     result: WorkoutSuggestions = structured_llm.invoke(messages)
     return {
         "workouts": [w.model_dump() for w in result.workouts],
@@ -75,7 +56,7 @@ def _fallback_json_call(name: str, equipment: list[str], classes: list[str]) -> 
     (if empty) answer.
     """
     llm = get_llm(temperature=0.4, max_tokens=900)
-    messages = _build_messages(name, equipment, classes, JSON_SYSTEM_PROMPT)
+    messages = _build_messages(name, equipment, classes, LEGACY_WORKOUT_JSON_SYSTEM_PROMPT)
     response = llm.invoke(messages)
     raw = response.content or ""
 

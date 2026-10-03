@@ -10,14 +10,14 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 from sqlalchemy import select
 
-import store as store_module
-import tool_registry
-from contracts import ApprovalDecision
-from db import SessionLocal
-from graph import build_graph
-from models import GymDetails, GymWorkflow, GymWorkoutSuggestions
-from runner import Conflict, NotFound, WorkflowRunner
-from store import WorkflowStore
+import src.agent.store as store_module
+import src.tools.tool_registry as tool_registry
+from src.models.contracts import ApprovalDecision
+from src.utils.db import SessionLocal
+from src.agent.graph import build_graph
+from src.models.db_models import GymDetails, GymWorkflow, GymWorkoutSuggestions
+from src.agent.runner import Conflict, NotFound, WorkflowRunner
+from src.agent.store import WorkflowStore
 from tests.support import (
     WEBSITE,
     FakeModel,
@@ -484,8 +484,8 @@ def test_unusable_model_output_is_recorded_with_a_safe_reason():
 
 
 def test_schema_violations_report_field_names_but_not_values():
-    from graph import _error_detail
-    from contracts import GymFacts
+    from src.agent.graph import _error_detail
+    from src.models.contracts import GymFacts
     from pydantic import ValidationError
 
     secret = "SECRET-" + "x" * 500

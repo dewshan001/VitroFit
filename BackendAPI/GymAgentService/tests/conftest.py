@@ -14,10 +14,10 @@ os.environ["AGENT_MAX_RETRIES"] = "1"
 
 import pytest  # noqa: E402
 
-import llm_config as _llm_config  # noqa: E402
-import tool_registry  # noqa: E402
-from db import Base, engine  # noqa: E402
-import models  # noqa: E402,F401  (registers tables)
+import src.models.llm_client as _llm_config  # noqa: E402
+import src.tools.tool_registry as tool_registry  # noqa: E402
+from src.utils.db import Base, engine  # noqa: E402
+import src.models.db_models as models  # noqa: E402,F401  (registers tables)
 from tests import support  # noqa: E402
 
 # The real factory, kept before the safety-net fixture replaces it, for tests that check how models are built.
@@ -59,7 +59,11 @@ def no_real_ai_index_or_internet(monkeypatch):
     def blocked(*_a, **_k):
         raise RealServiceCallInTest("real LLM/vector-store call attempted in a test; use a fake")
 
-    import enrichment_agent, llm_config, main, vectorstore, workout_agent
+    import src.agent.legacy.enrichment_agent as enrichment_agent
+    import src.agent.legacy.workout_agent as workout_agent
+    import src.api.app as main
+    import src.models.llm_client as llm_config
+    import src.models.vectorstore as vectorstore
 
     monkeypatch.setattr(llm_config, "get_llm", blocked)
     for module in (enrichment_agent, workout_agent, main):

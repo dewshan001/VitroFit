@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from injection_guard import normalise_field
+from src.utils.injection_guard import normalise_field
 
 
 class Contract(BaseModel):

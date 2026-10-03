@@ -16,7 +16,7 @@ page the tools actually retrieved in this run. Claims backed only by other URLs 
 import os
 import re
 
-from contracts import (
+from src.models.contracts import (
     GymFacts,
     PlannerInput,
     Recommendations,
@@ -24,9 +24,9 @@ from contracts import (
     Verdict,
     Violation,
 )
-from tools import DIFFICULTIES, MAX_WORKOUT_MINUTES, MIN_WORKOUT_MINUTES, WORKOUT_CATEGORIES
-from injection_guard import guard_field, has_markup_or_link, scan
-from url_policy import check_url, is_allowed_host, normalise_host, url_key
+from src.tools.tools import DIFFICULTIES, MAX_WORKOUT_MINUTES, MIN_WORKOUT_MINUTES, WORKOUT_CATEGORIES
+from src.utils.injection_guard import guard_field, has_markup_or_link, scan
+from src.tools.url_policy import check_url, is_allowed_host, normalise_host, url_key
 
 CONFIDENCE_THRESHOLD = float(os.getenv("AGENT_CONFIDENCE_THRESHOLD", "0.6"))
 NO_DATA_CONFIDENCE = 0.2

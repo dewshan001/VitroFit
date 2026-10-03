@@ -98,12 +98,12 @@ async def run_load(total: int, concurrency: int, job) -> dict:
 
 
 def bench_components(n: int = 500) -> dict:
-    import injection_guard
-    from agents import planner
-    from contracts import GymFacts, ValidatorInput
+    import src.utils.injection_guard as injection_guard
+    from src.agent.nodes import planner
+    from src.models.contracts import GymFacts, ValidatorInput
     from tests.support import SITE_TEXT, WEBSITE, golden_facts, golden_recs, gym_request
-    from url_policy import check_url, url_key
-    from validators import validate
+    from src.tools.url_policy import check_url, url_key
+    from src.utils.validators import validate
 
     logging.getLogger("gym_agent").setLevel(logging.ERROR)     # the guard logs every finding; keep that out of the timing
     clean = ("Treadmills dumbbells squat racks yoga spin classes open daily from six. " * 90)[:6000]
@@ -135,8 +135,8 @@ def bench_database(n: int = 200) -> dict:
 
     from sqlalchemy import text
 
-    from db import engine
-    from store import WorkflowStore
+    from src.utils.db import engine
+    from src.agent.store import WorkflowStore
     from tests.support import golden_facts, golden_recs, gym_request
 
     store = WorkflowStore()
@@ -188,8 +188,8 @@ def bench_database(n: int = 200) -> dict:
 
 
 def make_timed_runner(store, model, checkpointer, budget: float = 60.0):
-    from graph import build_graph
-    from runner import WorkflowRunner
+    from src.agent.graph import build_graph
+    from src.agent.runner import WorkflowRunner
 
     class TimedRunner(WorkflowRunner):
         def __init__(self, *args, **kwargs):
@@ -219,7 +219,7 @@ def scripted_model():
 
 
 def install_fake_tools() -> None:
-    import tool_registry
+    import src.tools.tool_registry as tool_registry
     from tests.support import fake_scrape_tool, fake_search_tool
 
     tool_registry._REGISTRY["scrape_gym_website"] = fake_scrape_tool()
@@ -230,8 +230,8 @@ def install_fake_tools() -> None:
 
 
 async def bench_workflows(checkpointer, levels=(1, 5, 10, 25), per_level=None) -> dict:
-    from contracts import ApprovalDecision
-    from store import WorkflowStore
+    from src.models.contracts import ApprovalDecision
+    from src.agent.store import WorkflowStore
     from tests.support import gym_request
 
     install_fake_tools()
@@ -268,7 +268,7 @@ async def bench_workflows(checkpointer, levels=(1, 5, 10, 25), per_level=None) -
 
 async def bench_checkpoint_read(checkpointer, n: int = 200) -> dict:
     """Reading the paused, checkpointed state of a workflow (what resuming a decision starts with)."""
-    from store import WorkflowStore
+    from src.agent.store import WorkflowStore
     from tests.support import gym_request
 
     install_fake_tools()
@@ -292,8 +292,8 @@ async def bench_http(checkpointer, levels=(1, 10, 50), requests_per_level=None) 
     import httpx
     from fastapi import FastAPI
 
-    from store import WorkflowStore
-    from workflow_api import router
+    from src.agent.store import WorkflowStore
+    from src.api.routes import router
 
     install_fake_tools()
     key = os.environ.setdefault("GYM_AGENT_KEY", secrets.token_urlsafe(32))
@@ -382,11 +382,11 @@ def bench_stored(url: str) -> dict:
 
 async def bench_live(checkpointer, runs: int, name: str, website: str | None) -> dict:
     """Real workflows against the configured LLM and web search. Costs API quota: opt-in only."""
-    from contracts import PlannerInput
-    from graph import build_graph
-    from llm_config import get_llm
-    from runner import WorkflowRunner
-    from store import WorkflowStore
+    from src.models.contracts import PlannerInput
+    from src.agent.graph import build_graph
+    from src.models.llm_client import get_llm
+    from src.agent.runner import WorkflowRunner
+    from src.agent.store import WorkflowStore
 
     store = WorkflowStore()
     runner = make_timed_runner(store, get_llm, checkpointer, budget=300)
@@ -403,7 +403,7 @@ def cleanup(tag: str = RUN_TAG) -> int:
     """Delete the rows this run created (found by the tag in the place id). Returns the workflows removed."""
     from sqlalchemy import text
 
-    from db import engine
+    from src.utils.db import engine
 
     like = {"tag": f"%-{tag}-%"}
     like_end = {"tag": f"%-{tag}"}
@@ -516,7 +516,7 @@ async def main_async(args) -> dict:
 
     # Timings are taken at WARNING level so console output does not distort them (production logs at INFO,
     # which costs a few tens of microseconds a line).
-    import callbacks  # noqa: F401  (importing it configures the logger, so it must come before we change the level)
+    import src.utils.logger as callbacks  # noqa: F401  (importing it configures the logger, so it must come before we change the level)
 
     logging.getLogger("gym_agent").setLevel(logging.WARNING)
     sections = [s.strip() for s in args.sections.split(",") if s.strip()]
@@ -537,9 +537,9 @@ async def main_async(args) -> dict:
     checkpointer_cm = None
     checkpointer = None
     if needs_db:
-        from checkpointer import open_checkpointer
-        from db import Base, engine
-        import models  # noqa: F401  (registers tables)
+        from src.agent.checkpointer import open_checkpointer
+        from src.utils.db import Base, engine
+        import src.models.db_models as models  # noqa: F401  (registers tables)
 
         Base.metadata.create_all(engine)
         with engine.connect() as conn:
