@@ -1,7 +1,7 @@
 import pytest
 
-import url_policy as up
-from url_policy import (
+import src.tools.url_policy as up
+from src.tools.url_policy import (
     check_url,
     configured_allowlist,
     host_is_internal,

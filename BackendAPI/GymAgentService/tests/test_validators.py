@@ -1,9 +1,9 @@
 import pytest
 
-from agents import planner
-from contracts import ValidatorInput
+from src.agent.nodes import planner
+from src.models.contracts import ValidatorInput
 from tests.support import SITE_TEXT, WEBSITE, golden_facts, golden_recs, gym_request, workout
-from validators import validate
+from src.utils.validators import validate
 
 
 def make(facts=None, recs=None, corpus=None, gym=None, retrieved=None):

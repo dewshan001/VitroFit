@@ -4,8 +4,8 @@ No LLM and no tools. It is a pure function over the other agents' outputs so its
 verdict is reproducible and testable.
 """
 
-from contracts import ValidatorInput, Verdict
-from validators import validate
+from src.models.contracts import ValidatorInput, Verdict
+from src.utils.validators import validate
 
 
 def run(inp: ValidatorInput) -> Verdict:

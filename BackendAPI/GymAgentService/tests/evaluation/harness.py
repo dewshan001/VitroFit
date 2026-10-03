@@ -14,12 +14,12 @@ from typing import Any, Callable
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-import tool_registry
-from contracts import ApprovalDecision, GymFacts, Recommendations
-from db import SessionLocal
-from models import GymDetails
-from runner import Conflict
-from store import WorkflowStore
+import src.tools.tool_registry as tool_registry
+from src.models.contracts import ApprovalDecision, GymFacts, Recommendations
+from src.utils.db import SessionLocal
+from src.models.db_models import GymDetails
+from src.agent.runner import Conflict
+from src.agent.store import WorkflowStore
 from tests.evaluation.cases import DEFAULT, Case
 from tests.support import FakeModel, fake_scrape_tool, fake_search_tool, gym_request
 from tests.test_workflow import make_runner

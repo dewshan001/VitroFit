@@ -10,11 +10,11 @@ from langgraph.types import Command
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
-import main
-from contracts import ApprovalDecision
-from db import SessionLocal
-from models import GymDetails, GymWorkflow, GymWorkoutSuggestions
-from store import PublishRefused, WorkflowStore
+import src.api.app as main
+from src.models.contracts import ApprovalDecision
+from src.utils.db import SessionLocal
+from src.models.db_models import GymDetails, GymWorkflow, GymWorkoutSuggestions
+from src.agent.store import PublishRefused, WorkflowStore
 from tests.support import FakeModel, golden_facts, golden_recs, gym_request, seed_verified_gym
 from tests.test_workflow import decide, make_runner, run, start
 

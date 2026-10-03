@@ -31,7 +31,7 @@ Options C and D were compared by reasoning, not by building and measuring them.
 
 Use **B**. Concretely:
 
-- Four agents, each with a Pydantic contract that forbids unknown fields (`contracts.py`) and a tool allow-list enforced in one place (`tool_registry.py`):
+- Four agents, each with a Pydantic contract that forbids unknown fields (`src/models/contracts.py`) and a tool allow-list enforced in one place (`tool_registry.py`):
   **planner** (no tools, no LLM: a deterministic plan and route), **gym analysis** (scrape, search, similar-gym lookup; LLM), **workout recommendation**
   (a read-only taxonomy tool; LLM), **validator/safety** (no tools, no LLM: schema, business rules, URL allow-list, injection checks).
 - Only two agents use an LLM. The planner and the validator are plain code, so the plan and the verdict are reproducible and cheap to test.

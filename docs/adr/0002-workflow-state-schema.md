@@ -51,7 +51,7 @@ Only summaries are stored (no prompts, model reasoning, tokens or credentials); 
 **Costs and risks.**
 - Two stores (tables and checkpoint) must stay consistent. We mitigate it by making the tables authoritative for decisions and the checkpoint only for resuming, but a bug
   could still leave them disagreeing; the recovery step marks crashed runs as failed and keeps paused ones.
-- Schema changes are hand-written idempotent SQL in `db_migrations.py`, not a migration tool; the new provenance constraint was added as `NOT VALID`, so a legacy verified row
+- Schema changes are hand-written idempotent SQL in `src/utils/db_migrations.py`, not a migration tool; the new provenance constraint was added as `NOT VALID`, so a legacy verified row
   set by hand would not be re-checked (a warning is logged for such rows).
 - The JSONB columns have no database-level shape check; the Pydantic contracts validate them in the application.
 - The list endpoint returns complete rows, so it is the heaviest HTTP call (12.8 ms p50 for 50 rows against 3.0 ms for one workflow); a summary-only list would be cheaper.

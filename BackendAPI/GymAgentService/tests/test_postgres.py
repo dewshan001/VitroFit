@@ -11,12 +11,12 @@ import pytest
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-from contracts import ApprovalDecision
-from db import DATABASE_URL, SessionLocal, engine
-from graph import build_graph
-from models import GymDetails
-from runner import WorkflowRunner
-from store import WorkflowStore
+from src.models.contracts import ApprovalDecision
+from src.utils.db import DATABASE_URL, SessionLocal, engine
+from src.agent.graph import build_graph
+from src.models.db_models import GymDetails
+from src.agent.runner import WorkflowRunner
+from src.agent.store import WorkflowStore
 from tests.support import FakeModel, gym_request
 
 pytestmark = [
@@ -55,7 +55,7 @@ def test_schema_has_expected_tables_types_and_constraints():
 
 def test_paused_approval_survives_restart_with_the_real_postgres_checkpointer(monkeypatch):
     monkeypatch.setenv("GYM_CHECKPOINTER", "postgres")
-    from checkpointer import open_checkpointer
+    from src.agent.checkpointer import open_checkpointer
 
     async def scenario():
         store = WorkflowStore()
@@ -115,8 +115,8 @@ def test_migration_upgrades_an_old_database_and_is_idempotent():
 
     from sqlalchemy import text
 
-    from db_migrations import ensure_gym_details_provenance
-    from models import GymDetails, GymWorkflow
+    from src.utils.db_migrations import ensure_gym_details_provenance
+    from src.models.db_models import GymDetails, GymWorkflow
 
     _downgrade_to_old_shape()
     with SessionLocal() as s:
@@ -162,7 +162,7 @@ def test_migration_upgrades_an_old_database_and_is_idempotent():
 def test_migration_is_a_no_op_on_a_current_database():
     from sqlalchemy import inspect
 
-    from db_migrations import ensure_gym_details_provenance
+    from src.utils.db_migrations import ensure_gym_details_provenance
 
     before = {c["name"] for c in inspect(engine).get_columns("gym_agent_details")}
     ensure_gym_details_provenance(engine)
@@ -172,7 +172,7 @@ def test_migration_is_a_no_op_on_a_current_database():
 def test_guard_flags_column_is_added_to_an_old_tool_calls_table_and_the_migration_is_idempotent():
     from sqlalchemy import text
 
-    from db_migrations import ensure_tool_call_guard_flags
+    from src.utils.db_migrations import ensure_tool_call_guard_flags
 
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE gym_agent_tool_calls DROP COLUMN guard_flags"))

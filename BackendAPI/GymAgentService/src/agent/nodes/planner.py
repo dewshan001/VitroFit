@@ -5,7 +5,7 @@ rules decision and must be reproducible. Its output narrows what the analysis
 agent may do (least privilege), e.g. no scraping when there is no website.
 """
 
-from contracts import Plan, PlannerInput, PlanStep
+from src.models.contracts import Plan, PlannerInput, PlanStep
 
 
 def run(inp: PlannerInput) -> Plan:

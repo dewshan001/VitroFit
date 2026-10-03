@@ -24,9 +24,9 @@ from langgraph.types import interrupt
 from pydantic import ValidationError
 from typing_extensions import TypedDict
 
-from agents import gym_analysis, planner, validator, workout_recommendation
-from agents._common import TRANSIENT_ERRORS, AgentOutputError
-from contracts import (
+from src.agent.nodes import gym_analysis, planner, validator, workout_recommendation
+from src.agent.nodes._common import TRANSIENT_ERRORS, AgentOutputError
+from src.models.contracts import (
     APPROVER_ROLES,
     AnalysisInput,
     ApprovalDecision,
@@ -38,8 +38,8 @@ from contracts import (
     ValidatorInput,
     Verdict,
 )
-from store import WorkflowStore
-from validators import request_violations
+from src.agent.store import WorkflowStore
+from src.utils.validators import request_violations
 
 logger = logging.getLogger("gym_agent")
 

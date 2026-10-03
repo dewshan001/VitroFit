@@ -5,8 +5,8 @@ import asyncio
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 
-from contracts import GymFacts, PlannerInput, Recommendations
-from tools import ScrapeInput, SearchGymInput
+from src.models.contracts import GymFacts, PlannerInput, Recommendations
+from src.tools.tools import ScrapeInput, SearchGymInput
 
 WEBSITE = "https://fitzone.lk"
 
@@ -149,8 +149,8 @@ def seed_verified_gym(place_id="place-1", name="Old", equipment=("old",), phone=
     """A verified row the legitimate way: a Published workflow that vouches for it."""
     from datetime import datetime, timezone
 
-    from db import SessionLocal
-    from models import GymDetails, GymWorkflow
+    from src.utils.db import SessionLocal
+    from src.models.db_models import GymDetails, GymWorkflow
 
     workflow_id = f"seed-{place_id}"
     with SessionLocal() as s:

@@ -9,7 +9,7 @@ from typing import Awaitable, Callable, TypeVar
 
 import openai
 
-from injection_guard import escape_for_fence
+from src.utils.injection_guard import escape_for_fence
 
 logger = logging.getLogger("gym_agent")
 

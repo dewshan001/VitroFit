@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
-from db import Base
+from src.utils.db import Base
 
 
 class GymDetails(Base):

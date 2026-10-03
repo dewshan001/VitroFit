@@ -32,7 +32,7 @@ def test_components_stay_cheap():
 def test_the_guard_scales_roughly_linearly_with_page_size():
     import time
 
-    import injection_guard
+    import src.utils.injection_guard as injection_guard
 
     unit = "Treadmills dumbbells squat racks yoga spin classes open daily from six. "
 
@@ -48,7 +48,7 @@ def test_the_guard_scales_roughly_linearly_with_page_size():
 
 
 def test_database_operations_stay_fast():
-    from db import engine
+    from src.utils.db import engine
 
     if engine.dialect.name == "sqlite":
         pytest.skip("database timings are only meaningful on PostgreSQL (run with TEST_DATABASE_URL)")

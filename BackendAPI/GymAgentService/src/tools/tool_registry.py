@@ -18,10 +18,10 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-import injection_guard as guard
-import tools as gym_tools
-from callbacks import get_handler
-from url_policy import host_is_internal, normalise_host
+import src.utils.injection_guard as guard
+import src.tools.tools as gym_tools
+from src.utils.logger import get_handler
+from src.tools.url_policy import host_is_internal, normalise_host
 
 # role -> tool names that role may call. Anything absent means "no tools".
 TOOL_PERMISSIONS: dict[str, tuple[str, ...]] = {

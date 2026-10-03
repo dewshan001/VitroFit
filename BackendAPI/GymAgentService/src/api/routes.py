@@ -11,9 +11,9 @@ import secrets
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
-from contracts import ApprovalDecision, PlannerInput
-from runner import Conflict, NotFound, WorkflowRunner
-from store import WorkflowStore
+from src.models.contracts import ApprovalDecision, PlannerInput
+from src.agent.runner import Conflict, NotFound, WorkflowRunner
+from src.agent.store import WorkflowStore
 
 MIN_KEY_LENGTH = 32
 

@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-import tool_registry
-from tool_registry import TOOL_PERMISSIONS, call_tool, sanitize_untrusted_text, tools_for
+import src.tools.tool_registry as tool_registry
+from src.tools.tool_registry import TOOL_PERMISSIONS, call_tool, sanitize_untrusted_text, tools_for
 from tests.support import WEBSITE, fake_scrape_tool
 
 
@@ -76,7 +76,7 @@ def test_tool_timeout_is_reported(monkeypatch):
         return "x"
 
     from langchain_core.tools import StructuredTool
-    from tools import ScrapeInput
+    from src.tools.tools import ScrapeInput
 
     monkeypatch.setitem(
         tool_registry._REGISTRY,
@@ -93,7 +93,7 @@ def test_tool_crash_becomes_structured_failure(monkeypatch):
         raise RuntimeError("secret internals")
 
     from langchain_core.tools import StructuredTool
-    from tools import ScrapeInput
+    from src.tools.tools import ScrapeInput
 
     monkeypatch.setitem(
         tool_registry._REGISTRY,
@@ -149,7 +149,7 @@ def test_a_normal_search_query_is_allowed():
 
 
 def test_tool_calls_go_through_the_logging_handler(monkeypatch):
-    from callbacks import get_handler
+    from src.utils.logger import get_handler
 
     seen = []
     handler = get_handler()
