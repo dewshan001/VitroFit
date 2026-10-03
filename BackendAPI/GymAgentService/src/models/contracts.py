@@ -81,6 +81,13 @@ class Evidence(Contract):
     source_url: str | None = Field(default=None, max_length=500)
     snippet: str = Field(min_length=1, max_length=400)
 
+    @field_validator("snippet", mode="before")
+    @classmethod
+    def _clip_snippet(cls, value):
+        # Models often overshoot the "max 300 chars" instruction. A prefix of a verbatim quote is
+        # still verbatim, so clip it rather than fail the whole analysis over length.
+        return value.strip()[:300] if isinstance(value, str) else value
+
 
 class AnalysisInput(Contract):
     gym: PlannerInput
