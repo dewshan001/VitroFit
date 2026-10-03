@@ -5,6 +5,7 @@ Tools: scrape_gym_website, search_gym_info, lookup_similar_gyms, narrowed by the
 and always invoked through tool_registry.call_tool (allow-list, guards, timeouts).
 """
 
+import logging
 import os
 import re
 from typing import Callable
@@ -25,8 +26,17 @@ from src.tools.url_policy import configured_allowlist, normalise_host
 from src.prompts.agent_prompts import GYM_ANALYSIS_EXTRACTION_PROMPT, GYM_ANALYSIS_JSON_SHAPE
 from src.prompts.system_prompts import GYM_ANALYSIS_SYSTEM_PROMPT
 
-MAX_AGENT_STEPS = int(os.getenv("AGENT_MAX_STEPS", "6"))
+logger = logging.getLogger("gym_agent")
+
+MAX_AGENT_STEPS = int(os.getenv("AGENT_MAX_STEPS", "4"))
 NO_EVIDENCE_CONFIDENCE_CAP = 0.3
+# The final answer carries evidence snippets and a reasoning model spends tokens thinking first,
+# so it gets far more room than a tool-loop turn (900) or it comes back empty.
+EXTRACTION_MAX_TOKENS = int(os.getenv("AGENT_EXTRACTION_MAX_TOKENS", "2500"))
+EXTRACTION_ATTEMPTS = 2
+# More searches rarely add facts but each costs seconds; stop looking and answer.
+MAX_SEARCH_CALLS = int(os.getenv("AGENT_MAX_SEARCH_CALLS", "3"))
+
 
 def _task_message(inp: AnalysisInput) -> HumanMessage:
     gym = inp.gym
@@ -91,14 +101,23 @@ async def _extract(llm, messages: list) -> GymFacts:
         if isinstance(exc, TRANSIENT_ERRORS):
             raise  # retries already exhausted; do not mask as a parse problem
     # Model without function calling: ask for plain JSON and validate it ourselves.
-    response = await with_retries(
-        lambda: llm.ainvoke(messages + [HumanMessage(content=GYM_ANALYSIS_EXTRACTION_PROMPT + GYM_ANALYSIS_JSON_SHAPE)]),
-        what="gym_analysis.extract_json",
-    )
-    try:
-        return GymFacts.model_validate(parse_json_object(response.content or ""))
-    except Exception as exc:
-        raise AgentOutputError("gym_analysis output invalid") from exc
+    last_error: Exception | None = None
+    for attempt in range(EXTRACTION_ATTEMPTS):
+        response = await with_retries(
+            lambda: llm.ainvoke(messages + [HumanMessage(content=GYM_ANALYSIS_EXTRACTION_PROMPT + GYM_ANALYSIS_JSON_SHAPE)]),
+            what="gym_analysis.extract_json",
+        )
+        try:
+            return GymFacts.model_validate(parse_json_object(response.content or ""))
+        except Exception as exc:
+            last_error = exc
+            meta = getattr(response, "response_metadata", None) or {}
+            # Metadata only: never the model's text.
+            logger.warning(
+                "gym_analysis extraction attempt %d/%d unusable: reply_chars=%d finish_reason=%s",
+                attempt + 1, EXTRACTION_ATTEMPTS, len(response.content or ""), meta.get("finish_reason"),
+            )
+    raise AgentOutputError("gym_analysis output invalid") from last_error
 
 
 async def run(
@@ -148,8 +167,10 @@ async def run(
                 else f"Tool '{name}' failed: {result.error_code}. Try another allowed tool."
             )
             messages.append(ToolMessage(content=content, tool_call_id=call["id"], name=name))
+        if sum(r["tool"] == "search_gym_info" for r in records) >= MAX_SEARCH_CALLS:
+            break
 
-    facts = await _extract(llm_factory(temperature=0.1, max_tokens=900), messages)
+    facts = await _extract(llm_factory(temperature=0.1, max_tokens=EXTRACTION_MAX_TOKENS), messages)
 
     updates: dict = {}
     # Trusted map-provider values always win over anything the model produced.

@@ -1,4 +1,6 @@
-/// A nearby gym returned by the Geoapify Places API (GeoJSON feature).
+import '../api/google_places_api.dart' show haversineMeters;
+
+/// A nearby gym returned by the Google Places API (New).
 class Gym {
   final String placeId;
   final String name;
@@ -24,30 +26,33 @@ class Gym {
     this.openingHours,
   });
 
-  factory Gym.fromFeature(Map<String, dynamic> feature) {
-    final props =
-        (feature['properties'] as Map?)?.cast<String, dynamic>() ?? {};
-    final geometry =
-        (feature['geometry'] as Map?)?.cast<String, dynamic>() ?? {};
-    final coords = (geometry['coordinates'] as List?) ?? const [0.0, 0.0];
-    final raw =
-        (((props['datasource'] as Map?)?['raw'] as Map?))
-            ?.cast<String, dynamic>() ??
-        {};
+  /// From a Places API (New) place. Returns null when the place has no id or
+  /// location. [originLat]/[originLng] is the search centre, used for the
+  /// distance (the API does not return one).
+  static Gym? fromGooglePlace(
+    Map<String, dynamic> place, {
+    double? originLat,
+    double? originLng,
+  }) {
+    final id = place['id'];
+    final location = (place['location'] as Map?)?.cast<String, dynamic>();
+    final lat = (location?['latitude'] as num?)?.toDouble();
+    final lng = (location?['longitude'] as num?)?.toDouble();
+    if (id is! String || id.isEmpty || lat == null || lng == null) return null;
 
     String? str(dynamic v) => v is String && v.isNotEmpty ? v : null;
 
     return Gym(
-      placeId: (props['place_id'] as String?) ?? '',
-      name: (props['name'] as String?) ?? 'Unnamed gym',
-      lat: (coords[1] as num).toDouble(),
-      lng: (coords[0] as num).toDouble(),
-      address: str(props['formatted']) ?? str(props['address_line1']),
-      distanceMeters: (props['distance'] as num?)?.toDouble(),
-      website: str(props['website']) ?? str(raw['website']),
-      phone: str(raw['phone']) ?? str(raw['contact:phone']),
-      email: str(raw['email']) ?? str(raw['contact:email']),
-      openingHours: str(raw['opening_hours']),
+      placeId: id,
+      name: str((place['displayName'] as Map?)?['text']) ?? 'Unnamed gym',
+      lat: lat,
+      lng: lng,
+      address: str(place['formattedAddress']),
+      distanceMeters: (originLat != null && originLng != null)
+          ? haversineMeters(originLat, originLng, lat, lng).roundToDouble()
+          : null,
+      website: str(place['websiteUri']),
+      phone: str(place['nationalPhoneNumber']),
     );
   }
 

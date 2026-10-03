@@ -1,14 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart' hide Path;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../api/geoapify_api.dart';
+import '../api/google_places_api.dart';
 import '../api/gym_agent_api.dart';
 import '../models/gym.dart';
 import '../models/gym_details.dart';
@@ -16,6 +17,7 @@ import '../models/workout_suggestion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/badge_chip.dart';
 import '../widgets/liquid_glass.dart';
+import '../widgets/map_marker_icons.dart';
 import '../widgets/outline_text.dart';
 import '../widgets/skeleton_box.dart';
 import '../widgets/slanted_button.dart';
@@ -35,9 +37,12 @@ class FindGymScreen extends StatefulWidget {
 
 class _FindGymScreenState extends State<FindGymScreen>
     with TickerProviderStateMixin {
-  final _geoapifyApi = GeoapifyApi();
+  final _placesApi = GooglePlacesApi();
   final _gymAgentApi = GymAgentApi();
-  final _mapController = MapController();
+  GoogleMapController? _mapController;
+  BitmapDescriptor? _gymIcon;
+  BitmapDescriptor? _userIcon;
+  bool _iconsRequested = false;
   final _searchController = TextEditingController();
 
   LatLng? _userLocation;
@@ -51,11 +56,12 @@ class _FindGymScreenState extends State<FindGymScreen>
   String? _locationIssue;
   bool _locationPermissionBlocked = false;
 
-  /// Tracks the map's current camera ourselves (mirroring what we last
-  /// commanded via `.move()`) instead of reading `_mapController.camera`
-  /// back - that getter has proven unreliable to query from here.
+  /// The camera as last reported by the map; a re-search uses its centre.
   LatLng _cameraCenter = _fallbackCenter;
-  double _cameraZoom = 12;
+
+  /// Set while the app itself moves the camera, so the resulting "camera idle"
+  /// does not trigger a second search for the same spot.
+  bool _programmaticMove = false;
 
   List<Gym> _gyms = [];
   bool _searching = false;
@@ -64,7 +70,6 @@ class _FindGymScreenState extends State<FindGymScreen>
   String _searchQuery = '';
 
   Timer? _panDebounce;
-  AnimationController? _panAnimController;
 
   final Map<String, GymDetails> _detailsCache = {};
   final Set<String> _detailsLoading = {};
@@ -84,73 +89,49 @@ class _FindGymScreenState extends State<FindGymScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_iconsRequested) {
+      _iconsRequested = true;
+      _loadMarkerIcons(MediaQuery.devicePixelRatioOf(context));
+    }
+  }
+
+  @override
   void dispose() {
     _panDebounce?.cancel();
-    _panAnimController?.dispose();
+    _mapController?.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  /// Smoothly pans the map to [target] instead of snapping instantly.
+  /// Smoothly moves the map to [target].
   ///
-  /// Never allowed to throw: a camera-animation failure must not be able to
-  /// break the caller's control flow (in particular `_locateAndSearch`,
-  /// where this is called unawaited right before the gym fetch).
+  /// Never allowed to throw: a camera failure must not be able to break the
+  /// caller's control flow (in particular `_locateAndSearch`, where this is
+  /// called right before the gym fetch).
   void _animateCameraTo(LatLng target, double zoom) {
-    try {
-      if (!_mapReady) {
-        _mapController.move(target, zoom);
-        _cameraCenter = target;
-        _cameraZoom = zoom;
-        return;
-      }
-      _panAnimController?.dispose();
-      final controller = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 600),
-      );
-      final latTween = Tween<double>(
-        begin: _cameraCenter.latitude,
-        end: target.latitude,
-      );
-      final lngTween = Tween<double>(
-        begin: _cameraCenter.longitude,
-        end: target.longitude,
-      );
-      final zoomTween = Tween<double>(begin: _cameraZoom, end: zoom);
-      final curved = CurvedAnimation(
-        parent: controller,
-        curve: Curves.easeInOutCubic,
-      );
-      curved.addListener(() {
-        try {
-          _mapController.move(
-            LatLng(latTween.evaluate(curved), lngTween.evaluate(curved)),
-            zoomTween.evaluate(curved),
-          );
-        } catch (_) {
-          // Ignore mid-animation map errors (e.g. controller detached).
-        }
-      });
-      controller.addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _cameraCenter = target;
-          _cameraZoom = zoom;
-        }
-      });
-      _panAnimController = controller;
-      controller.forward();
-    } catch (_) {
-      // Fall back to an instant, best-effort move; never let a camera
-      // animation failure interrupt the caller.
-      try {
-        _mapController.move(target, zoom);
-        _cameraCenter = target;
-        _cameraZoom = zoom;
-      } catch (_) {
-        // Map not ready/attached - nothing more we can do here.
-      }
-    }
+    _cameraCenter = target;
+    final controller = _mapController;
+    if (controller == null) return;
+    _programmaticMove = true;
+    controller
+        .animateCamera(CameraUpdate.newLatLngZoom(target, zoom))
+        .catchError((_) {
+          _programmaticMove = false;
+        });
+  }
+
+  /// Draws the pin and "you are here" bitmaps once (they depend on the
+  /// screen's pixel ratio).
+  Future<void> _loadMarkerIcons(double pixelRatio) async {
+    final gym = await MapMarkerIcons.gymPin(pixelRatio: pixelRatio);
+    final user = await MapMarkerIcons.userDot(pixelRatio: pixelRatio);
+    if (!mounted) return;
+    setState(() {
+      _gymIcon = gym;
+      _userIcon = user;
+    });
   }
 
   Future<void> _locateAndSearch() async {
@@ -216,7 +197,7 @@ class _FindGymScreenState extends State<FindGymScreen>
       _searchError = null;
     });
     try {
-      final gyms = await _geoapifyApi.searchNearby(
+      final gyms = await _placesApi.searchNearby(
         lat: center.latitude,
         lng: center.longitude,
       );
@@ -235,18 +216,28 @@ class _FindGymScreenState extends State<FindGymScreen>
       if (!mounted) return;
       setState(() {
         _searching = false;
-        _searchError =
-            'Could not load nearby gyms. Check your connection and try again.';
+        _searchError = e is GooglePlacesException
+            ? 'Could not load nearby gyms: ${e.message}'
+            : 'Could not load nearby gyms. Check your connection and try again.';
       });
     }
   }
 
-  void _onMapPositionChanged(MapCamera camera, bool hasGesture) {
-    if (!hasGesture) return;
+  void _onCameraMove(CameraPosition position) {
+    _cameraCenter = position.target;
+  }
+
+  /// The camera has settled: search around it, unless the app moved it itself
+  /// (the location flow already searches there).
+  void _onCameraIdle() {
+    if (_programmaticMove) {
+      _programmaticMove = false;
+      return;
+    }
     _panDebounce?.cancel();
     _panDebounce = Timer(
       const Duration(milliseconds: 300),
-      () => _fetchGyms(camera.center),
+      () => _fetchGyms(_cameraCenter),
     );
   }
 
@@ -504,56 +495,49 @@ class _FindGymScreenState extends State<FindGymScreen>
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _fallbackCenter,
-              initialZoom: 12,
-              onMapReady: () {
-                _mapReady = true;
-                if (_userLocation != null) {
-                  _animateCameraTo(_userLocation!, 13);
-                }
-              },
-              onPositionChanged: _onMapPositionChanged,
+          GoogleMap(
+            initialCameraPosition: const CameraPosition(
+              target: _fallbackCenter,
+              zoom: 12,
             ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${_geoapifyApiKeyForTiles()}',
-                userAgentPackageName: 'com.vitrofit.mobile',
+            style: _darkMapStyle,
+            onMapCreated: (controller) {
+              _mapController = controller;
+              _mapReady = true;
+              if (_userLocation != null) {
+                _animateCameraTo(_userLocation!, 13);
+              }
+            },
+            onCameraMove: _onCameraMove,
+            onCameraIdle: _onCameraIdle,
+            markers: {
+              if (_userLocation != null)
+                Marker(
+                  markerId: const MarkerId('me'),
+                  position: _userLocation!,
+                  icon: _userIcon ?? BitmapDescriptor.defaultMarker,
+                  anchor: const Offset(0.5, 0.5),
+                  zIndexInt: 2,
+                ),
+              for (final gym in _gyms)
+                Marker(
+                  markerId: MarkerId(gym.placeId),
+                  position: LatLng(gym.lat, gym.lng),
+                  icon: _gymIcon ?? BitmapDescriptor.defaultMarker,
+                  anchor: const Offset(0.5, 1.0),
+                  onTap: () => _showGymSheet(gym),
+                ),
+            },
+            zoomControlsEnabled: false,
+            myLocationButtonEnabled: false,
+            mapToolbarEnabled: false,
+            compassEnabled: false,
+            // The map sits inside a scrolling page: let it claim drags.
+            gestureRecognizers: {
+              Factory<OneSequenceGestureRecognizer>(
+                () => EagerGestureRecognizer(),
               ),
-              MarkerLayer(
-                markers: [
-                  if (_userLocation != null)
-                    Marker(
-                      point: _userLocation!,
-                      width: 40,
-                      height: 40,
-                      child: const _UserPulseMarker(),
-                    ),
-                  ..._gyms.asMap().entries.map(
-                    (entry) => Marker(
-                      point: LatLng(entry.value.lat, entry.value.lng),
-                      width: 36,
-                      height: 42,
-                      alignment: Alignment.topCenter,
-                      child: GestureDetector(
-                            onTap: () => _showGymSheet(entry.value),
-                            child: const _GymPin(),
-                          )
-                          .animate(delay: (entry.key * 30).ms)
-                          .scale(
-                            begin: const Offset(0, 0),
-                            end: const Offset(1, 1),
-                            duration: 260.ms,
-                            curve: Curves.easeOutBack,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            },
           ),
           IgnorePointer(
             child: AnimatedOpacity(
@@ -727,11 +711,6 @@ class _FindGymScreenState extends State<FindGymScreen>
         .fadeIn(duration: 300.ms)
         .slideY(begin: 0.08, end: 0, curve: Curves.easeOut);
   }
-
-  String _geoapifyApiKeyForTiles() => const String.fromEnvironment(
-    'GEOAPIFY_API_KEY',
-    defaultValue: 'df0e01be60a848199b726c73604f3280',
-  );
 }
 
 /// A location/gym-name filter for the already-loaded gym list, styled to
@@ -826,91 +805,6 @@ class _GymSearchBarState extends State<_GymSearchBar> {
       ),
     );
   }
-}
-
-class _UserPulseMarker extends StatelessWidget {
-  const _UserPulseMarker();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.info,
-              ),
-            )
-            .animate(onPlay: (c) => c.repeat())
-            .scaleXY(
-              begin: 0.4,
-              end: 1.0,
-              duration: 1600.ms,
-              curve: Curves.easeOut,
-            )
-            .fadeOut(duration: 1600.ms, curve: Curves.easeOut, begin: 0.5),
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.info,
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GymPin extends StatelessWidget {
-  const _GymPin();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [AppColors.accent, AppColors.accentDark],
-            ),
-            boxShadow: const [
-              BoxShadow(color: AppColors.shadowAccent, blurRadius: 6),
-            ],
-          ),
-          child: const Icon(
-            Icons.fitness_center,
-            size: 15,
-            color: AppColors.bgPrimary,
-          ),
-        ),
-        CustomPaint(size: const Size(8, 6), painter: _PinTailPainter()),
-      ],
-    );
-  }
-}
-
-class _PinTailPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = AppColors.accentDark);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _GymCard extends StatefulWidget {
@@ -1525,3 +1419,18 @@ class _WorkoutCard extends StatelessWidget {
     );
   }
 }
+
+/// Dark Google map style matching the app (and the website's dark map).
+const String _darkMapStyle = '''
+[
+  {"elementType": "geometry", "stylers": [{"color": "#1a1a1a"}]},
+  {"elementType": "labels.text.fill", "stylers": [{"color": "#8a8a8a"}]},
+  {"elementType": "labels.text.stroke", "stylers": [{"color": "#111111"}]},
+  {"featureType": "poi", "stylers": [{"visibility": "off"}]},
+  {"featureType": "transit", "stylers": [{"visibility": "off"}]},
+  {"featureType": "road", "elementType": "geometry", "stylers": [{"color": "#2b2b2b"}]},
+  {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#3a3a3a"}]},
+  {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#0b1620"}]},
+  {"featureType": "administrative", "elementType": "geometry.stroke", "stylers": [{"color": "#333333"}]}
+]
+''';
