@@ -1,4 +1,6 @@
-const DIET_AGENT_API_URL = import.meta.env.VITE_DIET_AGENT_API_URL || 'http://localhost:8002/api/diet';
+// Diet requests go through the ASP.NET API (api/diet/*), which passes them to the diet service.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5284/api';
+const DIET_AGENT_API_URL = import.meta.env.VITE_DIET_AGENT_API_URL || `${API_BASE_URL}/diet`;
 
 function authHeaders() {
   let token = '';
@@ -152,6 +154,8 @@ export async function confirmDietPlan(inputs, plan) {
       macros: plan.macros,
       meals: plan.meals,
       withinTolerance: plan.withinTolerance ?? true,
+      // Lets the server save exactly what it generated and validated, and enforce Trainer/Admin approval of high-risk plans.
+      workflowId: plan.workflowId,
     }),
   });
 
@@ -179,6 +183,8 @@ export async function updateDietPlan(planId, inputs, plan) {
       macros: plan.macros,
       meals: plan.meals,
       withinTolerance: plan.withinTolerance ?? true,
+      // Lets the server save exactly what it generated and validated, and enforce Trainer/Admin approval of high-risk plans.
+      workflowId: plan.workflowId,
     }),
   });
 
@@ -207,3 +213,46 @@ export async function deleteDietPlan(planId) {
     throw new Error(error);
   }
 }
+
+/**
+ * Reviewer endpoints (Trainer/Admin only - the server enforces the role).
+ * Lists the high-risk plans waiting for a decision.
+ */
+export async function fetchPendingApprovals() {
+  const response = await fetch(`${DIET_AGENT_API_URL}/approvals/pending`, {
+    method: 'GET',
+    headers: authHeaders(),
+  });
+
+  const data = await response.json().catch(() => ([]));
+
+  if (!response.ok) {
+    throw new Error(data?.detail || 'Could not load the diet plans awaiting approval.');
+  }
+
+  return data;
+}
+
+/** Full workflow detail for a reviewer: customer inputs, risk flags and the generated plan. */
+export async function fetchApprovalDetail(workflowId) {
+  return getDietWorkflow(workflowId);
+}
+
+async function decideDietWorkflow(workflowId, decision, note) {
+  const query = note ? `?note=${encodeURIComponent(note)}` : '';
+  const response = await fetch(`${DIET_AGENT_API_URL}/workflows/${workflowId}/${decision}${query}`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data?.detail || `Could not ${decision} this plan. Please try again.`);
+  }
+
+  return data;
+}
+
+export const approveDietWorkflow = (workflowId, note) => decideDietWorkflow(workflowId, 'approve', note);
+export const rejectDietWorkflow = (workflowId, note) => decideDietWorkflow(workflowId, 'reject', note);

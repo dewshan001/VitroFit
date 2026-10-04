@@ -1,4 +1,4 @@
-# DietPlanService/budget_reference.py
+# DietPlanService/src/tools/budget_reference.py
 """Static reference table of approximate Sri Lankan grocery costs (LKR), so the
 LLM is grounded in real local prices for a budget tier instead of guessing.
 Small enough (a few dozen items) to embed directly in a prompt - no RAG/vector

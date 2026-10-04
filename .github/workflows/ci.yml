@@ -1,7 +1,7 @@
 name: CI
 
 # Restores, builds and tests every part of the project on each push and pull request to main
-# (and development). The gym agent service is tested twice: on SQLite (fast) and on a real PostgreSQL.
+# (and development). The gym and diet agent services are each tested twice: on SQLite (fast) and on a real PostgreSQL.
 
 on:
   push:
@@ -129,6 +129,68 @@ jobs:
           path: BackendAPI/GymAgentService/reports/
           if-no-files-found: ignore
 
+  diet-plan-service:
+    name: Diet plan service (pytest on SQLite and PostgreSQL, evaluation, latency smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: BackendAPI/DietPlanService
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: diet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PG_TEST_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/diet_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: BackendAPI/DietPlanService/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Tests on SQLite (fast path) with coverage gate
+        env:
+          TEST_DATABASE_URL: ""
+        run: pytest --cov --cov-report=term --junitxml=reports/junit-sqlite.xml
+
+      - name: Tests on PostgreSQL (real database, constraints, migrations) with coverage gate
+        env:
+          TEST_DATABASE_URL: ${{ env.PG_TEST_URL }}
+        run: pytest --cov --cov-report=term --cov-report=xml:reports/coverage.xml --junitxml=reports/junit-postgres.xml
+
+      - name: Latency smoke tests (generous limits)
+        run: pytest -m perf --junitxml=reports/junit-perf.xml
+
+      - name: Show the agent evaluation report in the job summary
+        if: always()
+        run: |
+          if [ -f reports/evaluation_report.md ]; then cat reports/evaluation_report.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diet-plan-reports
+          path: BackendAPI/DietPlanService/reports/
+          if-no-files-found: ignore
+
   web:
     name: React web app (lint, build)
     runs-on: ubuntu-latest
@@ -174,7 +236,7 @@ jobs:
   ci-success:
     name: All checks passed
     if: always()
-    needs: [dotnet, gym-agent-service, web, flutter]
+    needs: [dotnet, gym-agent-service, diet-plan-service, web, flutter]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any required job failed or was cancelled

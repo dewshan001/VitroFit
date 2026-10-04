@@ -1,7 +1,9 @@
 # DietPlanService/tests/test_agents.py
 import pytest
 
-from agents import _assess_risk, NutritionAnalystAgent, MealGeneratorAgent, SafetyValidatorAgent
+from src.agent.nodes.nutrition_analyst import _assess_risk, NutritionAnalystAgent
+from src.agent.nodes.meal_generator import MealGeneratorAgent
+from src.agent.nodes.safety_validator import SafetyValidatorAgent
 from conftest import VALID_PREFS
 
 

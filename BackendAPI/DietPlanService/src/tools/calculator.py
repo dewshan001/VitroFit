@@ -1,4 +1,4 @@
-# DietPlanService/calculator.py
+# DietPlanService/src/tools/calculator.py
 """Deterministic calorie/macro target math - the source of truth for numbers.
 Ported from the frontend's mock generateMockPlan() in
 VitroFit_web/src/components/DietPlan/DietPlan.jsx so v1 behaviour matches what

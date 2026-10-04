@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using VitroFit.API.Data;
 using VitroFit.API.Entities;
+using VitroFit.API.Features.DietAgent;
 using VitroFit.API.Features.GymAgent;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
@@ -71,6 +72,18 @@ builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
 });
 builder.Services.AddGymAgentRateLimiting(
     builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:AiRequestsPerMinute") ?? new GymAgentSettings().AiRequestsPerMinute);
+
+// Diet plans: browsers call api/diet/* here; this API passes the request on to the Python diet service.
+builder.Services.Configure<DietAgentSettings>(builder.Configuration.GetSection(DietAgentSettings.SectionName));
+builder.Services.AddHttpClient<IDietAgentClient, DietAgentClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<DietAgentSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    // The timeout is applied per call by DietAgentClient.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddDietAgentRateLimiting(
+    builder.Configuration.GetValue<int?>($"{DietAgentSettings.SectionName}:AiRequestsPerMinute") ?? new DietAgentSettings().AiRequestsPerMinute);
 
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -158,13 +171,15 @@ using (var scope = app.Services.CreateScope())
 
 var sidecarProcesses = new List<Process>();
 var gymAgentKey = builder.Configuration[$"{GymAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
+var dietAgentKey = builder.Configuration[$"{DietAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
 foreach (var (serviceName, relativeDir, port, customArgs, environment) in new (string, string, int, string?, Dictionary<string, string>?)[]
 {
     // server.py (not `uvicorn main:app`): the Postgres checkpointer needs a selector event loop on Windows.
     // The shared key is passed through the environment so API and agent service can't drift apart.
     ("GymAgentService", "GymAgentService", 8001, "server.py", gymAgentKey.Length > 0 ? new() { ["GYM_AGENT_KEY"] = gymAgentKey } : null),
     ("chatbot_service", "chatbot_service", 8000, null, null),
-    ("DietPlanService", "DietPlanService", 8003, null, null),
+    // The shared key (if set) switches the diet service to internal-only: it then answers only this API.
+    ("DietPlanService", "DietPlanService", 8003, null, dietAgentKey.Length > 0 ? new() { ["DIET_AGENT_KEY"] = dietAgentKey } : null),
     ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server", null),
 })
 {

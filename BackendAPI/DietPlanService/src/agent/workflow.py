@@ -1,4 +1,4 @@
-# DietPlanService/workflow.py
+# DietPlanService/src/agent/workflow.py
 """The coordinator: builds a plan, dispatches each step to the right agent
 through an allow-listed tool call, runs the revise/reject loop, and saves
 workflow state (plan, per-step results, events, validation, approval) after
@@ -15,22 +15,25 @@ session is closed once the request returns - the task keeps running
 independently of the request that started it.
 """
 import asyncio
+import logging
 import time
 from datetime import datetime, timezone
 
-from agents import (
-    NutritionAnalystAgent, NutritionAnalystInput,
-    MealGeneratorAgent, MealGeneratorInput,
-    SafetyValidatorAgent, SafetyValidatorInput,
-)
-from db import SessionLocal
-from workflow_models import DietWorkflow
+from src.agent.runner import slot
+from src.agent.nodes import NutritionAnalystAgent, MealGeneratorAgent, SafetyValidatorAgent, planner
+from src.models.contracts import NutritionAnalystInput, MealGeneratorInput, SafetyValidatorInput
+from src.models.db_models import DietWorkflow
+from src.tools.tool_registry import is_allowed
+from src.utils.validators import UNSAFE_OUTPUT_CODES
+from src.utils.db import SessionLocal
+from src.utils.logger import log_event
+from src.utils.pending_plans import sync_pending_plan
 
 # Per-tool timeouts. calculate_targets/assess_risk/lookup_budget/validate_plan
 # are pure Python with no I/O, so a short timeout is just a safety net.
-# generate_meals wraps meal_agent.generate_meals, which has its own internal
+# generate_meals wraps tools.generate_meals, which has its own internal
 # timeout logic (up to two model attempts, plus one corrective retry on
-# tolerance failure - meal_agent._CALL_TIMEOUT_SECONDS = 70s per attempt,
+# tolerance failure - llm_client.CALL_TIMEOUT_SECONDS = 70s per attempt,
 # raised there after measuring the live NVIDIA endpoint this service actually
 # uses (meta/llama-3.2-11b-vision-instruct) at 65-118s per successful call.
 # Worst case is 3 attempts x 70s = 210s; the timeout below gives it room to
@@ -54,37 +57,32 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def build_plan(objective: str, prefs: dict) -> list[dict]:
-    """Static, explainable 3-4 step plan - not dynamic re-planning. Adaptation
-    is limited to a single note appended when medical conditions are present.
-    """
-    steps = [
-        {"step": 1, "agent": "NutritionAnalystAgent", "tool": "calculate_targets",
-         "description": "Compute calorie/macro targets and budget context.", "status": "pending"},
-        {"step": 2, "agent": "NutritionAnalystAgent", "tool": "assess_risk",
-         "description": "Assess health/safety risk level from age, medical conditions, deficit.", "status": "pending"},
-        {"step": 3, "agent": "MealGeneratorAgent", "tool": "generate_meals",
-         "description": "Generate a day's meals matching targets and preferences.", "status": "pending"},
-        {"step": 4, "agent": "SafetyValidatorAgent", "tool": "validate_plan",
-         "description": "Validate meals against targets, restrictions, and medical rules.", "status": "pending"},
-    ]
-    if prefs.get("medicalConditions"):
-        steps[3]["description"] += " (medical_review: extra scrutiny applied due to declared medical conditions.)"
-    return steps
+def _save_pending_plan(session, wf: DietWorkflow) -> None:
+    """High-risk plans are saved for the customer as 'pending' right away (content
+    hidden until a reviewer approves). A failure here must never fail the run: the
+    plan can still be saved after approval through /confirm."""
+    if wf.approval_status != "pending":
+        return
+    try:
+        sync_pending_plan(session, wf)
+    except Exception:
+        session.rollback()
+        log_event("pending plan save failed", wf.id, level=logging.WARNING)
 
 
-async def call_tool(agent, tool: str, payload, events: list, step: int) -> dict:
+async def call_tool(agent, tool: str, payload, events: list, step: int, wf_id=None, allowed: list | None = None) -> dict:
     """Enforces the agent's allow-list, validates via the agent's own Pydantic
     input model, applies a timeout, and appends a short trace entry. Never logs
     raw prompts, full payloads, or secrets - only which tool ran, whether it
     succeeded, and how long it took.
     """
     started = time.monotonic()
-    if tool not in agent.allowed_tools:
+    if not is_allowed(agent.name, tool, allowed):
         events.append({
             "ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool,
             "ok": False, "error": f"Tool '{tool}' not permitted for {agent.name}.", "duration_ms": 0,
         })
+        log_event("tool refused", wf_id, level=logging.WARNING, agent=agent.name, tool=tool)
         return {"ok": False, "data": None, "error": f"Tool '{tool}' not permitted for {agent.name}."}
 
     timeout = _TOOL_TIMEOUTS.get(tool, _DEFAULT_TOOL_TIMEOUT_SECONDS)
@@ -92,21 +90,37 @@ async def call_tool(agent, tool: str, payload, events: list, step: int) -> dict:
         result = await asyncio.wait_for(agent.run(payload), timeout=timeout)
         duration_ms = int((time.monotonic() - started) * 1000)
         events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": True, "error": None, "duration_ms": duration_ms})
+        log_event("tool end", wf_id, agent=agent.name, tool=tool, ok=True, ms=duration_ms)
         return {"ok": True, "data": result.model_dump(), "error": None}
     except asyncio.TimeoutError:
         duration_ms = int((time.monotonic() - started) * 1000)
         error = f"Tool '{tool}' timed out after {timeout}s."
         events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": False, "error": error, "duration_ms": duration_ms})
+        log_event("tool end", wf_id, level=logging.WARNING, agent=agent.name, tool=tool, ok=False, ms=duration_ms)
         return {"ok": False, "data": None, "error": error}
     except Exception as e:
         duration_ms = int((time.monotonic() - started) * 1000)
         error = str(e)
         events.append({"ts": _now_iso(), "step": step, "agent": agent.name, "tool": tool, "ok": False, "error": error, "duration_ms": duration_ms})
+        log_event("tool end", wf_id, level=logging.WARNING, agent=agent.name, tool=tool, ok=False, ms=duration_ms)
         return {"ok": False, "data": None, "error": error}
 
 
 def _sum_calories(meals: list) -> float:
     return sum(item.get("calories", 0) or 0 for meal in meals for item in meal.get("items", []))
+
+
+def _generator_can_fix(violations: list[dict]) -> bool:
+    """A revise is only worth another attempt if some violation is one the Meal
+    Generator can fix (violations carry the agent that can resolve them)."""
+    return any(
+        v.get("severity") == "revise" and v.get("target", "MealGeneratorAgent") == "MealGeneratorAgent"
+        for v in violations
+    )
+
+
+def _has_unsafe_output(violations: list[dict]) -> bool:
+    return any(v.get("code") in UNSAFE_OUTPUT_CODES for v in violations)
 
 
 def _summarize_violations(violations: list[dict]) -> str:
@@ -117,20 +131,28 @@ def _summarize_violations(violations: list[dict]) -> str:
     return "Previous attempt had issues: " + "; ".join(parts) + ". Adjust and retry."
 
 
-def create_workflow(objective: str, prefs: dict, user_id: int, session) -> DietWorkflow:
+def create_workflow(objective: str, prefs: dict, user_id: int, session, guard_flags: list[str] | None = None) -> DietWorkflow:
     """Persists the initial workflow row and returns immediately - the actual
     step execution happens separately in execute_workflow(), so the caller
     (POST /api/diet/generate) can hand the workflowId back right away.
     """
-    plan = build_plan(objective, prefs)
+    planned = planner.run(objective, prefs)
+    plan_event = {
+        "ts": _now_iso(), "step": 0, "agent": "planner", "tool": "build_plan",
+        "ok": True, "error": None, "route": planned.route, "duration_ms": 0,
+    }
+    if guard_flags:
+        # Codes only, never the text: an input-guard signal that was recorded (monitor mode) or let through.
+        plan_event["guard_flags"] = guard_flags
     wf = DietWorkflow(
         user_id=user_id,
         objective=objective,
         status="running",
-        plan=plan,
+        plan=planned.steps,
+        route=planned.route,
         completed_steps=[],
         inputs=prefs,
-        events=[],
+        events=[plan_event],
         retry_count=0,
     )
     session.add(wf)
@@ -153,7 +175,8 @@ async def execute_workflow(workflow_id, prefs: dict) -> None:
         wf = session.get(DietWorkflow, workflow_id)
         if wf is None:
             return
-        await _run_steps(wf, prefs, session)
+        async with slot():  # waiting for a free slot is not charged to the run's time budget
+            await _run_steps(wf, prefs, session)
     except Exception as e:
         if wf is not None:
             try:
@@ -192,6 +215,8 @@ async def execute_refine(workflow_id, instruction: str) -> None:
     meals are kept as-is and wf.error carries a plain-language reason instead
     of the plan disappearing.
     """
+    semaphore = slot()
+    await semaphore.acquire()  # same cap as new generations
     session = SessionLocal()
     wf = None
     try:
@@ -200,6 +225,7 @@ async def execute_refine(workflow_id, instruction: str) -> None:
             return
 
         original_meals = wf.meals
+        allowed = planner.allowed_tools_for(wf.plan, refine=True)
         events = list(wf.events)
         completed_steps = list(wf.completed_steps)
         wf.error = None
@@ -208,7 +234,7 @@ async def execute_refine(workflow_id, instruction: str) -> None:
         gen_result = await call_tool(
             _generator, "refine_meals",
             MealGeneratorInput(targets=wf.targets, prefs=wf.inputs, current_meals=original_meals, instruction=instruction),
-            events, step=step_counter,
+            events, wf_id=wf.id, allowed=allowed, step=step_counter,
         )
         gen_data = gen_result["data"] or {}
         completed_steps.append({"step": step_counter, "agent": "MealGeneratorAgent", "status": "done", "refine": True})
@@ -226,7 +252,7 @@ async def execute_refine(workflow_id, instruction: str) -> None:
         new_meals = gen_data["meals"]
         validator_result = await call_tool(
             _validator, "validate_plan",
-            SafetyValidatorInput(meals=new_meals, targets=wf.targets, prefs=wf.inputs), events, step=step_counter,
+            SafetyValidatorInput(meals=new_meals, targets=wf.targets, prefs=wf.inputs), events, wf_id=wf.id, allowed=allowed, step=step_counter,
         )
         validation = validator_result["data"] or {}
         completed_steps.append({
@@ -244,7 +270,7 @@ async def execute_refine(workflow_id, instruction: str) -> None:
             session.commit()
             return
 
-        if validation.get("verdict") == "reject":
+        if validation.get("verdict") == "reject" or _has_unsafe_output(validation.get("violations") or []):
             reasons = "; ".join(v["message"] for v in validation["violations"][:3] if v.get("message"))
             wf.error = (
                 f"Couldn't make that change safely: {reasons}" if reasons
@@ -261,12 +287,26 @@ async def execute_refine(workflow_id, instruction: str) -> None:
         wf.meals = new_meals
         wf.validation_results = validation
         wf.status = "completed"
+        if wf.risk_level == "high" and wf.approval_status in ("approved", "auto_approved"):
+            # An approved high-risk plan that was edited is a different plan: it needs a fresh review.
+            wf.approval_status = "pending"
+            wf.approved_by = None
+            wf.approver_role = None
+            wf.approval_note = None
+            wf.decided_at = None
+            events.append({
+                "ts": _now_iso(), "step": None, "agent": "approval", "tool": "reset",
+                "ok": True, "error": None, "note": "Plan edited after approval; review needed again.",
+            })
+            wf.events = events
         wf.final_outcome = {
             "totalCalories": wf.targets["totalCalories"],
             "macros": wf.targets["macros"],
             "withinTolerance": validation.get("verdict") == "pass",
         }
         session.commit()
+        # Keeps the customer's pending plan row in step with the edited meals.
+        _save_pending_plan(session, wf)
     except Exception as e:
         if wf is not None:
             try:
@@ -277,11 +317,13 @@ async def execute_refine(workflow_id, instruction: str) -> None:
                 session.rollback()
     finally:
         session.close()
+        semaphore.release()
 
 
 async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     events = list(wf.events)
     completed_steps = list(wf.completed_steps)
+    allowed = planner.allowed_tools_for(wf.plan)
     deadline = time.monotonic() + _OVERALL_TIME_BUDGET_SECONDS
 
     def _fail(error: str, final_outcome: dict | None = None):
@@ -299,7 +341,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
         return time.monotonic() > deadline
 
     # --- Step 1: Nutrition Analyst - calculate_targets + assess_risk -------
-    analyst_result = await call_tool(_analyst, "calculate_targets", NutritionAnalystInput(prefs=prefs), events, step=1)
+    analyst_result = await call_tool(_analyst, "calculate_targets", NutritionAnalystInput(prefs=prefs), events, wf_id=wf.id, allowed=allowed, step=1)
     if not analyst_result["ok"]:
         return _fail(analyst_result["error"])
 
@@ -324,7 +366,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     # --- Step 3: Meal Generator - generate_meals ----------------------------
     generator_result = await call_tool(
         _generator, "generate_meals",
-        MealGeneratorInput(targets=wf.targets, prefs=prefs), events, step=3,
+        MealGeneratorInput(targets=wf.targets, prefs=prefs), events, wf_id=wf.id, allowed=allowed, step=3,
     )
     generator_data = generator_result["data"] or {}
     if not generator_result["ok"] or generator_data.get("error"):
@@ -346,7 +388,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     while True:
         validator_result = await call_tool(
             _validator, "validate_plan",
-            SafetyValidatorInput(meals=meals, targets=wf.targets, prefs=prefs), events, step=step_counter,
+            SafetyValidatorInput(meals=meals, targets=wf.targets, prefs=prefs), events, wf_id=wf.id, allowed=allowed, step=step_counter,
         )
         if not validator_result["ok"]:
             return _fail(validator_result["error"])
@@ -388,7 +430,16 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
 
         # verdict == "revise"
         wf.retry_count += 1
-        if wf.retry_count > _MAX_REVISE_RETRIES:
+        if wf.retry_count > _MAX_REVISE_RETRIES or not _generator_can_fix(validation["violations"]):
+            if _has_unsafe_output(validation["violations"]):
+                # Never hand back a plan whose text carries a link/markup/instruction.
+                wf.status = "rejected"
+                wf.final_outcome = {"reason": "validation_reject", "violations": validation["violations"]}
+                wf.events = events
+                wf.completed_steps = completed_steps
+                session.commit()
+                session.refresh(wf)
+                return wf
             # Soft-degrade rather than hard-fail: a "revise" verdict (as
             # opposed to "reject") means no safety/restriction rule was
             # broken - the meals are usable, just not within the calorie
@@ -408,6 +459,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
             wf.events = events
             wf.completed_steps = completed_steps
             session.commit()
+            _save_pending_plan(session, wf)
             session.refresh(wf)
             return wf
         if _deadline_exceeded():
@@ -417,7 +469,7 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
         regen_result = await call_tool(
             _generator, "generate_meals",
             MealGeneratorInput(targets=wf.targets, prefs=prefs, corrective_note=corrective_note),
-            events, step=step_counter,
+            events, wf_id=wf.id, allowed=allowed, step=step_counter,
         )
         completed_steps.append({"step": step_counter, "agent": "MealGeneratorAgent", "status": "done", "retry": wf.retry_count})
         wf.completed_steps = completed_steps
@@ -446,5 +498,6 @@ async def _run_steps(wf: DietWorkflow, prefs: dict, session) -> DietWorkflow:
     }
     wf.approval_status = "pending" if wf.risk_level == "high" else "auto_approved"
     session.commit()
+    _save_pending_plan(session, wf)
     session.refresh(wf)
     return wf

@@ -25,6 +25,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // The explanations run a few sentences each, so this errs generous.
 const STEP_REVEAL_DELAY_MS = 4200;
 
+// How often the plan list is re-checked while a plan awaits specialist review.
+const PENDING_REFRESH_MS = 30000;
+
 /**
  * Wraps pollDietWorkflow so the UI reveals one completed step at a time at a
  * readable pace, even if the backend already finished generating by the time
@@ -98,7 +101,7 @@ export default function DietPlan() {
   const { auth, getFullName } = useAuth();
   const user = auth?.user ?? {};
 
-  // phase: 'loading-plans' | 'browse' | 'empty' | 'form' | 'loading' | 'result' | 'error' | 'view'
+  // phase: 'loading-plans' | 'browse' | 'empty' | 'form' | 'loading' | 'result' | 'pending-review' | 'error' | 'view'
   const [phase, setPhase] = useState('loading-plans');
   const [plan, setPlan] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -201,6 +204,19 @@ export default function DietPlan() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth]);
 
+  // While any plan is waiting for specialist review, re-check the list so an
+  // approved plan shows its content and a declined one disappears without a reload.
+  const hasPendingPlan = savedPlans.some((sp) => sp.approvalStatus === 'pending');
+  useEffect(() => {
+    if (!auth || !hasPendingPlan) return undefined;
+    const timer = setInterval(async () => {
+      const plans = await refreshSavedPlans();
+      setPhase((prev) => (prev === 'browse' && plans.length === 0 ? 'empty' : prev));
+    }, PENDING_REFRESH_MS);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth, hasPendingPlan]);
+
   const handleGenerate = async (prefs) => {
     setPhase('loading');
     setConfirmStatus('idle');
@@ -215,6 +231,15 @@ export default function DietPlan() {
       // readable pace, so a fast generation doesn't just skip straight past
       // the explanation to the finished plan.
       const result = await pollWithPacedReveal(workflowId, setLiveDetail);
+      if (result.requiresApproval) {
+        // High-risk plan: it is already saved as pending on the server and its
+        // content stays hidden until a specialist approves it.
+        setPlan(null);
+        setEditingPlanId(null);
+        await refreshSavedPlans();
+        setPhase('pending-review');
+        return;
+      }
       setPlan(result);
       setPhase('result');
     } catch (err) {
@@ -301,6 +326,7 @@ export default function DietPlan() {
   };
 
   const handleViewPlan = (savedPlan) => {
+    if (savedPlan.approvalStatus === 'pending') return; // no content to show yet
     setViewingPlan(savedPlan);
     setPhase('view');
   };
@@ -428,6 +454,10 @@ export default function DietPlan() {
               refineMessage={refineMessage}
               changedItemKeys={changedItemKeys}
             />
+          )}
+
+          {auth && phase === 'pending-review' && (
+            <DietPlanResult state="pending-review" onBack={handleBackToBrowse} />
           )}
 
           {auth && phase === 'view' && viewingPlan && (

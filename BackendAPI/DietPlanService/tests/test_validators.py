@@ -1,5 +1,5 @@
 # DietPlanService/tests/test_validators.py
-from validators import validate_plan
+from src.utils.validators import validate_plan
 from conftest import make_meals, VALID_PREFS
 
 

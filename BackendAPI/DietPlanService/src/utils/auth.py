@@ -1,4 +1,4 @@
-# DietPlanService/auth.py
+# DietPlanService/src/utils/auth.py
 """Verifies the same JWTs VitroFit.API issues (HS256, shared signing key from its
 JwtSettings config) so /api/diet/generate and /api/diet/confirm can trust the
 authenticated user's id instead of a client-supplied user_id. Neither sibling
@@ -15,7 +15,7 @@ import jwt
 from fastapi import Header, HTTPException
 
 _APPSETTINGS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "VitroFit.API", "appsettings.json"
+    os.path.dirname(__file__), "..", "..", "..", "VitroFit.API", "appsettings.json"
 )
 
 with open(_APPSETTINGS_PATH, "r", encoding="utf-8") as f:

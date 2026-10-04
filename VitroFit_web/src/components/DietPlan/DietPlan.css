@@ -552,6 +552,18 @@
 .dp-browse-card-date { color: var(--text-muted); font-size: 0.85rem; }
 .dp-browse-card-cal { color: var(--accent); font-weight: 600; }
 .dp-browse-card-actions { display: flex; gap: 0.6rem; }
+.dp-browse-card-pending { cursor: default; border-style: dashed; }
+.dp-pending-badge {
+  align-self: flex-start;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid #f5b942;
+  border-radius: 999px;
+  color: #f5b942;
+  background: rgba(245, 185, 66, 0.1);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.dp-browse-card-pending-note { color: var(--text-muted); font-size: 0.85rem; }
 
 .dp-disclaimer {
   border: 1px solid var(--border);

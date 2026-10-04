@@ -41,6 +41,10 @@ BackendAPI/GymAgentService/reports/
 BackendAPI/GymAgentService/.coverage
 BackendAPI/GymAgentService/coverage.xml
 BackendAPI/GymAgentService/junit.xml
+BackendAPI/DietPlanService/reports/
+BackendAPI/DietPlanService/.coverage
+BackendAPI/DietPlanService/coverage.xml
+BackendAPI/DietPlanService/tests/_test_diet.sqlite3
 
 # Chroma DB files
 BackendAPI/GymAgentService/chroma_gym_data/
