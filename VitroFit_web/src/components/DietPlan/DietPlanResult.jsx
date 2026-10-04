@@ -111,6 +111,7 @@ function formatDate(iso) {
  *  - view:    a single saved plan's full read-only breakdown
  *  - loading: skeleton while the AI generates the plan
  *  - error:   the backend call failed (network, timeout, or the LLM couldn't produce a valid plan)
+ *  - pending-review: a high-risk plan was generated and is waiting for specialist approval (no content shown)
  *  - result:  a freshly generated (not yet saved) meal plan broken down by meal with macros & totals
  */
 export default function DietPlanResult({
@@ -154,6 +155,25 @@ export default function DietPlanResult({
     );
   }
 
+  if (state === 'pending-review') {
+    return (
+      <div className="dp-empty dp-fade-up">
+        <div className="dp-empty-icon">🩺</div>
+        <h2 className="dp-empty-title">Sent for Specialist Review</h2>
+        <p className="dp-empty-desc">
+          Because of your health details, a nutrition specialist needs to check this plan before
+          you can see it. It's saved in "Your Diet Plans" as awaiting review, and will appear there
+          once it is approved. If it is declined, it will be removed from your list.
+        </p>
+        <div className="dp-result-actions">
+          <button className="btn-primary" onClick={onBack}>
+            Back to My Plans
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (state === 'browse') {
     return (
       <div className="dp-browse dp-fade-up">
@@ -164,7 +184,25 @@ export default function DietPlanResult({
           </button>
         </div>
         <div className="dp-browse-list">
-          {savedPlans.map((sp) => (
+          {savedPlans.map((sp) => (sp.approvalStatus === 'pending' ? (
+            <div className="dp-browse-card dp-browse-card-pending" key={sp.id}>
+              <div className="dp-browse-card-info">
+                <span className="dp-browse-card-date">{formatDate(sp.createdAt)}</span>
+                <span className="dp-pending-badge">Awaiting specialist review</span>
+                <span className="dp-browse-card-pending-note">
+                  The plan's content will be available once a specialist approves it.
+                </span>
+              </div>
+              <div className="dp-browse-card-actions">
+                <button
+                  className="btn-secondary dp-btn-danger"
+                  onClick={() => onDeletePlan(sp.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
             <div
               className="dp-browse-card"
               key={sp.id}
@@ -192,7 +230,7 @@ export default function DietPlanResult({
                 </button>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       </div>
     );

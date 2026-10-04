@@ -1,9 +1,10 @@
 # DietPlanService/tests/test_workflow.py
 import pytest
 
-from db import SessionLocal
-from agents import NutritionAnalystAgent, NutritionAnalystInput
-from workflow import call_tool, run_workflow
+from src.utils.db import SessionLocal
+from src.agent.nodes import NutritionAnalystAgent
+from src.models.contracts import NutritionAnalystInput
+from src.agent.workflow import call_tool, run_workflow
 from conftest import VALID_PREFS, make_meals, expected_target_calories
 
 TARGET_CALORIES = expected_target_calories(VALID_PREFS)

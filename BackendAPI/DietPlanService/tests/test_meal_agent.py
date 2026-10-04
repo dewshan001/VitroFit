@@ -1,7 +1,7 @@
 # DietPlanService/tests/test_meal_agent.py
 import json
 
-from meal_agent import _build_prompt, _build_refine_prompt
+from src.prompts.agent_prompts import build_prompt as _build_prompt, build_refine_prompt as _build_refine_prompt
 
 
 def test_build_prompt_omits_feedback_by_default():

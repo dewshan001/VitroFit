@@ -1,21 +1,23 @@
-# DietPlanService/validators.py
+# DietPlanService/src/utils/validators.py
 """Deterministic, rule-based safety checks for a generated meal plan - no LLM
 involved. This is the Safety Validator agent's only tool: validate_plan().
 
-Keeps its own small tolerance check rather than importing meal_agent's private
-_within_tolerance/_sum_totals, since those are internal to meal_agent's own
+Keeps its own small tolerance check rather than importing tools.py's private
+_within_tolerance/_sum_totals, since those are internal to tools.py's own
 LLM self-correction retry and reaching into another module's underscore-
 prefixed names would couple this file to those internals. The _TOLERANCE
-constant here must be kept at 0.10 to match meal_agent.py's own constant.
+constant here must be kept at 0.10 to match src/tools/tools.py's own constant.
 """
 
-_TOLERANCE = 0.10  # +/-10%, keep in sync with meal_agent._TOLERANCE
+from src.utils.injection_guard import has_markup_or_link, scan
+
+_TOLERANCE = 0.10  # +/-10%, keep in sync with tools._TOLERANCE
 # Beyond this, treat the miss as unfixable rather than worth a revise cycle.
 # Raised from an initial 0.25 after real generations from the live model
 # (meta/llama-3.2-11b-vision-instruct) came in 30%+ off target on a normal
 # attempt - a value that low was rejecting plans outright instead of giving
 # the revise loop (which now actually forwards feedback to the LLM, see
-# meal_agent._build_prompt's previousAttemptFeedback) a chance to fix them.
+# prompts.agent_prompts.build_prompt's previousAttemptFeedback) a chance to fix them.
 _REJECT_TOLERANCE = 0.50
 
 _CALORIE_FLOOR = 1200  # kcal/day, medically-oriented minimum
@@ -47,13 +49,76 @@ RESTRICTION_KEYWORDS = {
 # Softer preference mismatches (free-text dislikes) are revise-tier instead.
 _REJECT_RESTRICTIONS = {"vegetarian", "vegan", "halal", "peanut allergy", "dairy-free", "lactose-intolerant", "gluten-free"}
 
+# Violation codes meaning the model's output carried a link, markup or an
+# instruction. A "revise" gets one more attempt, but a plan that still has one
+# when retries run out is rejected rather than handed back (see workflow.py).
+UNSAFE_OUTPUT_CODES = {"OUTPUT_HAS_LINK_OR_MARKUP", "OUTPUT_INJECTION"}
+
+# Keyword matching is deliberately a plain substring test (so "catfish" is still caught for a
+# vegetarian). These are the known-safe phrases that contain a restricted keyword and must not
+# trip it: "almond milk" is not milk, "eggplant" is not egg, "unsalted" is not salted.
+_PLANT_YOGHURTS = ["coconut yoghurt", "soy yoghurt", "almond yoghurt", "oat yoghurt", "plant yoghurt"]
+RESTRICTION_EXEMPT = {
+    "milk": ["almond milk", "oat milk", "soy milk", "soya milk", "coconut milk", "rice milk", "cashew milk",
+             "hemp milk", "plant milk", "plant-based milk"],
+    "cream": ["coconut cream", "cream of coconut"],
+    "butter": ["peanut butter", "almond butter", "cashew butter", "nut butter", "cocoa butter", "shea butter",
+               "butternut", "butter bean", "butterbean"],
+    "yoghurt": _PLANT_YOGHURTS,
+    "yogurt": [p.replace("yoghurt", "yogurt") for p in _PLANT_YOGHURTS],
+    "cheese": ["vegan cheese", "cashew cheese", "plant-based cheese"],
+    "egg": ["eggplant"],
+    "honey": ["honeydew"],
+    "ham": ["graham"],
+    "bread": ["breadfruit"],
+    "flour": ["coconut flour", "almond flour", "rice flour", "gram flour", "chickpea flour", "besan flour", "tapioca flour"],
+    "noodle": ["rice noodle", "glass noodle"],
+    "pasta": ["rice pasta", "gluten-free pasta", "gluten free pasta", "chickpea pasta", "lentil pasta"],
+    "meat": ["meatless", "meat-free", "meat free", "coconut meat"],
+    "turkey": ["turkey berry", "turkey berries"],
+}
+_NUT_BUTTERS = ["peanut butter", "almond butter", "cashew butter", "nut butter", "cocoa butter", "butternut",
+                "butter bean", "butterbean"]
+MEDICAL_EXEMPT = {
+    "DIABETES_SUGAR_RISK": {
+        "sugar": ["sugar-free", "sugar free", "no added sugar", "no sugar", "sugarless"],
+        "soda": ["baking soda", "soda water", "club soda"],
+        "honey": ["honeydew"],
+        "syrup": ["sugar-free syrup", "sugar free syrup"],
+    },
+    "SODIUM_RISK": {
+        "salted": ["unsalted"],
+        "processed": ["unprocessed", "minimally processed"],
+        "soy sauce": ["low-sodium soy sauce", "low sodium soy sauce", "reduced-sodium soy sauce"],
+    },
+    "FRIED_FAT_RISK": {
+        "fried": ["air-fried", "air fried", "oven-fried", "oven fried"],
+        "butter": _NUT_BUTTERS,
+    },
+}
+
+
+def _has_keyword(name: str, keyword: str, exemptions: dict) -> bool:
+    """True if `keyword` appears in `name` once the known-safe phrases that contain it are removed."""
+    for phrase in exemptions.get(keyword, ()):
+        name = name.replace(phrase, " ")
+    return keyword in name
+
+
 _SUGAR_KEYWORDS = ["sugar", "honey", "syrup", "soda", "candy", "jaggery", "dessert"]
 _SODIUM_KEYWORDS = ["pickle", "salted", "soy sauce", "processed", "canned", "instant noodle"]
 _FRIED_FAT_KEYWORDS = ["fried", "deep-fried", "butter", "cream"]
 
 
-def _violation(code: str, severity: str, message: str, field: str | None = None) -> dict:
-    return {"code": code, "severity": severity, "message": message, "field": field}
+def _violation(code: str, severity: str, message: str, field: str | None = None,
+               target: str = "MealGeneratorAgent") -> dict:
+    """`target` names the agent that could fix this (the coordinator only
+    retries when the Meal Generator can); `retryable` is false for rejects,
+    where another attempt cannot help."""
+    return {
+        "code": code, "severity": severity, "message": message, "field": field,
+        "target": target, "retryable": severity == "revise",
+    }
 
 
 def _check_schema(meals: list) -> list[dict]:
@@ -147,7 +212,7 @@ def _check_restrictions_and_dislikes(meals: list, prefs: dict) -> list[dict]:
         for j, item in enumerate(meal.get("items", [])):
             name = (item.get("name") or "").lower()
             for kw in active_keywords:
-                if kw in name:
+                if _has_keyword(name, kw, RESTRICTION_EXEMPT):
                     severity = "reject" if kw in reject_keywords else "revise"
                     violations.append(_violation(
                         "RESTRICTION_VIOLATION", severity,
@@ -175,6 +240,7 @@ def _check_medical_conditions(meals: list, targets: dict, prefs: dict) -> list[d
             "BELOW_SAFE_FLOOR", "reject",
             f"Target {targets.get('totalCalories')} kcal is below the {_CALORIE_FLOOR} kcal safe floor "
             "with a medical condition declared.",
+            target="NutritionAnalystAgent",
         ))
 
     keyword_checks = []
@@ -190,7 +256,7 @@ def _check_medical_conditions(meals: list, targets: dict, prefs: dict) -> list[d
             for j, item in enumerate(meal.get("items", [])):
                 name = (item.get("name") or "").lower()
                 for kw in keywords:
-                    if kw in name:
+                    if _has_keyword(name, kw, MEDICAL_EXEMPT.get(code, {})):
                         violations.append(_violation(
                             code, "revise",
                             f"'{item.get('name')}' may be risky given declared medical condition(s).",
@@ -215,6 +281,27 @@ def _check_value_bounds(meals: list) -> list[dict]:
     return violations
 
 
+def _check_output_safety(meals: list) -> list[dict]:
+    """Meal names, portions and labels must be plain food text: no links, markup
+    or text that tries to instruct a reader/model (prompt-injection signs)."""
+    violations = []
+    for i, meal in enumerate(meals):
+        texts = [(f"meals[{i}].label", meal.get("label")), (f"meals[{i}].type", meal.get("type"))]
+        for j, item in enumerate(meal.get("items", [])):
+            texts.append((f"meals[{i}].items[{j}].name", item.get("name")))
+            texts.append((f"meals[{i}].items[{j}].portion", item.get("portion")))
+        for field, value in texts:
+            if not isinstance(value, str) or not value:
+                continue
+            if has_markup_or_link(value):
+                violations.append(_violation(
+                    "OUTPUT_HAS_LINK_OR_MARKUP", "revise", "A meal field contains a link or markup.", field))
+            elif any(f.strong for f in scan(value)):
+                violations.append(_violation(
+                    "OUTPUT_INJECTION", "revise", "A meal field contains text that reads like an instruction.", field))
+    return violations
+
+
 def validate_plan(meals: list, targets: dict, prefs: dict) -> dict:
     """Runs all rule checks and returns {"verdict": "pass"|"revise"|"reject", "violations": [...]}.
 
@@ -231,6 +318,7 @@ def validate_plan(meals: list, targets: dict, prefs: dict) -> dict:
     violations += _check_restrictions_and_dislikes(meals, prefs)
     violations += _check_medical_conditions(meals, targets, prefs)
     violations += _check_value_bounds(meals)
+    violations += _check_output_safety(meals)
 
     if any(v["severity"] == "reject" for v in violations):
         verdict = "reject"

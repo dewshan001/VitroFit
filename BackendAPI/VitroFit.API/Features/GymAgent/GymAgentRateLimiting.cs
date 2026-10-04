@@ -37,7 +37,7 @@ namespace VitroFit.API.Features.GymAgent
                         {
                             status = 429,
                             title = "Too many requests",
-                            detail = "You are asking for gym details too quickly. Please wait a moment and try again."
+                            detail = "You are making requests too quickly. Please wait a moment and try again."
                         },
                         options: null,
                         contentType: "application/problem+json",
