@@ -17,7 +17,11 @@ from src.agent.store import WorkflowStore
 
 logger = logging.getLogger("gym_agent")
 
-WORKFLOW_BUDGET_SECONDS = float(os.getenv("GYM_WORKFLOW_BUDGET_SECONDS", "240"))
+# Runs are background jobs the approval page polls, so a generous budget costs nothing; it only has to
+# be shorter than "forever". Time spent queued for a slot does not count against it.
+WORKFLOW_BUDGET_SECONDS = float(os.getenv("GYM_WORKFLOW_BUDGET_SECONDS", "600"))
+# Several runs sharing one free LLM endpoint slow each other down, so only a few run at once.
+MAX_CONCURRENT_WORKFLOWS = int(os.getenv("GYM_MAX_CONCURRENT_WORKFLOWS", "2"))
 
 
 class NotFound(Exception):
@@ -29,10 +33,17 @@ class Conflict(Exception):
 
 
 class WorkflowRunner:
-    def __init__(self, store: WorkflowStore, graph, budget_seconds: float = WORKFLOW_BUDGET_SECONDS):
+    def __init__(
+        self,
+        store: WorkflowStore,
+        graph,
+        budget_seconds: float = WORKFLOW_BUDGET_SECONDS,
+        max_concurrent: int = MAX_CONCURRENT_WORKFLOWS,
+    ):
         self.store = store
         self.graph = graph
         self.budget = budget_seconds
+        self._slots = asyncio.Semaphore(max(1, max_concurrent))
         self._tasks: set[asyncio.Task] = set()
 
     # ── lifecycle ───────────────────────────────────────────────────────
@@ -91,9 +102,10 @@ class WorkflowRunner:
 
     async def _drive(self, workflow_id: str, graph_input) -> None:
         try:
-            await asyncio.wait_for(
-                self.graph.ainvoke(graph_input, self._config(workflow_id)), timeout=self.budget
-            )
+            async with self._slots:  # waiting here is not charged to the time budget
+                await asyncio.wait_for(
+                    self.graph.ainvoke(graph_input, self._config(workflow_id)), timeout=self.budget
+                )
         except asyncio.TimeoutError:
             await self._fail(workflow_id, "TIMEOUT")
         except Exception as exc:
@@ -101,9 +113,15 @@ class WorkflowRunner:
             await self._fail(workflow_id, type(exc).__name__[:60] or "INTERNAL_ERROR")
 
     async def _fail(self, workflow_id: str, code: str) -> None:
+        outcome = f"Workflow stopped safely ({code}); nothing was published."
+        if code == "TIMEOUT":
+            outcome = (
+                f"Workflow stopped safely (TIMEOUT): it did not finish within {int(self.budget)} seconds, "
+                "usually because the AI model was slow. Nothing was published; submit it again."
+            )
         delta = {
             "status": "Failed",
-            "final_outcome": f"Workflow stopped safely ({code}); nothing was published.",
+            "final_outcome": outcome,
             "errors": [{"agent": "runner", "code": code}],
         }
         try:

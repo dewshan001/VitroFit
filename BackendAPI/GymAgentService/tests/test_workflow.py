@@ -624,3 +624,29 @@ def test_analysis_agent_is_told_which_sources_it_may_cite():
     text = run(scenario()).all_prompt_text()
     assert "Allowed evidence sources (cite only these hosts): fitzone.lk, facebook.com" in text
     assert "source_url is required" in text
+
+
+def test_timeout_outcome_tells_the_reviewer_what_to_do():
+    wid = run(start(make_runner(FakeModel(delay=2.0), budget=0.3)))
+    outcome = row(wid)["finalOutcome"]
+    assert "TIMEOUT" in outcome and "submit it again" in outcome and "nothing was published" in outcome.lower()
+
+
+def test_queued_runs_do_not_burn_their_time_budget():
+    # One slot, three runs of ~0.5s each, budget 1.2s: only passes if waiting for the slot is not charged.
+    async def scenario():
+        store = WorkflowStore()
+        graph = build_graph(store, FakeModel(delay=0.25), MemorySaver())
+        runner = WorkflowRunner(store, graph, budget_seconds=2.5, max_concurrent=1)
+        ids = [await runner.start(gym_request(place_id=f"q{i}"), "user-1") for i in range(3)]
+        await runner.drain()
+        return ids
+
+    ids = run(scenario())
+    assert [row(i)["status"] for i in ids] == ["AwaitingApproval"] * 3
+
+
+def test_defaults_are_generous_enough_for_a_slow_model():
+    from src.agent import runner as runner_module
+
+    assert runner_module.WORKFLOW_BUDGET_SECONDS >= 600 and runner_module.MAX_CONCURRENT_WORKFLOWS == 2

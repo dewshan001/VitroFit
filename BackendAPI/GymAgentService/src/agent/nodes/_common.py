@@ -54,8 +54,13 @@ def untrusted(text: str) -> str:
 
 
 def parse_json_object(raw: str) -> dict:
-    """Extract the first JSON object from a plain-text model reply."""
-    match = re.search(r"\{.*\}", raw or "", re.DOTALL)
+    """Extract the first JSON object from a plain-text model reply.
+
+    Reasoning blocks (<think>...</think>) and markdown code fences are removed first, so braces
+    inside them are not mistaken for the answer."""
+    raw = re.sub(r"<think>.*?</think>", "", raw or "", flags=re.DOTALL | re.IGNORECASE)
+    raw = re.sub(r"```(?:json)?", "", raw, flags=re.IGNORECASE)
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
         raise AgentOutputError("no JSON object in model output")
     try:
