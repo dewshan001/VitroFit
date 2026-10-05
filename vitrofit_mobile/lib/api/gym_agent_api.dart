@@ -1,16 +1,12 @@
 import 'package:dio/dio.dart';
+import 'api_client.dart';
 import '../models/gym.dart';
 import '../models/gym_details.dart';
 import '../models/workout_suggestion.dart';
 
-/// GymAgentService is a separate FastAPI microservice (AI-driven gym
-/// enrichment/workout suggestions), not the .NET VitroFit.API - no auth.
-/// Reached via `adb reverse tcp:8001 tcp:8001` on a device.
-const String _defaultGymAgentBaseUrl = 'http://127.0.0.1:8001/api';
-const String gymAgentBaseUrl = String.fromEnvironment(
-  'GYM_AGENT_API_URL',
-  defaultValue: _defaultGymAgentBaseUrl,
-);
+/// Gym details and workout suggestions go through the VitroFit API
+/// (POST /gyms/details, /gyms/workouts) with the signed-in user's token; the
+/// AI service behind it is internal and is never called from the app.
 
 class GymAgentException implements Exception {
   final String message;
@@ -21,22 +17,21 @@ class GymAgentException implements Exception {
 }
 
 class GymAgentApi {
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: gymAgentBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(
-        seconds: 45,
-      ), // enrichment can involve an LLM call
-    ),
-  );
+  GymAgentApi({Dio? dio}) : _dio = dio ?? ApiClient.instance.dio;
+
+  final Dio _dio;
+
+  // Enrichment can involve an LLM call, so allow far longer than the shared
+  // client's default read timeout.
+  static final _aiOptions = Options(receiveTimeout: const Duration(seconds: 60));
 
   Future<GymDetails> getDetails(Gym gym) async {
     try {
       final response = await _dio.post(
         '/gyms/details',
+        options: _aiOptions,
         data: {
-          'place_id': gym.placeId,
+          'placeId': gym.placeId,
           'name': gym.name,
           'lat': gym.lat,
           'lng': gym.lng,
@@ -44,7 +39,7 @@ class GymAgentApi {
           'website': gym.website,
           'phone': gym.phone,
           'email': gym.email,
-          'opening_hours': gym.openingHours,
+          'openingHours': gym.openingHours,
         },
       );
       return GymDetails.fromJson(response.data as Map<String, dynamic>);
@@ -60,8 +55,9 @@ class GymAgentApi {
     try {
       final response = await _dio.post(
         '/gyms/workouts',
+        options: _aiOptions,
         data: {
-          'place_id': details.placeId,
+          'placeId': details.placeId,
           'name': gymName,
           'equipment': details.equipment,
           'classes': details.classes,
@@ -78,18 +74,22 @@ class GymAgentApi {
   String _messageFor(DioException e) {
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout) {
-      final host = Uri.tryParse(gymAgentBaseUrl)?.host ?? gymAgentBaseUrl;
-      if (host == '127.0.0.1' || host == 'localhost') {
-        return 'Could not reach the gym service at $gymAgentBaseUrl. '
-            'On a physical device, run `adb reverse tcp:8001 tcp:8001` '
-            '(separately from any other port you\'ve forwarded), or relaunch '
-            'with --dart-define=GYM_AGENT_API_URL=http://<your-PC-LAN-IP>:8001/api.';
-      }
-      return 'Could not reach the gym service at $gymAgentBaseUrl. Check your connection and try again.';
+      return 'Could not reach the server. Check your connection and try again.';
+    }
+    switch (e.response?.statusCode) {
+      case 401:
+        return 'Your session has expired. Please sign in again.';
+      case 429:
+        return 'Too many requests. Please wait a moment and try again.';
+      case 503:
+        return 'The gym service is unavailable right now. Please try again later.';
+      case 504:
+        return 'The gym service took too long to answer. Please try again.';
     }
     final data = e.response?.data;
-    if (data is Map && data['detail'] is String) {
-      return data['detail'] as String;
+    if (data is Map) {
+      final message = data['detail'] ?? data['title'];
+      if (message is String) return message;
     }
     return 'Something went wrong. Please try again.';
   }

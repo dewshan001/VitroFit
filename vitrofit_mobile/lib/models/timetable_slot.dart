@@ -85,6 +85,7 @@ class TimetableSlot {
   final int workoutId;
   final String workoutName;
   final String workoutCategory;
+  final String workoutDescription;
 
   const TimetableSlot({
     required this.id,
@@ -95,7 +96,15 @@ class TimetableSlot {
     required this.workoutId,
     required this.workoutName,
     required this.workoutCategory,
+    this.workoutDescription = '',
   });
+
+  /// The generated description is a comma-separated exercise list.
+  List<String> get descriptionLines => workoutDescription
+      .split(',')
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
 
   factory TimetableSlot.fromJson(Map<String, dynamic> json) {
     return TimetableSlot(
@@ -107,6 +116,7 @@ class TimetableSlot {
       workoutId: json['workoutId'] as int,
       workoutName: (json['workoutName'] as String?) ?? '',
       workoutCategory: (json['workoutCategory'] as String?) ?? '',
+      workoutDescription: (json['workoutDescription'] as String?) ?? '',
     );
   }
 }

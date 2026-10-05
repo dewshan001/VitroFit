@@ -3,11 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chatbot_fab.dart';
 import '../widgets/floating_nav_bar.dart';
+import 'diet/diet_screen.dart';
 import 'find_gym_screen.dart';
+import 'fitness/fitness_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
-import 'timetable_screen.dart';
-import 'workouts_screen.dart';
+import 'time/time_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -20,26 +21,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
   bool _navBarVisible = true;
 
-  late final List<Widget> _pages;
+  /// Tabs are built the first time they are opened (not at app start), so the
+  /// agent tabs only hit the backend when the user actually visits them.
+  final Set<int> _visited = {NavTab.home};
 
-  @override
-  void initState() {
-    super.initState();
-    _pages = [
-      HomeScreen(
-        onNavigateToTab: (index) {
-          setState(() {
-            _currentIndex = index;
-            _navBarVisible = true;
-          });
-        },
-      ),
-      const WorkoutsScreen(),
-      const TimetableScreen(),
-      const FindGymScreen(),
-      const ProfileScreen(),
-    ];
+  void _goToTab(int index) {
+    setState(() {
+      _currentIndex = index;
+      _visited.add(index);
+      _navBarVisible = true;
+    });
   }
+
+  Widget _tab(int index, Widget Function() build) =>
+      _visited.contains(index) ? build() : const SizedBox.shrink();
 
   @override
   Widget build(BuildContext context) {
@@ -108,9 +103,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
 
       // Body (IndexedStack preserves tab scroll states)
+      // IndexedStack keeps each tab's state (and scroll position) alive.
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: [
+          HomeScreen(onNavigateToTab: _goToTab),
+          _tab(NavTab.fitness, () => const FitnessScreen()),
+          _tab(NavTab.gym, () => const FindGymScreen()),
+          _tab(NavTab.diet, () => const DietScreen()),
+          _tab(
+            NavTab.time,
+            () => TimeScreen(
+              onNavigateToTab: _goToTab,
+              active: _currentIndex == NavTab.time,
+            ),
+          ),
+          _tab(NavTab.profile, () => const ProfileScreen()),
+        ],
       ),
       floatingActionButton: const ChatbotFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -126,10 +135,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             opacity: _navBarVisible ? 1 : 0,
             child: FloatingNavBar(
               currentIndex: _currentIndex,
-              onTap: (index) => setState(() {
-                _currentIndex = index;
-                _navBarVisible = true;
-              }),
+              onTap: _goToTab,
             ),
           ),
         ),

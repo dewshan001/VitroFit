@@ -5,16 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/timetable_slot.dart';
 import '../models/user_profile.dart';
-import '../models/workout.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_glow_background.dart';
+import '../widgets/floating_nav_bar.dart' show NavTab;
 import '../widgets/liquid_glass.dart';
 import '../widgets/outline_text.dart';
-import '../widgets/skeleton_box.dart';
 import '../widgets/slanted_button.dart';
-import '../widgets/workout_card.dart';
-import 'workout_detail_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -45,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
         RefreshIndicator(
           color: AppColors.accent,
           backgroundColor: AppColors.bgCard,
-          onRefresh: () => appState.loadWorkouts(),
+          onRefresh: () => appState.loadTimetable(),
           child: SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
@@ -64,8 +61,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 36),
 
-                // 3. FEATURED WORKOUTS CAROUSEL
-                _buildFeaturedWorkouts(context, appState),
+                // 3. AI COACH SHORTCUTS
+                _buildAgentShortcuts(),
 
                 const SizedBox(height: 36),
 
@@ -192,8 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(width: 12),
                       GestureDetector(
-                        onTap: () =>
-                            widget.onNavigateToTab(4), // Go to Profile tab
+                        onTap: () => widget.onNavigateToTab(NavTab.profile),
                         child: _Avatar(user: user)
                             .animate()
                             .fadeIn(duration: 400.ms)
@@ -208,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   if (nextUp != null) ...[
                     GestureDetector(
-                          onTap: () => widget.onNavigateToTab(2),
+                          onTap: () => widget.onNavigateToTab(NavTab.time),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -272,18 +268,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         runSpacing: 10,
                         children: [
                           SlantedButton(
-                            text: "BROWSE WORKOUTS",
+                            text: "MY FITNESS PLAN",
                             icon: Icons.arrow_forward,
                             paddingVertical: 10,
                             paddingHorizontal: 18,
-                            onPressed: () => widget.onNavigateToTab(1),
+                            onPressed: () =>
+                                widget.onNavigateToTab(NavTab.fitness),
                           ),
                           SlantedButton(
                             text: "MY TIMETABLE",
                             isSecondary: true,
                             paddingVertical: 10,
                             paddingHorizontal: 18,
-                            onPressed: () => widget.onNavigateToTab(2),
+                            onPressed: () => widget.onNavigateToTab(NavTab.time),
                           ),
                         ],
                       )
@@ -384,83 +381,93 @@ class _HomeScreenState extends State<HomeScreen> {
         .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic);
   }
 
-  Widget _buildFeaturedWorkouts(BuildContext context, AppState appState) {
-    final featured = appState.workouts.take(4).toList();
+  Widget _buildAgentShortcuts() {
+    final items = [
+      (NavTab.fitness, Icons.fitness_center, 'FITNESS', 'Week-by-week training plans'),
+      (NavTab.gym, Icons.location_on, 'GYM', 'Find and explore gyms near you'),
+      (NavTab.diet, Icons.restaurant, 'DIET', 'Personalised meal plans'),
+      (NavTab.time, Icons.calendar_month, 'TIME', 'A timetable that fits your week'),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "FEATURED WORKOUTS",
-                      style: GoogleFonts.oswald(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const _AccentUnderline(),
-                    const SizedBox(height: 4),
-                    Text(
-                      "From the studio's live workout catalog",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
+              Text(
+                "YOUR AI COACHES",
+                style: GoogleFonts.oswald(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => widget.onNavigateToTab(1),
-                child: Text(
-                  "SEE ALL →",
-                  style: GoogleFonts.oswald(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ),
+              const _AccentUnderline(),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        if (appState.workoutsLoading && featured.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: List.generate(
-                2,
-                (i) => const Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: SkeletonBox(height: 190, borderRadius: 12),
-                  ),
-                ),
-              ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.25,
             ),
-          )
-        else if (featured.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              "No workouts available yet.",
-              style: GoogleFonts.inter(color: AppColors.textSecondary),
-            ),
-          )
-        else
-          _FeaturedWorkoutsCarousel(workouts: featured),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return GestureDetector(
+                    onTap: () => widget.onNavigateToTab(item.$1),
+                    child: LiquidGlassContainer(
+                      borderRadius: BorderRadius.circular(14),
+                      padding: const EdgeInsets.all(14),
+                      blur: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Icon(item.$2, color: AppColors.accent, size: 26),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.$3,
+                                style: GoogleFonts.oswald(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                item.$4,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .animate(delay: (index * 80).ms)
+                  .fadeIn(duration: 350.ms)
+                  .slideY(begin: 0.15, end: 0, curve: Curves.easeOut);
+            },
+          ),
+        ),
       ],
     );
   }
@@ -568,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        "Explore new classes and keep building your fitness journey with VitroFit.",
+                        "Keep building your fitness journey with your VitroFit coaches.",
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: AppColors.textSecondary,
@@ -580,10 +587,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         runSpacing: 12,
                         children: [
                           SlantedButton(
-                            text: "BROWSE WORKOUTS",
+                            text: "START TRAINING",
                             icon: Icons.flash_on,
                             onPressed: () =>
-                                widget.onNavigateToTab(1), // Go to Workouts tab
+                                widget.onNavigateToTab(NavTab.fitness),
                           ),
                           SlantedButton(
                             text: "ABOUT US",
@@ -635,80 +642,6 @@ class _AccentUnderline extends StatelessWidget {
               ),
             ),
           );
-        },
-      ),
-    );
-  }
-}
-
-/// Horizontal workout carousel where the card nearest the viewport center
-/// scales up slightly and dims the others, for a modern "focus" feel while scrolling.
-class _FeaturedWorkoutsCarousel extends StatefulWidget {
-  final List<Workout> workouts;
-
-  const _FeaturedWorkoutsCarousel({required this.workouts});
-
-  @override
-  State<_FeaturedWorkoutsCarousel> createState() =>
-      _FeaturedWorkoutsCarouselState();
-}
-
-class _FeaturedWorkoutsCarouselState extends State<_FeaturedWorkoutsCarousel> {
-  final _controller = ScrollController();
-  static const double _cardWidth = 240;
-  static const double _cardMargin = 16;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final viewportWidth = MediaQuery.of(context).size.width;
-    final offset = _controller.hasClients ? _controller.offset : 0.0;
-
-    return SizedBox(
-      height: 230,
-      child: ListView.builder(
-        controller: _controller,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        scrollDirection: Axis.horizontal,
-        itemCount: widget.workouts.length,
-        itemBuilder: (context, index) {
-          final item = widget.workouts[index];
-          final cardCenter =
-              20 + index * (_cardWidth + _cardMargin) + _cardWidth / 2;
-          final viewportCenter = offset + viewportWidth / 2;
-          final distance = (cardCenter - viewportCenter).abs();
-          final t = (1 - (distance / (viewportWidth * 0.7))).clamp(0.0, 1.0);
-          final scale = 0.92 + 0.08 * t;
-          final opacity = 0.65 + 0.35 * t;
-
-          return Container(
-                width: _cardWidth,
-                margin: const EdgeInsets.only(right: _cardMargin),
-                child: Opacity(
-                  opacity: opacity,
-                  child: Transform.scale(
-                    scale: scale,
-                    child: WorkoutCard(
-                      workout: item,
-                      onTap: () => WorkoutDetailSheet.show(context, item),
-                    ),
-                  ),
-                ),
-              )
-              .animate(delay: (index * 80).ms)
-              .fadeIn(duration: 350.ms)
-              .slideX(begin: 0.15, end: 0, curve: Curves.easeOut);
         },
       ),
     );

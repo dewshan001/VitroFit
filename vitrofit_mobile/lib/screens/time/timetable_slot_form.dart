@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../api/api_exception.dart';
+import '../../api/workouts_api.dart';
 import '../../models/timetable_slot.dart';
 import '../../models/workout.dart';
 import '../../state/app_state.dart';
@@ -10,13 +11,12 @@ import '../../widgets/liquid_glass.dart';
 import '../../widgets/slanted_button.dart';
 import '../../widgets/vitro_text_field.dart';
 
-/// Opens the create/edit form for a personal timetable slot.
-/// [presetWorkout] pre-selects a workout (from "Add to My Timetable").
-/// [presetDay] pre-selects a day when creating (e.g. from the currently viewed day tab).
+/// Opens the create/edit form for a timetable slot (used to adjust a generated
+/// timetable by hand).
+/// [presetDay] pre-selects a day when creating.
 /// [editingSlot] switches the form into edit mode for an existing slot.
 Future<void> showTimetableSlotForm(
   BuildContext context, {
-  Workout? presetWorkout,
   ApiDay? presetDay,
   TimetableSlot? editingSlot,
 }) {
@@ -25,7 +25,6 @@ Future<void> showTimetableSlotForm(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (context) => _TimetableSlotForm(
-      presetWorkout: presetWorkout,
       presetDay: presetDay,
       editingSlot: editingSlot,
     ),
@@ -82,15 +81,10 @@ Future<bool> confirmRemoveTimetableSlot(
 }
 
 class _TimetableSlotForm extends StatefulWidget {
-  final Workout? presetWorkout;
   final ApiDay? presetDay;
   final TimetableSlot? editingSlot;
 
-  const _TimetableSlotForm({
-    this.presetWorkout,
-    this.presetDay,
-    this.editingSlot,
-  });
+  const _TimetableSlotForm({this.presetDay, this.editingSlot});
 
   @override
   State<_TimetableSlotForm> createState() => _TimetableSlotFormState();
@@ -105,6 +99,10 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
   late TimeOfDay _endTime;
   int? _workoutId;
 
+  List<Workout> _workouts = [];
+  bool _workoutsLoading = true;
+  String? _workoutsError;
+
   bool _saving = false;
   bool _deleting = false;
   String? _error;
@@ -114,16 +112,9 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
   @override
   void initState() {
     super.initState();
-    // Keep the workout dropdown current - the catalog is admin-managed and
-    // may have changed since it was last loaded (mirrors the website's
-    // refreshWorkouts() on every form open). Deferred to after this frame:
-    // loadWorkouts() notifies listeners synchronously before its first
-    // await, and calling it directly from initState (while this sheet's
-    // own widget tree is still being built) crashes GoRouter's
-    // refreshListenable, which can't rebuild mid-build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<AppState>().loadWorkouts();
-    });
+    // The workout list backs the dropdown (generated slots reference the
+    // "Adaptive" workouts the server created for the timetable).
+    _loadWorkouts();
 
     final slot = widget.editingSlot;
     if (slot != null) {
@@ -142,8 +133,23 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
       _day = widget.presetDay ?? ApiDay.monday;
       _startTime = const TimeOfDay(hour: 18, minute: 0);
       _endTime = const TimeOfDay(hour: 19, minute: 0);
-      _workoutId = widget.presetWorkout?.id;
-      _titleController.text = widget.presetWorkout?.name ?? '';
+    }
+  }
+
+  Future<void> _loadWorkouts() async {
+    try {
+      final list = await WorkoutsApi().list();
+      if (!mounted) return;
+      setState(() {
+        _workouts = list;
+        _workoutsLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _workoutsError = e.message;
+        _workoutsLoading = false;
+      });
     }
   }
 
@@ -227,7 +233,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
             content: Text(
               _isEditing
                   ? "Timetable slot updated."
-                  : "Added to your timetable!",
+                  : "Session added to your timetable!",
               style: GoogleFonts.inter(fontWeight: FontWeight.bold),
             ),
           ),
@@ -274,7 +280,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
 
   @override
   Widget build(BuildContext context) {
-    final workouts = context.watch<AppState>().workouts;
+    final workouts = _workouts;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -308,7 +314,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                   ),
                 ),
                 Text(
-                  _isEditing ? "EDIT TIMETABLE SLOT" : "ADD TO MY TIMETABLE",
+                  _isEditing ? "EDIT TIMETABLE SLOT" : "ADD A SESSION",
                   style: GoogleFonts.oswald(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -337,6 +343,17 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                   ),
                 _fieldLabel("WORKOUT"),
                 const SizedBox(height: 6),
+                if (_workoutsLoading)
+                  const LinearProgressIndicator(
+                    color: AppColors.accent,
+                    backgroundColor: AppColors.bgCard,
+                  )
+                else if (_workoutsError != null)
+                  Text(
+                    _workoutsError!,
+                    style: GoogleFonts.inter(color: AppColors.error, fontSize: 12.5),
+                  )
+                else
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
@@ -451,7 +468,7 @@ class _TimetableSlotFormState extends State<_TimetableSlotForm> {
                 SizedBox(
                   width: double.infinity,
                   child: SlantedButton(
-                    text: _isEditing ? "SAVE CHANGES" : "ADD TO TIMETABLE",
+                    text: _isEditing ? "SAVE CHANGES" : "ADD SESSION",
                     icon: Icons.check,
                     isLoading: _saving,
                     isDisabled: _deleting,

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { fetchGymDetails, isSignedIn, SignInRequiredError } from '../../api/gyms';
-import { hasMapsKey, loadGoogleMaps, searchNearbyGyms, SEARCH_RADIUS_M } from '../../api/googleMaps';
+import { loadGoogleMaps, searchNearbyGyms, SEARCH_RADIUS_M } from '../../api/googleMaps';
 import GymList from './GymList';
 import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
 import { SOURCE_LABELS, isVerifiedSource } from './gymSourceLabels';
@@ -130,11 +130,7 @@ export default function GymMap() {
       })));
   }, []);
 
-  const [mapsState, setMapsState] = useState(
-    hasMapsKey
-      ? { status: 'loading' }
-      : { status: 'error', message: 'Google Maps key is not configured (VITE_GOOGLE_MAPS_API_KEY).' }
-  );
+  const [mapsState, setMapsState] = useState({ status: 'loading' });
   const [placesError, setPlacesError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
 
@@ -174,7 +170,6 @@ export default function GymMap() {
 
   // Load the Google Maps script once.
   useEffect(() => {
-    if (!hasMapsKey) return undefined;
     let cancelled = false;
     loadGoogleMaps()
       .then(() => { if (!cancelled) setMapsState({ status: 'ready' }); })

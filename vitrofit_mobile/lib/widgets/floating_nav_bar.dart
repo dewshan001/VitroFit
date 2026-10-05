@@ -18,12 +18,24 @@ class NavBarItem {
 
 const double _barHeight = 66;
 
+/// Indices into [FloatingNavBar.items] / the main navigation pages.
+class NavTab {
+  static const int home = 0;
+  static const int fitness = 1;
+  static const int gym = 2;
+  static const int diet = 3;
+  static const int time = 4;
+  static const int profile = 5;
+}
+
 /// A slim stadium-shaped glass dock. The active tab highlights in place with
 /// a glowing accent chip around its (filled) icon - no detached elements.
 class FloatingNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  /// Tab order is mirrored by the pages in `MainNavigationScreen` and the tab
+  /// indices in [NavTab].
   static const List<NavBarItem> items = [
     NavBarItem(
       icon: Icons.home_outlined,
@@ -33,17 +45,22 @@ class FloatingNavBar extends StatelessWidget {
     NavBarItem(
       icon: Icons.fitness_center_outlined,
       activeIcon: Icons.fitness_center,
-      label: 'WORKOUTS',
-    ),
-    NavBarItem(
-      icon: Icons.calendar_month_outlined,
-      activeIcon: Icons.calendar_month,
-      label: 'TIMETABLE',
+      label: 'FITNESS',
     ),
     NavBarItem(
       icon: Icons.location_on_outlined,
       activeIcon: Icons.location_on,
-      label: 'FIND GYM',
+      label: 'GYM',
+    ),
+    NavBarItem(
+      icon: Icons.restaurant_outlined,
+      activeIcon: Icons.restaurant,
+      label: 'DIET',
+    ),
+    NavBarItem(
+      icon: Icons.calendar_month_outlined,
+      activeIcon: Icons.calendar_month,
+      label: 'TIME',
     ),
     NavBarItem(
       icon: Icons.person_outline,
@@ -62,7 +79,7 @@ class FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
           top: false,
-          minimum: const EdgeInsets.fromLTRB(28, 0, 28, 14),
+          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 14),
           child: SizedBox(
             height: _barHeight,
             child: LiquidGlassContainer(
