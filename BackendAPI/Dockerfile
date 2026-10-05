@@ -18,7 +18,10 @@ COPY --from=build /app/VitroFit.API ./VitroFit.API
 
 # The sidecar launcher uses ONE shared venv at <backend dir>/venv, built from the single requirements.txt.
 COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m venv /app/venv     && /app/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+# CPU-only PyTorch first (sentence-transformers needs it); the default Linux wheel bundles several GB of CUDA libraries.
+RUN python3 -m venv /app/venv \
+    && /app/venv/bin/pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+    && /app/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY chatbot_service/ chatbot_service/
 COPY DietPlanService/ DietPlanService/
