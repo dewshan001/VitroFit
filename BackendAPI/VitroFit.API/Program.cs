@@ -268,22 +268,21 @@ static class PythonServiceSidecar
             return null;
         }
 
-        var serviceDir = Path.GetFullPath(Path.Combine(apiProjectDir, "..", relativeDir));
+        // Every Python service shares ONE venv (BackendAPI/venv, built from BackendAPI/requirements.txt).
+        // The service's own folder stays the working directory because its imports (app.*, src.*, main:app) are relative to it.
+        var backendDir = Path.GetFullPath(Path.Combine(apiProjectDir, ".."));
+        var serviceDir = Path.GetFullPath(Path.Combine(backendDir, relativeDir));
         var pythonExe = OperatingSystem.IsWindows()
-            ? (File.Exists(Path.Combine(serviceDir, ".venv", "Scripts", "python.exe"))
-                ? Path.Combine(serviceDir, ".venv", "Scripts", "python.exe")
-                : Path.Combine(serviceDir, "venv", "Scripts", "python.exe"))
-            : (File.Exists(Path.Combine(serviceDir, ".venv", "bin", "python"))
-                ? Path.Combine(serviceDir, ".venv", "bin", "python")
-                : Path.Combine(serviceDir, "venv", "bin", "python"));
+            ? Path.Combine(backendDir, "venv", "Scripts", "python.exe")
+            : Path.Combine(backendDir, "venv", "bin", "python");
 
         if (!File.Exists(pythonExe))
         {
             logger.LogWarning(
-                "{ServiceName} venv not found at {PythonExe} - skipping auto-start. " +
-                "Set it up in {ServiceDir} with a Python venv and install requirements.txt. " +
-                "venv/Scripts/pip install -r requirements.txt (see .env.example for required settings).",
-                serviceName, pythonExe, serviceDir);
+                "{ServiceName} - shared Python venv not found at {PythonExe}, skipping auto-start. " +
+                "One-time setup in {BackendDir}: python -m venv venv, then venv/Scripts/pip install -r requirements.txt " +
+                "(copy .env.example to .env first).",
+                serviceName, pythonExe, backendDir);
             return null;
         }
 

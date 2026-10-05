@@ -1,0 +1,56 @@
+# VitroFit - ONE requirements file for every Python service
+# (chatbot_service, GymAgentService, FitnessAgentService, DietPlanService, TimeManagementAgentService)
+# and for their tests. Install once into the shared venv:
+#
+#   cd BackendAPI
+#   python -m venv venv
+#   venv\Scripts\pip install -r requirements.txt        (Windows)
+#   venv/bin/pip install -r requirements.txt            (macOS / Linux)
+#
+# VitroFit.API starts every service from BackendAPI/venv, with each service's own folder as the working directory.
+
+# --- Web framework (all services) ---
+fastapi>=0.141.1
+uvicorn[standard]>=0.52.4
+pydantic>=2.13.4
+pydantic-settings>=2.15.0
+httpx>=0.28.1
+python-dotenv>=1.2.3
+
+# --- Auth (DietPlanService re-verifies the API's JWT) ---
+pyjwt>=2.8.0
+
+# --- Database ---
+# SQLAlchemy + psycopg2 (DietPlanService, GymAgentService tables)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+# psycopg 3 + pool (LangGraph Postgres checkpointer: Gym, Fitness, Time)
+psycopg[binary,pool]>=3.3.3
+
+# --- LLM clients (NVIDIA NIM and OpenRouter both speak the OpenAI API) ---
+openai>=2.45.0
+langchain>=1.4.0
+langchain-core>=1.6.0
+langchain-openai>=1.6.0
+
+# --- Agent orchestration (Gym, Fitness, Time) ---
+langgraph>=1.2.11
+# Pinned: the checkpointer API differs between 3.0.x and 3.1.x; 3.1.2 is what Gym and Time were built against.
+langgraph-checkpoint-postgres==3.1.2
+langsmith>=0.3.0
+
+# --- GymAgentService tools: scraping, web search, vector store, embeddings ---
+beautifulsoup4>=4.12.0
+langchain-tavily>=0.1.0
+langchain-chroma>=0.2.0
+chromadb>=0.5.0
+langchain-huggingface>=0.1.0
+# Pulls in PyTorch. On Linux CI install the CPU wheel first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+sentence-transformers>=3.0.0
+
+# --- Tests (Diet, Gym, Fitness suites) ---
+pytest>=9.1.1
+pytest-asyncio>=0.24.0
+pytest-cov>=5.0.0
+pytest-timeout>=2.3.0

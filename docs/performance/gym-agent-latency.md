@@ -1,6 +1,6 @@
 # Gym agent service: latency and load report
 
-Produced with `python -m perf.measure_latency` (see `BackendAPI/GymAgentService/perf/README.md`). All numbers below were
+Produced with `python -m perf.measure_latency` (see "Latency measurements" in the root `README.md`). All numbers below were
 measured on the development machine described in the header of the tables; none are estimates. To regenerate them, run the
 tool against a scratch PostgreSQL database.
 

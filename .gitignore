@@ -12,6 +12,7 @@ node_modules/
 
 # Python virtual environments / caches
 venv/
+.venv/
 __pycache__/
 *.pyc
 
@@ -54,3 +55,8 @@ AI_Adaptive_Fitness_Gym_Agent_Assignment_Prompt.md
 /.fitness-build-check-bin/
 BackendAPI/.fitness-build-check-obj/
 BackendAPI/.fitness-build-check-tests-bin/
+
+# Local tooling / test caches
+.kilo/
+.coverage
+.pytest_cache/

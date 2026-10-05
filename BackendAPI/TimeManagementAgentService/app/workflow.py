@@ -2,6 +2,7 @@ from time import monotonic
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 from . import llm
+from . import injection_guard as guard
 from .schemas import GenerateRequest, GenerateResult, Timetable, Trace
 
 class State(TypedDict, total=False):
@@ -13,7 +14,24 @@ class State(TypedDict, total=False):
     attempt: int
     status: str
 
+PREFERENCES_LIMIT = 1000
+IMPACT_LIMIT = 1000
+BLOCKED_MESSAGE = ("Your preferences contain text that looks like an instruction to the AI. "
+                   "Please describe your schedule in plain words.")
+
+def unsafe_text(text: str) -> bool:
+    """Model output that carries an instruction, a link or markup must not reach a reviewer or the database."""
+    return guard.has_markup_or_link(text) or any(f.strong for f in guard.scan(text))
+
+def check_preferences(preferences: str) -> guard.Guarded:
+    return guard.guard_field(preferences, source="preferences", limit=PREFERENCES_LIMIT)
+
 async def execute(request: GenerateRequest, record, proposer=llm.propose_timetable, analyst=llm.analyze_impact, checkpointer=None) -> GenerateResult:
+    checked = check_preferences(request.preferences)
+    if checked.blocked:
+        return GenerateResult(status="Failed", errors=[BLOCKED_MESSAGE])
+    request = request.model_copy(update={"preferences": checked.text})
+
     async def traced(name, action, state):
         started = monotonic()
         result, summary = await action(state)
@@ -40,7 +58,9 @@ async def execute(request: GenerateRequest, record, proposer=llm.propose_timetab
     async def analyze(state):
         try:
             impact = await analyst(request, state.get("timetable"))
-            return {"longTermImpact": impact}, "Analyzed long-term impact"
+            if not isinstance(impact, str) or unsafe_text(impact):
+                return {"longTermImpact": ""}, "Analyst output withheld by the injection guard"
+            return {"longTermImpact": impact[:IMPACT_LIMIT]}, "Analyzed long-term impact"
         except Exception as exc:
             return {"longTermImpact": ""}, f"Analyst failed: {exc}"
 
@@ -51,6 +71,8 @@ async def execute(request: GenerateRequest, record, proposer=llm.propose_timetab
             # simple validation: no empty slots
             if not tt.slots:
                 errors.append("Timetable has no slots")
+            elif any(unsafe_text(f"{s.focus} {s.description}") for s in tt.slots):
+                errors.append("OUTPUT_INJECTION: slot text contains an instruction, link or markup")
         else:
             errors = state.get("errors", ["Missing timetable"])
             
