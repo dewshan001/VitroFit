@@ -10,5 +10,6 @@ namespace VitroFit.API.Dtos.Timetable
         public int WorkoutId { get; set; }
         public string WorkoutName { get; set; } = string.Empty;
         public string WorkoutCategory { get; set; } = string.Empty;
+        public string? WorkoutDescription { get; set; }
     }
 }

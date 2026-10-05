@@ -1,12 +1,63 @@
 const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const weeks = [1, 2, 3, 4];
 
-export default function WorkoutPlanView({ plans = [], catalog = [], progressByWeek = {} }) {
+export default function WorkoutPlanView({ plans = [], catalog = [], progressByWeek = {}, timetable = null, longTermImpact = "" }) {
   if (!plans.length) return null;
 
   const sortedPlans = [...plans].sort((a, b) => (a.plan?.week || 0) - (b.plan?.week || 0));
   const plansByWeek = new Map(sortedPlans.map(item => [item.plan.week, item.plan]));
   const latestPlan = sortedPlans.at(-1)?.plan;
+
+  const renderTimetable = () => {
+    if (!timetable) return null;
+    return (
+      <section className="fitness-timetable-section" aria-labelledby="fitness-timetable-title">
+        <div className="fitness-week-heading">
+          <div>
+            <span className="fitness-eyebrow">Smart Scheduling</span>
+            <h3 id="fitness-timetable-title">Your Automated Timetable</h3>
+          </div>
+        </div>
+        
+        {longTermImpact && (
+          <div className="fitness-long-term-impact fitness-progression-note">
+            <span className="fitness-eyebrow">Long-term Impact</span>
+            <p>{longTermImpact}</p>
+          </div>
+        )}
+        
+        <div className="fitness-timetable-grid">
+          {timetable.slots?.map((slot, idx) => {
+            const session = latestPlan?.days.find(item => item.day === slot.day);
+            return (
+              <div key={idx} className="fitness-timetable-card">
+                <span className="fitness-eyebrow">{weekdays[slot.day - 1]}</span>
+                <h4>{slot.focus}</h4>
+                <p><strong>Time:</strong> {slot.startTime} &mdash; {slot.endTime} ({slot.durationMinutes} min)</p>
+                
+                {session && (
+                  <>
+                    <p style={{ marginTop: '0.5rem', marginBottom: '1rem', color: '#ccc' }}>Warm up {session.warmupMinutes} min · Cool down {session.cooldownMinutes} min</p>
+                    <ul className="fitness-exercise-list">{session.exercises.map(item => {
+                      const exercise = catalog.find(value => value.id === item.exerciseId);
+                      return <li key={item.exerciseId}>
+                        <strong className="fitness-exercise-name">{exercise?.name || `Exercise ${item.exerciseId}`}</strong>
+                        <span className="fitness-exercise-prescription">{item.sets} sets × {item.repetitions} reps</span>
+                        <small className="fitness-exercise-rest">Rest {item.restSeconds} sec</small>
+                        {item.adaptedFromExerciseId && <small className="fitness-adaptation-reason">Adapted from exercise {item.adaptedFromExerciseId}: {item.adaptationReason || 'changed to account for your pain report'}</small>}
+                      </li>;
+                    })}</ul>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
+
   if (latestPlan?.week > 4) return <section className="fitness-week-grid fitness-block-plan" aria-labelledby="fitness-week-title">
     <div className="fitness-week-heading">
       <div><span className="fitness-eyebrow">Progressive workout block</span><h3 id="fitness-week-title">Block {latestPlan.week - 4}</h3></div>
@@ -26,6 +77,7 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
         </li>;
       })}</ul>
     </li>)}</ol>
+    {renderTimetable()}
   </section>;
 
   return <section className="fitness-week-grid" aria-labelledby="fitness-week-title">
@@ -102,5 +154,7 @@ export default function WorkoutPlanView({ plans = [], catalog = [], progressByWe
         </tbody>
       </table>
     </div>
+
+    {renderTimetable()}
   </section>;
 }

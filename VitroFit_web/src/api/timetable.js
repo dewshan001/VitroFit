@@ -46,3 +46,12 @@ export function updateSlot(id, { day, startTime, endTime, title, workoutId }) {
 export function deleteSlot(id) {
   return apiAuthRequest(`/timetable/${id}`, 'DELETE');
 }
+
+export function getWorkflows() {
+  return apiAuthRequest('/fitness/workflows?page=1', 'GET');
+}
+
+export function generateSmartTimetable(workflowId, preferences) {
+  const qs = preferences ? `?preferences=${encodeURIComponent(preferences)}` : '';
+  return apiAuthRequest(`/fitness/workflows/${workflowId}/timetable${qs}`, 'POST');
+}

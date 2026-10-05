@@ -23,6 +23,8 @@ export default function AdaptiveFitnessPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [feedbackTarget, setFeedbackTarget] = useState('page');
+  const [timetableData, setTimetableData] = useState(null);
+  const [timetablePreferences, setTimetablePreferences] = useState('');
 
   const open = useCallback(async id => {
     const [workflow, audit] = await Promise.all([
@@ -56,6 +58,7 @@ export default function AdaptiveFitnessPage() {
       setSelected(latest.status === 'ReviewRequired' ? latest : null);
       setHistory(null);
     } else { setSelected(null); setHistory(null); }
+    setTimetableData(null);
   }, [open]);
 
   useEffect(() => {
@@ -215,6 +218,8 @@ export default function AdaptiveFitnessPage() {
           plans={schedules.some(s => s.id === selected.id) ? schedules : [...schedules, selected].filter(Boolean)}
           catalog={catalog}
           progressByWeek={progressByWeek}
+          timetable={timetableData?.timetable}
+          longTermImpact={timetableData?.longTermImpact}
         />
         <div className="fitness-plan-guidance">
           <div className="fitness-progression-note"><span className="fitness-eyebrow">Progression guidance</span><p>{selected.summary}</p></div>

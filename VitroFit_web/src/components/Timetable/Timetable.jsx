@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getTimetable, createSlot, updateSlot, deleteSlot } from '../../api/timetable';
+import { getTimetable, createSlot, updateSlot, deleteSlot, getWorkflows, generateSmartTimetable } from '../../api/timetable';
 import { getWorkouts } from '../../api/workouts';
 import './Timetable.css';
 
@@ -64,6 +64,34 @@ export default function Timetable() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm([]));
   const [saving, setSaving] = useState(false);
+  
+  const [preferences, setPreferences] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
+
+  async function handleGenerateTimetable() {
+    setIsGenerating(true);
+    setGenerateError('');
+    try {
+      const workflowsResp = await getWorkflows();
+      const readyWorkflows = workflowsResp.items?.filter(w => w.status === 'Ready') || [];
+      const latestReady = readyWorkflows[0]; 
+      
+      if (!latestReady) {
+        throw new Error('No active workout plan found. Please create one in the Self-Fitness Plan page first.');
+      }
+      
+      await generateSmartTimetable(latestReady.id, preferences);
+      
+      const slotsData = await getTimetable();
+      setSlots(slotsData);
+      
+    } catch(err) {
+      setGenerateError(err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -206,6 +234,40 @@ export default function Timetable() {
     }
   }
 
+  async function handleDropSlot(slotId, newDay, newHour) {
+    const slot = slots.find(s => s.id === slotId);
+    if (!slot) return;
+    
+    const oldStartFrac = timeToHourFraction(toInputTime(slot.startTime));
+    const oldEndFrac = timeToHourFraction(toInputTime(slot.endTime));
+    const durationFrac = oldEndFrac - oldStartFrac;
+    
+    const newStartStr = hourToInputTime(newHour);
+    const newEndHour = newHour + durationFrac;
+    const newEndH = Math.floor(newEndHour);
+    const newEndM = Math.round((newEndHour - newEndH) * 60);
+    const newEndStr = `${String(newEndH).padStart(2, '0')}:${String(newEndM).padStart(2, '0')}`;
+    
+    const payload = {
+      day: newDay,
+      startTime: toApiTime(newStartStr),
+      endTime: toApiTime(newEndStr),
+      title: slot.title,
+      workoutId: slot.workoutId,
+    };
+    
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateSlot(slot.id, payload);
+      setSlots(prev => prev.map(s => s.id === slot.id ? updated : s));
+    } catch (err) {
+      setError("Failed to move slot: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="tt-page">
@@ -252,6 +314,21 @@ export default function Timetable() {
 
       {/* Timetable Section */}
       <section className="tt-section container" id="timetable">
+        <div style={{ marginBottom: '2rem', padding: '1rem', background: 'var(--vf-black-soft)', borderRadius: '4px', border: '1px solid var(--vf-white-muted)' }}>
+          <h3 style={{ marginBottom: '0.5rem', color: 'var(--vf-primary)' }}>Smart Scheduling</h3>
+          <p style={{ marginBottom: '1rem' }}>Generate an automated time-table for your workouts using the AI agent.</p>
+          <textarea
+            placeholder="Any specific preferences? (e.g., 'I prefer working out in the mornings', 'I need a 1 hour lunch break at 12:00')"
+            value={preferences}
+            onChange={(e) => setPreferences(e.target.value)}
+            style={{ width: '100%', minHeight: '60px', marginBottom: '1rem', padding: '0.5rem', background: 'var(--vf-black)', color: 'var(--vf-white)', border: '1px solid var(--vf-white-muted)', borderRadius: '4px', fontFamily: 'inherit' }}
+          />
+          <button className="btn-primary" disabled={isGenerating || loading} onClick={handleGenerateTimetable}>
+            {isGenerating ? 'Generating...' : 'Generate Smart Timetable'}
+          </button>
+          {generateError && <p className="tt-error" style={{ marginTop: '1rem' }}>{generateError}</p>}
+        </div>
+
         <div className="tt-toolbar">
           <button className="btn-primary" onClick={() => openAddForm()} disabled={loading}>+ Add Slot</button>
         </div>
@@ -284,15 +361,35 @@ export default function Timetable() {
                         key={`${d.value}-${hour}`}
                         className="tt-cell"
                         onClick={() => !slot && openAddForm(d.value, hour)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={async (e) => {
+                          e.preventDefault();
+                          const slotId = e.dataTransfer.getData('text/plain');
+                          if (slotId) {
+                            await handleDropSlot(Number(slotId), d.value, hour);
+                          }
+                        }}
                       >
                         {slot && (
-                          <div className="tt-event" onClick={(e) => { e.stopPropagation(); openEditForm(slot); }}>
+                          <div 
+                            className="tt-event" 
+                            draggable={true}
+                            onDragStart={(e) => e.dataTransfer.setData('text/plain', slot.id)}
+                            onClick={(e) => { e.stopPropagation(); openEditForm(slot); }}
+                          >
                             <div className="tt-event-title">{slot.title}</div>
                             <div className="tt-event-time">
                               {toInputTime(slot.startTime)} - {toInputTime(slot.endTime)}
                             </div>
                             {slot.workoutCategory && (
                               <div className="tt-event-category">{slot.workoutCategory}</div>
+                            )}
+                            {slot.workoutDescription && (
+                              <div className="tt-event-desc" style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: 1.2 }}>
+                                {slot.workoutDescription.split(',').map((desc, i) => (
+                                  <div key={i}>• {desc.trim()}</div>
+                                ))}
+                              </div>
                             )}
                             <button
                               className="tt-event-delete"
