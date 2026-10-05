@@ -339,26 +339,28 @@ FastAPI + NVIDIA NIM, streams `text/event-stream` replies from `POST /api/chat`.
 | --- | --- | ------- |
 | Home | Overview and shortcuts | `/api/timetable` (next session) |
 | Fitness | Fitness agent: profile, plans, progress, 3-month blocks | `/api/fitness/*` |
-| Gym | Nearby gyms (Google Maps), details, workout suggestions | `/api/gyms/*` |
+| Gym | Nearby gyms (Google Maps), details, workout suggestions, **Register Your Gym** (6-step gym owner application with photo/licence upload and email OTP; also reachable from the sign-in screen) | `/api/gyms/*`, `/api/auth/register-gym-owner`, `/api/auth/verify-email` |
 | Diet | AI meal plans, refine, save; Trainer/Admin approvals queue | `/api/diet/*` |
-| Time | AI timetable from a Ready fitness plan, editable by hand | `/api/fitness/workflows/{id}/timetable`, `/api/timetable` |
+| Time | AI timetable from a Ready fitness plan, sent for owner/admin verification (pending/approved/rejected card, cancel), editable by hand; app-bar bell shows notifications | `/api/fitness/workflows/{id}/timetable`, `/api/timetable`, `/api/timetable/proposal`, `/api/notifications` |
 | Profile | Account and settings | `/api/auth/*` |
 
-The app never calls the agents directly (except the chatbot), so only the API base URL has to change for a deployed backend. It is set at build/run time:
+The app talks to **one backend only**: the .NET API (the chatbot goes through `POST /api/chat` on it, like the web app). The URL lives in one place, `vitrofit_mobile/lib/config/app_config.dart`, and can be overridden at build/run time:
 
 ```bash
 cd vitrofit_mobile
 flutter pub get
-flutter run                                                           # Android emulator: first run `adb reverse tcp:5284 tcp:5284`
-flutter run --dart-define=API_BASE_URL=http://192.168.1.20:5284/api   # physical device on the same Wi-Fi
-flutter build apk --dart-define=API_BASE_URL=https://your-api.example.com/api
+# Local testing (debug builds allow plain http):
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5284/api        # Android emulator
+flutter run --dart-define=API_BASE_URL=http://192.168.1.20:5284/api    # physical device on the same Wi-Fi
+# Hosted / APK (release builds are HTTPS-only):
+flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example.com/api
 ```
 
-The chatbot URL is `--dart-define=CHATBOT_API_URL=...` (default `http://127.0.0.1:8000`). Tokens are kept in secure storage and refreshed automatically once on a 401.
+Before building the APK, either replace `REPLACE-WITH-DEPLOYED-BACKEND` in `app_config.dart` with your deployed URL (ending in `/api`) or pass `--dart-define` as above. Tokens are kept in secure storage and refreshed automatically once on a 401.
 
 **Google Maps (Gym tab).** In Google Cloud enable *Maps SDK for Android* and *Places API (New)* (billing on). Create a native key restricted to the Android app (`com.example.vitrofit_mobile` + your SHA-1) and put it in `vitrofit_mobile/android/local.properties` (git-ignored) as `MAPS_API_KEY=...`. Place search needs no key in the app: it calls `POST /api/gyms/nearby`, which uses `GOOGLE_PLACES_API_KEY` from `BackendAPI/.env` (restrict that key to Places API (New)). Restart the API after changing it.
 
-Known limits: the Time tab does not yet show timetable verification (see above), there are no push notifications, and iOS still needs a location usage string in `Info.plist`.
+Known limits: the owner/admin screens (timetable reviews, gym application approvals) are web-only, there are no push notifications (the bell polls every 30 s), Google Fonts load from the network on first launch, and iOS still needs a location usage string in `Info.plist`.
 
 ---
 

@@ -1,5 +1,20 @@
 import 'user_profile.dart';
 
+/// Result of verifying an email OTP: either a signed-in session, or (gym
+/// owners awaiting approval) just a message and no tokens.
+class VerifyEmailOutcome {
+  final AuthResult? auth;
+  final String? pendingMessage;
+
+  const VerifyEmailOutcome._(this.auth, this.pendingMessage);
+  factory VerifyEmailOutcome.signedIn(AuthResult auth) =>
+      VerifyEmailOutcome._(auth, null);
+  factory VerifyEmailOutcome.pending(String message) =>
+      VerifyEmailOutcome._(null, message);
+
+  bool get isPendingApproval => auth == null;
+}
+
 class AuthResult {
   final String accessToken;
   final String refreshToken;

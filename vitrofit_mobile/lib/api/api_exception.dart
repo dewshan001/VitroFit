@@ -8,7 +8,22 @@ class ApiException implements Exception {
   final String message;
   final int? statusCode;
 
-  const ApiException(this.message, {this.statusCode});
+  /// Machine-readable code some endpoints return (e.g. login's
+  /// `GYM_PENDING` / `GYM_REJECTED` for gym owners whose application isn't
+  /// approved) and the reviewer's note that may accompany it.
+  final String? code;
+  final String? note;
+
+  /// Individual validation problems from `{error, errors: [...]}` responses.
+  final List<String> details;
+
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.code,
+    this.note,
+    this.details = const [],
+  });
 
   factory ApiException.fromDioError(DioException error) {
     if (kDebugMode) {
@@ -27,13 +42,34 @@ class ApiException implements Exception {
       final data = response!.data as Map;
       final msg = data['error'] ?? data['message'];
       if (msg is String && msg.trim().isNotEmpty) {
-        return ApiException(msg, statusCode: response.statusCode);
+        final rawErrors = data['errors'];
+        return ApiException(
+          msg,
+          statusCode: response.statusCode,
+          code: data['code'] is String ? data['code'] as String : null,
+          note: data['note'] is String ? data['note'] as String : null,
+          details: rawErrors is List
+              ? rawErrors.whereType<String>().toList()
+              : const [],
+        );
       }
     }
     if (error.type == DioExceptionType.connectionError ||
         error.type == DioExceptionType.connectionTimeout) {
       return const ApiException(
         'Could not reach the server. Check your connection and try again.',
+      );
+    }
+    if (response?.statusCode == 429) {
+      return const ApiException(
+        'Too many attempts from this connection. Please try again later.',
+        statusCode: 429,
+      );
+    }
+    if (response?.statusCode == 413) {
+      return const ApiException(
+        'The files are too large. Please use smaller files.',
+        statusCode: 413,
       );
     }
     if (response != null) {
