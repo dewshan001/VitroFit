@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getTimetable, createSlot, updateSlot, deleteSlot, getWorkflows, generateSmartTimetable } from '../../api/timetable';
+import { getTimetable, createSlot, updateSlot, deleteSlot, getWorkflows, generateSmartTimetable, getTimetableProposal, cancelTimetableProposal } from '../../api/timetable';
 import { getWorkouts } from '../../api/workouts';
 import './Timetable.css';
+
+const DISMISSED_KEY = 'vitrofitDismissedTimetableRequest';
+const PROPOSAL_POLL_MS = 30000;
+const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function formatWhen(iso) {
+  return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+}
+
+function readDismissed() {
+  try { return Number(localStorage.getItem(DISMISSED_KEY)) || 0; } catch { return 0; }
+}
 
 // Matches .NET's System.DayOfWeek enum values (Sunday = 0 .. Saturday = 6)
 const days = [
@@ -69,6 +81,12 @@ export default function Timetable() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
 
+  // The generated timetable waits for a gym owner to verify it before it replaces the current one.
+  const [proposal, setProposal] = useState(null);
+  const [dismissedId, setDismissedId] = useState(readDismissed);
+  const [cancelling, setCancelling] = useState(false);
+  const pending = proposal?.status === 'Pending';
+
   async function handleGenerateTimetable() {
     setIsGenerating(true);
     setGenerateError('');
@@ -81,16 +99,59 @@ export default function Timetable() {
         throw new Error('No active workout plan found. Please create one in the Self-Fitness Plan page first.');
       }
       
+      // The new timetable is not applied yet: it is sent to a gym owner for verification.
       await generateSmartTimetable(latestReady.id, preferences);
-      
-      const slotsData = await getTimetable();
-      setSlots(slotsData);
-      
+      const latest = await getTimetableProposal();
+      setProposal(latest.proposal);
+
     } catch(err) {
       setGenerateError(err.message);
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  // Load the latest request, and keep checking while it waits so the result appears without a refresh.
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const { proposal: latest } = await getTimetableProposal();
+        if (cancelled) return;
+        setProposal((previous) => {
+          // It was just verified: the member's slots changed on the server, so reload them.
+          if (previous?.status === 'Pending' && latest?.id === previous.id && latest.status === 'Approved') {
+            getTimetable().then((fresh) => { if (!cancelled) setSlots(fresh); }).catch(() => {});
+          }
+          return latest;
+        });
+      } catch { /* the panel just keeps its last state */ }
+    };
+    refresh();
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, PROPOSAL_POLL_MS);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [isLoggedIn]);
+
+  async function handleCancelRequest() {
+    if (!proposal) return;
+    setCancelling(true);
+    setGenerateError('');
+    try {
+      await cancelTimetableProposal(proposal.id);
+      setProposal(null);
+    } catch (err) {
+      setGenerateError(err.message);
+      try { setProposal((await getTimetableProposal()).proposal); } catch { /* keep as is */ }
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  function dismissResult() {
+    if (!proposal) return;
+    try { localStorage.setItem(DISMISSED_KEY, String(proposal.id)); } catch { /* not persisted */ }
+    setDismissedId(proposal.id);
   }
 
   useEffect(() => {
@@ -323,11 +384,82 @@ export default function Timetable() {
             value={preferences}
             onChange={(e) => setPreferences(e.target.value)}
           />
-          <button className="btn-primary" disabled={isGenerating || loading} onClick={handleGenerateTimetable}>
-            {isGenerating ? 'Generating...' : 'Generate Smart Timetable'}
+          <button className="btn-primary" disabled={isGenerating || loading || pending} onClick={handleGenerateTimetable}>
+            {isGenerating ? 'Generating...' : pending ? 'Awaiting verification' : 'Generate Smart Timetable'}
           </button>
           {generateError && <p className="tt-error" style={{ marginTop: '1rem' }}>{generateError}</p>}
         </div>
+
+        {pending && (
+          <section className="tt-verify tt-verify--pending" role="status" aria-live="polite">
+            <div className="tt-verify-head">
+              <span className="tt-verify-icon" aria-hidden="true"><span className="tt-pulse" /></span>
+              <div>
+                <h3>Pending verification</h3>
+                <p>
+                  Your new timetable was sent to a gym owner on {formatWhen(proposal.createdAt)}. Your current timetable
+                  stays in place until it is verified, and you will get a notification and an email when it is.
+                </p>
+              </div>
+            </div>
+            <div className="tt-verify-week">
+              {SHORT_DAYS.map((name, i) => {
+                const daySlots = proposal.slots.filter((x) => x.day === i + 1).sort((a, b) => a.startTime.localeCompare(b.startTime));
+                return (
+                  <div className="tt-verify-day" key={name}>
+                    <h4>{name}</h4>
+                    {daySlots.length === 0
+                      ? <span className="tt-verify-rest">Rest</span>
+                      : daySlots.map((x, k) => (
+                        <div className="tt-verify-slot" key={`${x.startTime}-${k}`}>
+                          <span>{x.startTime}</span>
+                          <strong>{x.focus}</strong>
+                        </div>
+                      ))}
+                  </div>
+                );
+              })}
+            </div>
+            {proposal.longTermImpact && <p className="tt-verify-impact"><strong>Expected impact:</strong> {proposal.longTermImpact}</p>}
+            <button className="btn-secondary tt-verify-cancel" onClick={handleCancelRequest} disabled={cancelling}>
+              {cancelling ? 'Cancelling...' : 'Cancel request'}
+            </button>
+          </section>
+        )}
+
+        {proposal?.status === 'Approved' && proposal.id !== dismissedId && (
+          <section className="tt-verify tt-verify--approved" role="status">
+            <div className="tt-verify-head">
+              <span className="tt-verify-icon" aria-hidden="true">✓</span>
+              <div>
+                <h3>Timetable verified</h3>
+                <p>
+                  Verified by <strong>{proposal.reviewerName || 'a gym owner'}</strong> on {formatWhen(proposal.reviewedAt)}.
+                  It is now your active weekly schedule.
+                </p>
+                {proposal.reviewNote && <blockquote>&ldquo;{proposal.reviewNote}&rdquo;</blockquote>}
+              </div>
+            </div>
+            <button className="tt-verify-close" onClick={dismissResult} aria-label="Dismiss">×</button>
+          </section>
+        )}
+
+        {proposal?.status === 'Rejected' && proposal.id !== dismissedId && (
+          <section className="tt-verify tt-verify--rejected" role="status">
+            <div className="tt-verify-head">
+              <span className="tt-verify-icon" aria-hidden="true">!</span>
+              <div>
+                <h3>Timetable not verified</h3>
+                <p>
+                  {proposal.reviewerName || 'A reviewer'} could not verify your new timetable on {formatWhen(proposal.reviewedAt)}.
+                  Your previous timetable is unchanged. You can generate a new one with your preferences.
+                </p>
+                {proposal.reviewNote && <blockquote>&ldquo;{proposal.reviewNote}&rdquo;</blockquote>}
+              </div>
+            </div>
+            <button className="tt-verify-close" onClick={dismissResult} aria-label="Dismiss">×</button>
+          </section>
+        )}
 
         <div className="tt-toolbar">
           <h2 className="tt-toolbar-title">My Weekly <span>Schedule</span></h2>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VitroFit.API.Data;
+using VitroFit.API.Features.TimetableVerification;
 
 namespace VitroFit.API.Features.AdaptiveFitness;
 
@@ -163,7 +164,7 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
     }
 
     [HttpPost("workflows/{id:guid}/timetable")]
-    public async Task<IActionResult> GenerateTimetable(Guid id, [FromQuery] string? preferences, [FromServices] TimeManagementAgentClient timeAgent, CancellationToken cancellation)
+    public async Task<IActionResult> GenerateTimetable(Guid id, [FromQuery] string? preferences, [FromServices] TimeManagementAgentClient timeAgent, [FromServices] ITimetableReviewService reviews, CancellationToken cancellation)
     {
         var workflow = await db.Workflows.SingleOrDefaultAsync(w => w.Id == id && w.UserId == UserId && w.Status == "Ready");
         if (workflow?.PlanJson is null) return NotFound(new { message = "Workout plan not found or not ready." });
@@ -181,47 +182,21 @@ public sealed partial class FitnessController(FitnessDbContext db, AppDbContext 
                 return BadRequest(new { message = "Agent failed to generate timetable", errors = result.Errors });
             }
 
-            // Delete old timetable slots for the user
-            var existingSlots = await appDb.TimetableSlots.Where(t => t.UserId == UserId).ToListAsync(cancellation);
-            appDb.TimetableSlots.RemoveRange(existingSlots);
+            // The timetable is NOT applied yet: it waits for a gym owner (or admin) to verify it, and the
+            // member keeps their current slots until then. See TimetableReviewService.
+            var proposalProfile = profile.ToInput();
+            var proposal = await reviews.CreateProposalAsync(new CreateProposalInput(
+                UserId, workflow.Id, result.Timetable, result.LongTermImpact, preferences,
+                proposalProfile.Goal, proposalProfile.Days.Length, proposalProfile.SessionMinutes, proposalProfile.Equipment), cancellation);
 
-            if (result.Timetable.HasValue && result.Timetable.Value.TryGetProperty("slots", out var slotsElement))
+            return Ok(new
             {
-                foreach(var slotElement in slotsElement.EnumerateArray())
-                {
-                    var focus = slotElement.GetProperty("focus").GetString() ?? "Adaptive Workout";
-                    var description = slotElement.TryGetProperty("description", out var descElement) ? descElement.GetString() : null;
-                    var workout = await appDb.Workouts.FirstOrDefaultAsync(w => w.Name == focus, cancellation);
-                    if (workout == null)
-                    {
-                        workout = new VitroFit.API.Entities.Workout { Name = focus, Category = "Adaptive", Description = description };
-                        appDb.Workouts.Add(workout);
-                    }
-                    else if (!string.IsNullOrEmpty(description))
-                    {
-                        workout.Description = description;
-                    }
-                    await appDb.SaveChangesAsync(cancellation);
-
-                    var dayInt = slotElement.GetProperty("day").GetInt32();
-                    var dayOfWeek = dayInt == 7 ? DayOfWeek.Sunday : (DayOfWeek)dayInt;
-                    var startTime = slotElement.GetProperty("startTime").GetString() ?? "00:00";
-                    var endTime = slotElement.GetProperty("endTime").GetString() ?? "00:00";
-
-                    appDb.TimetableSlots.Add(new VitroFit.API.Entities.TimetableSlot
-                    {
-                        UserId = UserId,
-                        WorkoutId = workout.Id,
-                        Day = dayOfWeek,
-                        StartTime = TimeSpan.Parse(startTime),
-                        EndTime = TimeSpan.Parse(endTime),
-                        Title = focus
-                    });
-                }
-            }
-            await appDb.SaveChangesAsync(cancellation);
-
-            return Ok(result);
+                status = "PendingVerification",
+                proposalId = proposal.Id,
+                longTermImpact = result.LongTermImpact,
+                slotCount = TimetableSlotMapper.Deserialize(proposal.SlotsJson).Count,
+                message = "Your timetable was sent to a gym owner for verification. You will be notified when it is verified."
+            });
         }
         catch (Exception ex)
         {

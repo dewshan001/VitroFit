@@ -14,6 +14,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import GymApprovalsPage from './pages/GymApprovalsPage';
+import TimetableReviewsPage from './pages/TimetableReviewsPage';
 import FindGymsPage from './pages/FindGymsPage';
 import DietPlansPage from './pages/DietPlansPage';
 
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/profile"        element={<ProfilePage />} />
         <Route path="/admin"          element={<AdminDashboardPage />} />
         <Route path="/admin/gym-approvals" element={<GymApprovalsPage />} />
+        <Route path="/timetable-reviews" element={<TimetableReviewsPage />} />
       </Routes>
       {!isAuthPage && <Chatbot />}
       {!isAuthPage && <Footer />}

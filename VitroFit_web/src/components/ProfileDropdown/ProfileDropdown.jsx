@@ -202,6 +202,13 @@ export default function ProfileDropdown() {
               <svg className="pp-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
             </Link>
           )}
+          {(user.role === 2 || user.role === 3 || user.role === 'Admin' || user.role === 'Gym_Owner') && (
+            <Link to="/timetable-reviews" className="pp-link" onClick={() => setOpen(false)}>
+              <svg className="pp-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16l2 2 4-4"/></svg>
+              Timetable Reviews
+              <svg className="pp-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+            </Link>
+          )}
           {(user.role === 2 || user.role === 'Admin') && (
             <Link to="/admin" className="pp-link" onClick={() => setOpen(false)} style={{ color: 'var(--accent)' }}>
               <svg className="pp-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>

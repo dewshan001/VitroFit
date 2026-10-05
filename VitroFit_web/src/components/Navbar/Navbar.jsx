@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import ProfileDropdown from '../ProfileDropdown/ProfileDropdown';
+import NotificationBell from '../Notifications/NotificationBell';
 import './Navbar.css';
 
 const navLinks = [
@@ -87,6 +88,7 @@ export default function Navbar() {
       </nav>
 
       <div className="navbar-cta">
+        {isLoggedIn && <NotificationBell />}
         {isLoggedIn
           ? <ProfileDropdown />
           : <Link to="/login" className="btn-secondary navbar-login">Login</Link>

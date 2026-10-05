@@ -99,6 +99,7 @@ builder.Services.AddDietAgentRateLimiting(
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<VitroFit.API.Features.TimetableVerification.ITimetableReviewService, VitroFit.API.Features.TimetableVerification.TimetableReviewService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Transient is appropriate for MailKitEmailService: each call opens and closes its own SMTP connection
