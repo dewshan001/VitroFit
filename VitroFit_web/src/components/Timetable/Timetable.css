@@ -143,6 +143,77 @@
   font-weight: 600;
 }
 
+/* Smart scheduling panel */
+.tt-smart {
+  margin-bottom: 2.5rem;
+  padding: 1.75rem 2rem;
+  background: linear-gradient(135deg, rgba(200, 240, 0, 0.07) 0%, rgba(255, 255, 255, 0.02) 60%);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.tt-smart-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+.tt-smart-desc {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+}
+
+.tt-smart-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.92rem;
+  resize: vertical;
+  transition: var(--transition);
+}
+
+.tt-smart-input::placeholder {
+  color: var(--text-muted);
+}
+
+.tt-smart-input:focus {
+  outline: none;
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 3px rgba(200, 240, 0, 0.1);
+}
+
+/* Section heading row */
+.tt-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.tt-toolbar-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.tt-toolbar-title span {
+  color: var(--accent);
+}
+
 /* Grid */
 .tt-grid-wrapper {
   overflow-x: auto;
@@ -151,60 +222,87 @@
 
 .tt-grid {
   display: grid;
-  grid-template-columns: 100px repeat(7, minmax(140px, 1fr));
-  gap: 2px;
-  background-color: var(--bg-primary);
-  min-width: 900px; /* Ensure horizontal scroll on small screens */
+  grid-template-columns: 90px repeat(7, minmax(150px, 1fr));
+  gap: 6px;
+  min-width: 1000px; /* Ensure horizontal scroll on small screens */
 }
 
 .tt-header-cell {
-  background-color: #333333;
-  padding: 1.2rem 1rem;
+  background: linear-gradient(180deg, #2e2e2e 0%, #262626 100%);
+  padding: 1rem;
   text-align: center;
   font-family: var(--font-display);
   color: var(--text-primary);
   font-size: 0.9rem;
   letter-spacing: 1.5px;
   text-transform: uppercase;
+  border-radius: var(--radius-md);
+  border-bottom: 2px solid var(--border-accent);
+  position: sticky;
+  top: 0;
+}
+
+.tt-header-cell:first-child {
+  border-bottom-color: transparent;
+  background: transparent;
 }
 
 .tt-time-cell {
-  background-color: #2b2b2b;
-  padding: 1rem;
+  padding: 0.5rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 500;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.5px;
   font-family: var(--font-body);
+  padding-top: 1rem;
 }
 
 .tt-cell {
-  background-color: #222222;
-  min-height: 130px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-height: 120px;
+  padding: 6px;
   transition: var(--transition);
 }
 
 .tt-cell:hover {
-  background-color: #2a2a2a;
+  background-color: rgba(200, 240, 0, 0.05);
+  border-color: var(--border-accent);
+}
+
+.tt-cell:empty {
+  cursor: pointer;
 }
 
 .tt-event {
-  padding: 1.2rem 0.5rem;
+  padding: 0.9rem 0.6rem;
   text-align: center;
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
+  gap: 0.35rem;
+  cursor: grab;
+  background: linear-gradient(160deg, rgba(200, 240, 0, 0.14) 0%, rgba(200, 240, 0, 0.04) 100%);
+  border: 1px solid rgba(200, 240, 0, 0.25);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-md);
   transition: var(--transition);
 }
 
 .tt-event:hover {
   transform: translateY(-2px);
+  border-color: var(--border-accent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 18px rgba(200, 240, 0, 0.12);
+}
+
+.tt-event:active {
+  cursor: grabbing;
 }
 
 .tt-event.highlighted {
@@ -225,8 +323,8 @@
 .tt-event-title {
   font-family: var(--font-display);
   color: var(--accent);
-  font-size: 1rem;
-  letter-spacing: 1px;
+  font-size: 1.02rem;
+  letter-spacing: 0.8px;
   line-height: 1.2;
 }
 
@@ -235,20 +333,34 @@
 }
 
 .tt-event-time {
-  font-size: 0.7rem;
-  color: #aaaaaa;
+  font-size: 0.72rem;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 10px;
+  border-radius: 999px;
 }
 
 .tt-event-trainer {
   font-size: 0.75rem;
-  color: #888888;
+  color: var(--text-secondary);
 }
 
 .tt-event-category {
-  font-size: 0.65rem;
-  color: #888888;
+  font-size: 0.62rem;
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+  padding: 1px 8px;
+  border-radius: 999px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+}
+
+.tt-event-desc {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-top: 2px;
+  text-align: left;
 }
 
 .tt-event.highlighted .tt-event-time,
@@ -320,12 +432,6 @@
 }
 
 /* Toolbar / states */
-.tt-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 2rem;
-}
-
 .tt-login-prompt,
 .tt-loading,
 .tt-empty {
@@ -371,7 +477,10 @@
 
 .tt-modal {
   background: #1e1e1e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 2rem;
   width: 90%;
   max-width: 400px;
@@ -402,6 +511,7 @@
   color: var(--text-primary);
   padding: 10px 12px;
   font-size: 0.95rem;
+  border-radius: var(--radius-md);
 }
 
 .tt-modal-actions {
