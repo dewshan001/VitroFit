@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chatbot_fab.dart';
 import '../widgets/floating_nav_bar.dart';
+import '../widgets/notification_bell.dart';
 import 'diet/diet_screen.dart';
 import 'find_gym_screen.dart';
 import 'fitness/fitness_screen.dart';
@@ -84,18 +85,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: AppColors.bgCard,
-                  content: Text(
-                    "No new notifications",
-                    style: GoogleFonts.inter(color: AppColors.textPrimary),
-                  ),
-                ),
-              );
+          NotificationBell(
+            onOpenLink: (link) {
+              // Members' timetable decisions link to the timetable page; the
+              // reviewer pages (/timetable-reviews) are web-only.
+              if (link.startsWith('/timetable') &&
+                  !link.startsWith('/timetable-reviews')) {
+                _goToTab(NavTab.time);
+              }
             },
           ),
           const SizedBox(width: 10),

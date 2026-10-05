@@ -164,6 +164,8 @@ class _SignInFormState extends State<_SignInForm> {
   bool _obscure = true;
   bool _loading = false;
   String? _error;
+  String? _gymCode; // GYM_PENDING | GYM_REJECTED
+  String? _gymNote;
 
   @override
   void dispose() {
@@ -177,6 +179,8 @@ class _SignInFormState extends State<_SignInForm> {
     setState(() {
       _loading = true;
       _error = null;
+      _gymCode = null;
+      _gymNote = null;
     });
     try {
       await context.read<AppState>().login(
@@ -185,7 +189,13 @@ class _SignInFormState extends State<_SignInForm> {
       );
       // Router redirect handles navigation to /main once authStatus flips.
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() {
+        _error = e.message;
+        _gymCode = e.code == 'GYM_PENDING' || e.code == 'GYM_REJECTED'
+            ? e.code
+            : null;
+        _gymNote = e.note;
+      });
     } catch (_) {
       setState(() => _error = 'Something went wrong. Please try again.');
     } finally {
@@ -219,6 +229,7 @@ class _SignInFormState extends State<_SignInForm> {
           ),
           const SizedBox(height: 20),
           if (_error != null) _ErrorBanner(message: _error!),
+          if (_gymCode != null) _gymStatusPanel(),
           VitroTextField(
             label: "EMAIL ADDRESS",
             controller: _emailController,
@@ -267,6 +278,87 @@ class _SignInFormState extends State<_SignInForm> {
               onPressed: _submit,
             ),
           ),
+          const SizedBox(height: 16),
+          Center(
+            child: TextButton(
+              onPressed: () => context.push('/register-gym'),
+              child: Text(
+                "OWN A GYM? REGISTER YOUR GYM",
+                style: GoogleFonts.oswald(
+                  fontSize: 12,
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gymStatusPanel() {
+    final rejected = _gymCode == 'GYM_REJECTED';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderAccent),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            rejected ? "APPLICATION NOT APPROVED" : "AWAITING APPROVAL",
+            style: GoogleFonts.oswald(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: rejected ? AppColors.error : AppColors.accent,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            rejected
+                ? "Your gym application wasn't approved."
+                : "Your gym application is still being reviewed. We'll email you once it's approved.",
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (rejected && (_gymNote ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              "Reviewer note: $_gymNote",
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+          if (rejected)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => context.push(
+                  '/register-gym',
+                  extra: {
+                    'reapply': true,
+                    'email': _emailController.text.trim(),
+                  },
+                ),
+                child: Text(
+                  "RE-APPLY →",
+                  style: GoogleFonts.oswald(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

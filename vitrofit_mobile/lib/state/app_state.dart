@@ -72,9 +72,16 @@ class AppState extends ChangeNotifier {
   Future<void> resendVerification(String email) =>
       _authApi.resendVerification(email);
 
-  Future<void> verifyEmail({required String email, required String otp}) async {
-    final result = await _authApi.verifyEmail(email: email, otp: otp);
-    await _applyAuthResult(result);
+  /// Returns a message when the account is a gym owner still awaiting
+  /// approval (no session is started); null once signed in.
+  Future<String?> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    final outcome = await _authApi.verifyEmail(email: email, otp: otp);
+    if (outcome.isPendingApproval) return outcome.pendingMessage;
+    await _applyAuthResult(outcome.auth!);
+    return null;
   }
 
   Future<void> login({required String email, required String password}) async {

@@ -2,18 +2,11 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-/// The chatbot is a separate FastAPI microservice (NVIDIA NIM backed), not
-/// the .NET VitroFit.API the rest of the app talks to - it has no auth and
-/// lives on its own port. Reached via `adb reverse tcp:8000 tcp:8000`
-/// (separate from the tcp:5284 tunnel used for the main API).
-///
-/// Override at build/run time, e.g.:
-///   flutter run --dart-define=CHATBOT_API_URL=http://192.168.1.20:8000
-const String _defaultChatbotBaseUrl = 'http://127.0.0.1:8000';
-const String chatbotBaseUrl = String.fromEnvironment(
-  'CHATBOT_API_URL',
-  defaultValue: _defaultChatbotBaseUrl,
-);
+import '../config/app_config.dart';
+
+/// The chatbot is reached through the main VitroFit API's `POST /api/chat`
+/// proxy (same as the deployed web app), so the app only needs the one
+/// backend URL from [AppConfig].
 
 class ChatbotException implements Exception {
   final String message;
@@ -26,7 +19,7 @@ class ChatbotException implements Exception {
 class ChatbotApi {
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: chatbotBaseUrl,
+      baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: const Duration(seconds: 12),
       receiveTimeout: const Duration(minutes: 2),
     ),
@@ -39,7 +32,7 @@ class ChatbotApi {
     Response<ResponseBody> response;
     try {
       response = await _dio.post<ResponseBody>(
-        '/api/chat',
+        '/chat',
         data: {'query': query},
         options: Options(
           responseType: ResponseType.stream,

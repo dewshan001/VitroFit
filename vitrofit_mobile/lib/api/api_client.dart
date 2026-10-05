@@ -1,23 +1,10 @@
 import 'package:dio/dio.dart';
+import '../config/app_config.dart';
 import '../services/token_storage.dart';
 
-/// Defaults to the emulator's own loopback address, reached via
-/// `adb reverse tcp:5284 tcp:5284` (run this once per emulator boot/restart
-/// so 127.0.0.1:5284 inside the emulator tunnels straight to the backend on
-/// the host). This is more reliable than the classic 10.0.2.2 NAT alias,
-/// which depends on the emulator's SLIRP networking correctly proxying TCP
-/// (in practice this has been flaky on some Windows + AVD combinations even
-/// when ICMP to 10.0.2.2 works fine).
-///
-/// Override at build/run time for a physical device, iOS simulator, or if
-/// you'd rather use 10.0.2.2 directly, e.g.:
-///   flutter run --dart-define=API_BASE_URL=http://192.168.1.20:5284/api
-///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5284/api
-const String _defaultBaseUrl = 'http://127.0.0.1:5284/api';
-const String apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: _defaultBaseUrl,
-);
+/// Backend base URL - see [AppConfig] for how to point it at a local or
+/// hosted backend.
+const String apiBaseUrl = AppConfig.apiBaseUrl;
 
 /// Central Dio client: attaches the bearer token to every request and, on a
 /// 401, attempts exactly one silent refresh-and-retry before giving up.
