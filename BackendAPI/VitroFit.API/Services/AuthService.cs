@@ -3,11 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using VitroFit.API.Data;
 using VitroFit.API.Dtos.Auth;
 using VitroFit.API.Entities;
+using VitroFit.API.Features.GymOwners;
 using VitroFit.API.Settings;
 
 namespace VitroFit.API.Services
 {
-    public sealed class AuthService : IAuthService
+    public sealed partial class AuthService : IAuthService
     {
         private readonly AppDbContext _dbContext;
         private readonly IPasswordHasher<User> _passwordHasher;
@@ -90,6 +91,8 @@ namespace VitroFit.API.Services
                     "Check your inbox for the OTP, or request a new one.");
             }
 
+            await EnsureGymOwnerApprovedAsync(user);
+
             return await CreateAuthResponseAsync(user);
         }
 
@@ -107,6 +110,8 @@ namespace VitroFit.API.Services
                 throw new InvalidOperationException("Refresh token is invalid or expired.");
             }
 
+            await EnsureGymOwnerApprovedAsync(refreshToken.User);
+
             refreshToken.RevokedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync();
 
@@ -116,7 +121,7 @@ namespace VitroFit.API.Services
         // -----------------------------------------------------------------------
         // EMAIL VERIFICATION — validate OTP, mark verified, return tokens
         // -----------------------------------------------------------------------
-        public async Task<AuthResponse> VerifyEmailAsync(VerifyEmailRequest request)
+        public async Task<VerifyEmailResult> VerifyEmailAsync(VerifyEmailRequest request)
         {
             // Look up the most recent active email-verification OTP for this address
             var otpRecord = await _dbContext.PasswordResetOtps
@@ -139,8 +144,18 @@ namespace VitroFit.API.Services
 
             await _dbContext.SaveChangesAsync();
 
+            // Gym owners must wait for an admin to approve their application before they get tokens.
+            var application = await GetGymApplicationAsync(user);
+            if (application != null && application.Status != GymApplicationStatus.Approved)
+            {
+                return new VerifyEmailResult(
+                    Auth: null,
+                    PendingStatus: application.Status.ToString(),
+                    Message: new GymOwnerNotApprovedException(application.Status, application.ReviewNote).Message);
+            }
+
             // Issue tokens — the account is now fully active
-            return await CreateAuthResponseAsync(user);
+            return new VerifyEmailResult(await CreateAuthResponseAsync(user), null, null);
         }
 
         // -----------------------------------------------------------------------
@@ -270,8 +285,15 @@ namespace VitroFit.API.Services
                 }
             }
 
+            var gymApplication = await _dbContext.GymApplications.SingleOrDefaultAsync(a => a.UserId == user.Id);
+
             _dbContext.Users.Remove(user);
             await _dbContext.SaveChangesAsync();
+
+            if (gymApplication != null)
+            {
+                await DeleteUrlsAsync(AllUrls(gymApplication));
+            }
         }
 
         // -----------------------------------------------------------------------

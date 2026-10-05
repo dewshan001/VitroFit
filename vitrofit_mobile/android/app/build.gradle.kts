@@ -1,3 +1,12 @@
+import java.util.Properties
+
+// Google Maps key for the native map: kept in android/local.properties (git-ignored) as
+// MAPS_API_KEY=..., never committed. It is injected into AndroidManifest.xml below.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -23,6 +32,7 @@ android {
         targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
     }
 
     buildTypes {

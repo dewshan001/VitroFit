@@ -1,0 +1,12 @@
+[run]
+source = app
+branch = True
+omit =
+    app/rules.py
+    app/tools.py
+    app/server.py
+    tests/*
+    venv/*
+
+[report]
+fail_under = 80

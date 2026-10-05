@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import ProfileDropdown from '../ProfileDropdown/ProfileDropdown';
+import NotificationBell from '../Notifications/NotificationBell';
 import './Navbar.css';
 
 const navLinks = [
   { label: 'Home',        to: '/',           hash: '' },
   { label: 'About Us',   to: '/about',       hash: '' },
-  { label: 'Workouts',   to: '/classes',     hash: '' },
+  { label: 'Self-Fitness Plan', to: '/adaptive-fitness', hash: '' },
   { label: 'Find Gyms',  to: '/find-gyms',   hash: '' },
   { label: 'Diet Plans', to: '/diet-plans',  hash: '' },
   { label: 'Timetable',  to: '/timetable',   hash: '' },
@@ -87,6 +88,7 @@ export default function Navbar() {
       </nav>
 
       <div className="navbar-cta">
+        {isLoggedIn && <NotificationBell />}
         {isLoggedIn
           ? <ProfileDropdown />
           : <Link to="/login" className="btn-secondary navbar-login">Login</Link>

@@ -1,0 +1,234 @@
+{
+  "id": "4d2666a1-2739-4ab5-8914-00b816118737",
+  "placeId": "place-1",
+  "gymName": "FitZone",
+  "website": "https://fitzone.lk",
+  "requestedBy": "user-1",
+  "objective": "Collect verified equipment, classes and contact details for this gym and recommend four workouts that use them.",
+  "status": "Published",
+  "plan": {
+    "route": "scrape",
+    "steps": [
+      {
+        "id": "s1",
+        "agent": "gym_analysis",
+        "action": "Collect equipment, classes and contact details via 'scrape' route",
+        "depends_on": []
+      },
+      {
+        "id": "s2",
+        "agent": "workout_recommendation",
+        "action": "Recommend four workouts using only the collected equipment/classes",
+        "depends_on": [
+          "s1"
+        ]
+      },
+      {
+        "id": "s3",
+        "agent": "validator",
+        "action": "Apply deterministic evidence, business-rule and safety checks",
+        "depends_on": [
+          "s1",
+          "s2"
+        ]
+      }
+    ],
+    "rationale": "Gym has a website: scrape it first, fall back to search and similar-gym lookup.",
+    "analysis_tools": [
+      "scrape_gym_website",
+      "search_gym_info",
+      "lookup_similar_gyms"
+    ]
+  },
+  "completedSteps": [
+    {
+      "id": 1,
+      "seq": 1,
+      "agent": "planner",
+      "summary": "Plan created: route=scrape, 3 steps",
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.104526+05:30"
+    },
+    {
+      "id": 2,
+      "seq": 2,
+      "agent": "gym_analysis",
+      "summary": "3 equipment, 2 classes, confidence 0.85, 1 tool calls",
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.114290+05:30"
+    },
+    {
+      "id": 3,
+      "seq": 3,
+      "agent": "workout_recommendation",
+      "summary": "4 workouts proposed",
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.121144+05:30"
+    },
+    {
+      "id": 4,
+      "seq": 4,
+      "agent": "validator",
+      "summary": "attempt 1: pass, 0 violations",
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.125702+05:30"
+    },
+    {
+      "id": 5,
+      "seq": 5,
+      "agent": "approval_gate",
+      "summary": "approve by Admin (owner-9)",
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.136401+05:30"
+    },
+    {
+      "id": 6,
+      "seq": 6,
+      "agent": "publish",
+      "summary": "Published as verified",
+      "ok": true,
+      "error": null,
+      "durationMs": 6,
+      "createdAt": "2026-09-29T23:29:16.146707+05:30"
+    }
+  ],
+  "toolResults": [
+    {
+      "id": 1,
+      "stepId": 2,
+      "agent": "gym_analysis",
+      "tool": "scrape_gym_website",
+      "input": "https://fitzone.lk",
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.114290+05:30"
+    },
+    {
+      "id": 2,
+      "stepId": 3,
+      "agent": "workout_recommendation",
+      "tool": "list_equipment_taxonomy",
+      "input": null,
+      "ok": true,
+      "error": null,
+      "durationMs": 0,
+      "createdAt": "2026-09-29T23:29:16.121144+05:30"
+    }
+  ],
+  "facts": {
+    "email": "info@fitzone.lk",
+    "phone": "+94 11 234 5678",
+    "classes": [
+      "Yoga",
+      "Spin"
+    ],
+    "evidence": [
+      {
+        "field": "equipment",
+        "snippet": "We have treadmills, squat racks and dumbbells.",
+        "source_url": "https://fitzone.lk"
+      },
+      {
+        "field": "classes",
+        "snippet": "Classes: Yoga, Spin.",
+        "source_url": "https://fitzone.lk"
+      },
+      {
+        "field": "phone",
+        "snippet": "Call us on +94 11 234 5678",
+        "source_url": "https://fitzone.lk"
+      },
+      {
+        "field": "email",
+        "snippet": "email info@fitzone.lk",
+        "source_url": "https://fitzone.lk"
+      },
+      {
+        "field": "opening_hours",
+        "snippet": "Open 6am-10pm daily.",
+        "source_url": "https://fitzone.lk"
+      }
+    ],
+    "equipment": [
+      "treadmill",
+      "squat rack",
+      "dumbbell"
+    ],
+    "confidence": 0.85,
+    "opening_hours": "6am-10pm daily"
+  },
+  "recommendations": {
+    "notes": "",
+    "workouts": [
+      {
+        "name": "Upper Body Strength",
+        "category": "Strength",
+        "difficulty": "Intermediate",
+        "description": "A focused session using the listed gym equipment.",
+        "equipment_used": [
+          "dumbbell",
+          "squat rack"
+        ],
+        "duration_minutes": 40
+      },
+      {
+        "name": "Treadmill Intervals",
+        "category": "HIIT",
+        "difficulty": "Advanced",
+        "description": "A focused session using the listed gym equipment.",
+        "equipment_used": [
+          "treadmill"
+        ],
+        "duration_minutes": 30
+      },
+      {
+        "name": "Yoga Flow",
+        "category": "Flexibility",
+        "difficulty": "Beginner",
+        "description": "A focused session using the listed gym equipment.",
+        "equipment_used": [
+          "Yoga"
+        ],
+        "duration_minutes": 45
+      },
+      {
+        "name": "Bodyweight Circuit",
+        "category": "Endurance",
+        "difficulty": "Beginner",
+        "description": "A focused session using the listed gym equipment.",
+        "equipment_used": [
+          "bodyweight"
+        ],
+        "duration_minutes": 25
+      }
+    ]
+  },
+  "validationResults": [
+    {
+      "attempt": 1,
+      "verdict": "pass",
+      "violations": []
+    }
+  ],
+  "errors": [],
+  "approvalStatus": "approved",
+  "approvedBy": "owner-9",
+  "approverRole": "Admin",
+  "decidedAt": "2026-09-29T23:29:16.143024+05:30",
+  "approvalNote": "Verified on site",
+  "finalOutcome": "Approved and published as verified gym data.",
+  "retryCount": 0,
+  "createdAt": "2026-09-29T23:29:16.084519+05:30",
+  "updatedAt": "2026-09-29T23:29:16.141191+05:30"
+}

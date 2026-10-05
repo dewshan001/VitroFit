@@ -76,6 +76,13 @@
   flex-wrap: wrap;
 }
 
+.gl-card-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .gl-card-badge {
   display: flex;
   align-items: center;
@@ -221,12 +228,19 @@
   color: var(--text-muted);
 }
 
-/* ── DIRECTIONS LINK ── */
+/* ── ACTIONS (directions + workouts) ── */
+.gl-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.25rem;
+}
+
 .gl-card-directions {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.25rem;
   align-self: flex-start;
   font-family: var(--font-display);
   font-size: 0.78rem;
@@ -238,6 +252,29 @@
   transition: gap 0.25s ease;
 }
 .gl-card-directions:hover { gap: 0.65rem; }
+
+.gl-card-workouts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--accent);
+  padding: 5px 12px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.gl-card-workouts svg { width: 13px; height: 13px; }
+.gl-card-workouts:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
 
 /* ── SKELETON ── */
 .gl-card--skeleton { gap: 0.9rem; }
@@ -304,3 +341,13 @@
   .gym-list-section { padding: 2rem 1.25rem 3.5rem; }
   .gl-grid { grid-template-columns: 1fr; }
 }
+
+.gl-card-workouts:disabled { opacity: 0.55; cursor: not-allowed; background: transparent; color: var(--accent); }
+
+.gl-card-submit-status {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.gl-card-submit-status a { color: var(--accent); }
+.gl-card-submit-status--error { color: #ef4444; }

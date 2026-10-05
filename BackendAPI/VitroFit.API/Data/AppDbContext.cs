@@ -20,6 +20,12 @@ namespace VitroFit.API.Data
 
         public DbSet<Workout> Workouts => Set<Workout>();
 
+        public DbSet<GymApplication> GymApplications => Set<GymApplication>();
+
+        public DbSet<TimetableProposal> TimetableProposals => Set<TimetableProposal>();
+
+        public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -77,6 +83,44 @@ namespace VitroFit.API.Data
                       .WithMany(w => w.TimetableSlots)
                       .HasForeignKey(s => s.WorkoutId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<GymApplication>(entity =>
+            {
+                entity.HasIndex(e => e.UserId).IsUnique();
+                entity.HasIndex(e => e.Status);
+                entity.Property(e => e.Status)
+                      .HasConversion<string>()
+                      .HasMaxLength(20)
+                      .HasDefaultValue(Entities.GymApplicationStatus.Pending);
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<TimetableProposal>(entity =>
+            {
+                entity.HasIndex(e => new { e.Status, e.CreatedAt });
+                entity.HasIndex(e => e.UserId);
+                entity.Property(e => e.SlotsJson).HasColumnType("jsonb");
+                entity.Property(e => e.Status)
+                      .HasConversion<string>()
+                      .HasMaxLength(20)
+                      .HasDefaultValue(Entities.TimetableProposalStatus.Pending);
+                entity.HasOne(p => p.User)
+                      .WithMany()
+                      .HasForeignKey(p => p.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<UserNotification>(entity =>
+            {
+                entity.HasIndex(e => new { e.UserId, e.IsRead, e.CreatedAt });
+                entity.HasOne(n => n.User)
+                      .WithMany()
+                      .HasForeignKey(n => n.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Workout>(entity =>

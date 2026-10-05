@@ -721,3 +721,23 @@
   .auth-plans { flex-direction: column; }
   .auth-stats { display: none; }
 }
+
+/* ── Gym owner approval status (login) ───────────────────── */
+.auth-gym-status {
+  padding: 0.9rem 1rem;
+  background: rgba(200, 240, 0, 0.07);
+  border: 1px solid rgba(200, 240, 0, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.auth-gym-status strong { display: block; color: var(--accent); margin-bottom: 0.25rem; }
+.auth-gym-status p { margin: 0.3rem 0 0; }
+.auth-gym-status--rejected {
+  background: rgba(255, 107, 107, 0.07);
+  border-color: rgba(255, 107, 107, 0.35);
+}
+.auth-gym-status--rejected strong { color: #ff9a9a; }
+.auth-gym-status-note { font-style: italic; color: var(--text-primary); }
+.auth-gym-status .auth-link { display: inline-block; margin-top: 0.5rem; }

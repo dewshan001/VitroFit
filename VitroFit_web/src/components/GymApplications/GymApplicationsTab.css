@@ -1,0 +1,125 @@
+/* Gym applications tab (Admin Dashboard). Builds on AdminDashboardPage.css. */
+
+.ga-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(0, 255, 136, 0.08);
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  border-radius: var(--radius-md);
+  color: #00e07a;
+  font-size: 0.9rem;
+}
+.ga-banner button { background: none; border: none; color: inherit; font-size: 1.2rem; cursor: pointer; line-height: 1; }
+
+.ga-filters { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 16px; }
+.ga-filter {
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  padding: 9px 18px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: var(--font-display); font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;
+  cursor: pointer; transition: var(--transition);
+}
+.ga-filter:hover { border-color: var(--border-accent); color: var(--text-primary); }
+.ga-filter.active { background: rgba(200, 240, 0, 0.12); border-color: var(--accent); color: var(--accent); }
+.ga-count {
+  min-width: 22px; padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem; text-align: center;
+}
+.ga-count.hot { background: var(--accent); color: var(--bg-primary); font-weight: 700; }
+
+.admin-badge.rejected {
+  background: rgba(255, 107, 107, 0.1);
+  color: #ff8a8a;
+  border: 1px solid rgba(255, 107, 107, 0.25);
+}
+/* Pending reads as "needs attention" (amber), distinct from rejected (red). */
+.ga-filters ~ .admin-card .admin-badge.unverified,
+.ga-modal .admin-badge.unverified {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+  border-color: rgba(255, 193, 7, 0.28);
+}
+
+/* Modal */
+.ga-modal { max-width: 760px; max-height: 92vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.ga-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin: 0; padding: 26px 30px 18px; border-bottom: 1px solid var(--border); }
+.ga-head .admin-modal-title { margin-bottom: 4px; }
+.ga-body { padding: 20px 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 22px; flex: 1; }
+.ga-modal .admin-modal-actions { margin: 0; padding: 16px 30px; background: rgba(0, 0, 0, 0.2); }
+
+.ga-facts { display: grid; grid-template-columns: 110px 1fr; gap: 10px 16px; margin: 0; font-size: 0.9rem; }
+.ga-facts dt { color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; padding-top: 2px; }
+.ga-facts dd { margin: 0; color: var(--text-primary); word-break: break-word; }
+.ga-facts a, .ga-section a { color: var(--accent); }
+.ga-facts .email { color: var(--text-muted); font-size: 0.82rem; }
+.ga-pill {
+  display: inline-block; margin-left: 6px; padding: 1px 9px;
+  border: 1px solid var(--border-accent); border-radius: 999px;
+  color: var(--accent); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ga-warn { color: #ffc107; font-size: 0.82rem; margin-top: 2px; }
+.ga-muted { color: var(--text-muted); font-size: 0.85rem; }
+
+.ga-section h4 {
+  margin: 0 0 8px;
+  font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--accent);
+}
+.ga-section h4 span { color: var(--text-muted); letter-spacing: 0; }
+.ga-about { margin: 0; color: var(--text-secondary); line-height: 1.55; font-size: 0.9rem; white-space: pre-wrap; }
+
+.ga-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ga-chips span {
+  padding: 3px 11px;
+  background: rgba(200, 240, 0, 0.1); border: 1px solid rgba(200, 240, 0, 0.3);
+  border-radius: 999px; color: var(--accent); font-size: 0.8rem;
+}
+.ga-chips--alt span { background: rgba(255, 255, 255, 0.05); border-color: var(--border); color: var(--text-secondary); }
+
+.ga-photos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.ga-photos li { aspect-ratio: 4 / 3; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); background: #000; }
+.ga-photos button { display: block; width: 100%; height: 100%; padding: 0; border: none; background: none; cursor: zoom-in; }
+.ga-photos img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s ease; }
+.ga-photos button:hover img, .ga-photos button:focus-visible img { transform: scale(1.06); }
+
+.ga-error {
+  padding: 10px 14px;
+  background: rgba(255, 107, 107, 0.08); border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: var(--radius-md); color: #ff9a9a; font-size: 0.86rem;
+}
+
+.ga-danger { background: #ff6b6b; border-color: #ff6b6b; color: #1a1a1a; }
+.ga-danger:hover { background: transparent; color: #ff6b6b; box-shadow: 0 0 30px rgba(255, 107, 107, 0.2); }
+.ga-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.ga-danger-outline { border-color: rgba(255, 107, 107, 0.5); color: #ff9a9a; }
+.ga-danger-outline:hover { border-color: #ff6b6b; color: #ff6b6b; }
+
+/* Lightbox */
+.ga-lightbox {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; cursor: zoom-out;
+  animation: fade-in 0.2s ease;
+}
+.ga-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius-sm); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+.ga-lightbox button {
+  position: absolute; top: 18px; right: 22px;
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.6); color: #fff;
+  font-size: 1.5rem; line-height: 1; cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .ga-head, .ga-body, .ga-modal .admin-modal-actions { padding-left: 18px; padding-right: 18px; }
+  .ga-facts { grid-template-columns: 1fr; gap: 2px; }
+  .ga-facts dt { margin-top: 10px; }
+  .ga-modal .admin-modal-actions { flex-wrap: wrap; }
+  .ga-modal .admin-modal-actions button { flex: 1 1 auto; justify-content: center; }
+}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getUsersByRole, createUser, deleteUser, getWorkouts, createWorkout, updateWorkout, deleteWorkout } from '../api/admin';
+import DietApprovalsTab from '../components/DietApprovals/DietApprovalsTab';
+import GymApplicationsTab from '../components/GymApplications/GymApplicationsTab';
 import './AdminDashboardPage.css';
 
 const ROLES = {
@@ -14,7 +16,9 @@ const TABS = [
   { id: 'users', label: 'Members', role: ROLES.USER },
   { id: 'trainers', label: 'Trainers', role: ROLES.TRAINER },
   { id: 'gym-owners', label: 'Gym Owners', role: ROLES.GYM_OWNER },
-  { id: 'workouts', label: 'Workouts', role: null }
+  { id: 'gym-applications', label: 'Gym Applications', role: null },
+  { id: 'workouts', label: 'Workouts', role: null },
+  { id: 'diet-approvals', label: 'Diet Approvals', role: null }
 ];
 
 const emptyWorkoutForm = { name: '', category: '', description: '' };
@@ -62,6 +66,10 @@ export default function AdminDashboardPage() {
     } else {
       navigate('/login');
       return;
+    }
+
+    if (activeTab.id === 'diet-approvals' || activeTab.id === 'gym-applications') {
+      return; // these tabs load their own data
     }
 
     if (activeTab.id === 'workouts') {
@@ -201,6 +209,7 @@ export default function AdminDashboardPage() {
             <h1 className="admin-title">Admin <span>Dashboard</span></h1>
             <p className="admin-subtitle">Manage platform users, trainers, and gym owners</p>
           </div>
+          <Link to="/admin/gym-approvals" className="btn-primary">Gym Approvals</Link>
         </div>
       </div>
 
@@ -219,6 +228,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="admin-content">
+        {activeTab.id === 'diet-approvals' ? <DietApprovalsTab /> : activeTab.id === 'gym-applications' ? <GymApplicationsTab /> : (<>
         <div className="admin-controls">
           {activeTab.id === 'workouts' ? (
             <button className="btn-primary" onClick={openCreateWorkoutForm}>
@@ -329,6 +339,7 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </div>
+        </>)}
       </div>
 
       {/* Create Modal */}

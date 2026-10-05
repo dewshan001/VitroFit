@@ -129,7 +129,8 @@ namespace VitroFit.API.Controllers
             Title = s.Title,
             WorkoutId = s.WorkoutId,
             WorkoutName = s.Workout != null ? s.Workout.Name : string.Empty,
-            WorkoutCategory = s.Workout != null ? s.Workout.Category : string.Empty
+            WorkoutCategory = s.Workout != null ? s.Workout.Category : string.Empty,
+            WorkoutDescription = s.Workout?.Description
         };
 
         private int? GetUserId()

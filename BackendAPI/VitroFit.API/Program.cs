@@ -5,12 +5,21 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using VitroFit.API.Data;
 using VitroFit.API.Entities;
+using VitroFit.API.Features.DietAgent;
+using VitroFit.API.Features.GymAgent;
+using VitroFit.API.Features.GymOwners;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
+using VitroFit.API.Features.AdaptiveFitness;
+
+// One shared env file for the whole backend (BackendAPI/.env). Loaded first so ASP.NET's environment
+// variable provider sees it (e.g. JwtSettings__Secret -> JwtSettings:Secret) and the Python sidecars inherit it.
+SharedEnvFile.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +29,7 @@ JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddAdaptiveFitness(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -57,9 +67,39 @@ builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(
 // Bind SMTP settings from appsettings.json → EmailSettings section
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
+builder.Services.Configure<GymAgentSettings>(builder.Configuration.GetSection(GymAgentSettings.SectionName));
+builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GymAgentSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    // Timeouts are applied per call by GymAgentClient (quick calls vs. AI calls), not globally.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddGymAgentRateLimiting(
+    builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:AiRequestsPerMinute") ?? new GymAgentSettings().AiRequestsPerMinute);
+
+builder.Services.AddGymOwnerRateLimiting(
+    builder.Configuration.GetValue<int?>("GymOwners:RegistrationsPerHour") ?? 10);
+
+builder.Services.AddNearbyGymsRateLimiting(
+    builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:NearbyRequestsPerMinute") ?? 30);
+
+// Diet plans: browsers call api/diet/* here; this API passes the request on to the Python diet service.
+builder.Services.Configure<DietAgentSettings>(builder.Configuration.GetSection(DietAgentSettings.SectionName));
+builder.Services.AddHttpClient<IDietAgentClient, DietAgentClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<DietAgentSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    // The timeout is applied per call by DietAgentClient.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddDietAgentRateLimiting(
+    builder.Configuration.GetValue<int?>($"{DietAgentSettings.SectionName}:AiRequestsPerMinute") ?? new DietAgentSettings().AiRequestsPerMinute);
+
 builder.Services.AddSingleton<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<VitroFit.API.Features.TimetableVerification.ITimetableReviewService, VitroFit.API.Features.TimetableVerification.TimetableReviewService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Transient is appropriate for MailKitEmailService: each call opens and closes its own SMTP connection
@@ -105,12 +145,47 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Hosts like Render terminate TLS in front of the app and speak plain HTTP to it, so only redirect in dev.
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("DefaultCorsPolicy");
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+// Single-container hosting exposes only this API's port, so the chatbot sidecar (port 8000) is reached
+// through here. Streams the SSE response through unbuffered.
+app.MapPost("/api/chat", async (HttpContext ctx, IHttpClientFactory httpFactory) =>
+{
+    using var upstreamRequest = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:8000/api/chat")
+    {
+        Content = new StreamContent(ctx.Request.Body)
+    };
+    upstreamRequest.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+    using var client = httpFactory.CreateClient();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+    using var upstream = await client.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
+
+    ctx.Response.StatusCode = (int)upstream.StatusCode;
+    ctx.Response.ContentType = upstream.Content.Headers.ContentType?.ToString() ?? "text/event-stream";
+    ctx.Response.Headers.CacheControl = "no-cache";
+    ctx.Response.Headers["X-Accel-Buffering"] = "no";
+
+    await using var body = await upstream.Content.ReadAsStreamAsync(ctx.RequestAborted);
+    var buffer = new byte[4096];
+    int read;
+    while ((read = await body.ReadAsync(buffer, ctx.RequestAborted)) > 0)
+    {
+        await ctx.Response.Body.WriteAsync(buffer.AsMemory(0, read), ctx.RequestAborted);
+        await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+    }
+});
 
 using (var scope = app.Services.CreateScope())
 {
@@ -118,6 +193,9 @@ using (var scope = app.Services.CreateScope())
 
     // Apply any pending EF Core migrations automatically (creates the DB on first run).
     context.Database.Migrate();
+
+    var fitnessContext = scope.ServiceProvider.GetRequiredService<FitnessDbContext>();
+    fitnessContext.Database.Migrate();
 
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     
@@ -138,13 +216,21 @@ using (var scope = app.Services.CreateScope())
 }
 
 var sidecarProcesses = new List<Process>();
-foreach (var (serviceName, relativeDir, port) in new[]
+var gymAgentKey = builder.Configuration[$"{GymAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
+var dietAgentKey = builder.Configuration[$"{DietAgentSettings.SectionName}:ServiceKey"] ?? string.Empty;
+foreach (var (serviceName, relativeDir, port, customArgs, environment) in new (string, string, int, string?, Dictionary<string, string>?)[]
 {
-    ("GymAgentService", "GymAgentService", 8001),
-    ("chatbot_service", "chatbot_service", 8000),
+    // server.py (not `uvicorn main:app`): the Postgres checkpointer needs a selector event loop on Windows.
+    // The shared key is passed through the environment so API and agent service can't drift apart.
+    ("GymAgentService", "GymAgentService", 8001, "server.py", gymAgentKey.Length > 0 ? new() { ["GYM_AGENT_KEY"] = gymAgentKey } : null),
+    ("chatbot_service", "chatbot_service", 8000, null, null),
+    // The shared key (if set) switches the diet service to internal-only: it then answers only this API.
+    ("DietPlanService", "DietPlanService", 8003, null, dietAgentKey.Length > 0 ? new() { ["DIET_AGENT_KEY"] = dietAgentKey } : null),
+    ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server", null),
+    ("TimeManagementAgentService", "TimeManagementAgentService", 8004, "-m app.server", null),
 })
 {
-    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, serviceName, relativeDir, port);
+    var process = PythonServiceSidecar.StartIfAvailable(app.Logger, builder.Environment.ContentRootPath, serviceName, relativeDir, port, customArgs, environment);
     if (process != null)
     {
         sidecarProcesses.Add(process);
@@ -172,7 +258,9 @@ app.Run();
 /// </summary>
 static class PythonServiceSidecar
 {
-    public static Process? StartIfAvailable(ILogger logger, string serviceName, string relativeDir, int port)
+    public static Process? StartIfAvailable(
+        ILogger logger, string apiProjectDir, string serviceName, string relativeDir, int port,
+        string? customArgs = null, IReadOnlyDictionary<string, string>? environment = null)
     {
         if (IsPortInUse(port))
         {
@@ -180,19 +268,21 @@ static class PythonServiceSidecar
             return null;
         }
 
-        var apiProjectDir = Directory.GetCurrentDirectory();
-        var serviceDir = Path.GetFullPath(Path.Combine(apiProjectDir, "..", relativeDir));
+        // Every Python service shares ONE venv (BackendAPI/venv, built from BackendAPI/requirements.txt).
+        // The service's own folder stays the working directory because its imports (app.*, src.*, main:app) are relative to it.
+        var backendDir = Path.GetFullPath(Path.Combine(apiProjectDir, ".."));
+        var serviceDir = Path.GetFullPath(Path.Combine(backendDir, relativeDir));
         var pythonExe = OperatingSystem.IsWindows()
-            ? Path.Combine(serviceDir, "venv", "Scripts", "python.exe")
-            : Path.Combine(serviceDir, "venv", "bin", "python");
+            ? Path.Combine(backendDir, "venv", "Scripts", "python.exe")
+            : Path.Combine(backendDir, "venv", "bin", "python");
 
         if (!File.Exists(pythonExe))
         {
             logger.LogWarning(
-                "{ServiceName} venv not found at {PythonExe} - skipping auto-start. " +
-                "Set it up with: cd BackendAPI/{RelativeDir} && python -m venv venv && " +
-                "venv/Scripts/pip install -r requirements.txt (see .env.example for required settings).",
-                serviceName, pythonExe, relativeDir);
+                "{ServiceName} - shared Python venv not found at {PythonExe}, skipping auto-start. " +
+                "One-time setup in {BackendDir}: python -m venv venv, then venv/Scripts/pip install -r requirements.txt " +
+                "(copy .env.example to .env first).",
+                serviceName, pythonExe, backendDir);
             return null;
         }
 
@@ -201,13 +291,40 @@ static class PythonServiceSidecar
             var startInfo = new ProcessStartInfo
             {
                 FileName = pythonExe,
-                Arguments = $"-m uvicorn main:app --port {port}",
+                Arguments = customArgs ?? $"-m uvicorn main:app --port {port}",
                 WorkingDirectory = serviceDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
+            if (environment != null)
+            {
+                foreach (var (name, value) in environment)
+                {
+                    startInfo.Environment[name] = value;
+                }
+            }
 
             var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                logger.LogWarning("Failed to start {ServiceName} sidecar: no process was created.", serviceName);
+                return null;
+            }
+
+            process.OutputDataReceived += (_, eventArgs) =>
+            {
+                if (eventArgs.Data is not null)
+                    logger.LogInformation("{ServiceName}: {Output}", serviceName, eventArgs.Data);
+            };
+            process.ErrorDataReceived += (_, eventArgs) =>
+            {
+                if (eventArgs.Data is not null)
+                    logger.LogWarning("{ServiceName}: {Output}", serviceName, eventArgs.Data);
+            };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             logger.LogInformation("Started {ServiceName} sidecar (pid {Pid}) on port {Port}.", serviceName, process?.Id, port);
             return process;
         }
@@ -244,6 +361,26 @@ static class PythonServiceSidecar
         catch
         {
             return false;
+        }
+    }
+}
+
+/// <summary>Finds BackendAPI/.env by walking up from the working directory / app folder and loads it.</summary>
+static class SharedEnvFile
+{
+    public static void Load()
+    {
+        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+        {
+            for (var dir = new DirectoryInfo(start); dir != null; dir = dir.Parent)
+            {
+                var file = Path.Combine(dir.FullName, ".env");
+                if (File.Exists(file))
+                {
+                    DotNetEnv.Env.NoClobber().Load(file); // real environment variables still win
+                    return;
+                }
+            }
         }
     }
 }

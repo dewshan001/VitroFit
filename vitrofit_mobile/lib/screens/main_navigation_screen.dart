@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
-import 'about_screen.dart';
-import 'classes_screen.dart';
+import '../widgets/chatbot_fab.dart';
+import '../widgets/floating_nav_bar.dart';
+import 'diet/diet_screen.dart';
+import 'find_gym_screen.dart';
+import 'fitness/fitness_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
-import 'timetable_screen.dart';
+import 'time/time_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -16,22 +19,22 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  bool _navBarVisible = true;
 
-  late final List<Widget> _pages;
+  /// Tabs are built the first time they are opened (not at app start), so the
+  /// agent tabs only hit the backend when the user actually visits them.
+  final Set<int> _visited = {NavTab.home};
 
-  @override
-  void initState() {
-    super.initState();
-    _pages = [
-      HomeScreen(onNavigateToTab: (index) {
-        setState(() => _currentIndex = index);
-      }),
-      const ClassesScreen(),
-      const TimetableScreen(),
-      const AboutScreen(),
-      const ProfileScreen(),
-    ];
+  void _goToTab(int index) {
+    setState(() {
+      _currentIndex = index;
+      _visited.add(index);
+      _navBarVisible = true;
+    });
   }
+
+  Widget _tab(int index, Widget Function() build) =>
+      _visited.contains(index) ? build() : const SizedBox.shrink();
 
   @override
   Widget build(BuildContext context) {
@@ -100,62 +103,41 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
 
       // Body (IndexedStack preserves tab scroll states)
+      // IndexedStack keeps each tab's state (and scroll position) alive.
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: [
+          HomeScreen(onNavigateToTab: _goToTab),
+          _tab(NavTab.fitness, () => const FitnessScreen()),
+          _tab(NavTab.gym, () => const FindGymScreen()),
+          _tab(NavTab.diet, () => const DietScreen()),
+          _tab(
+            NavTab.time,
+            () => TimeScreen(
+              onNavigateToTab: _goToTab,
+              active: _currentIndex == NavTab.time,
+            ),
+          ),
+          _tab(NavTab.profile, () => const ProfileScreen()),
+        ],
       ),
-
-      // Bottom Navigation Bar
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bgSecondary,
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 1.0),
+      floatingActionButton: const ChatbotFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: IgnorePointer(
+        ignoring: !_navBarVisible,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+          offset: _navBarVisible ? Offset.zero : const Offset(0, 1),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            opacity: _navBarVisible ? 1 : 0,
+            child: FloatingNavBar(
+              currentIndex: _currentIndex,
+              onTap: _goToTab,
+            ),
           ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          backgroundColor: AppColors.bgSecondary,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.accent,
-          unselectedItemColor: AppColors.textMuted,
-          selectedLabelStyle: GoogleFonts.oswald(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
-          unselectedLabelStyle: GoogleFonts.oswald(
-            fontSize: 11,
-            letterSpacing: 1.0,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home, color: AppColors.accent),
-              label: 'HOME',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center_outlined),
-              activeIcon: Icon(Icons.fitness_center, color: AppColors.accent),
-              label: 'CLASSES',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
-              activeIcon: Icon(Icons.calendar_month, color: AppColors.accent),
-              label: 'TIMETABLE',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.info_outline),
-              activeIcon: Icon(Icons.info, color: AppColors.accent),
-              label: 'ABOUT',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person, color: AppColors.accent),
-              label: 'PROFILE',
-            ),
-          ],
         ),
       ),
     );

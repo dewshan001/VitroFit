@@ -1,102 +1,51 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { fetchGymDetails } from '../../api/gyms';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
+import { fetchGymDetails, isSignedIn, SignInRequiredError } from '../../api/gyms';
+import { loadGoogleMaps, searchNearbyGyms, SEARCH_RADIUS_M } from '../../api/googleMaps';
 import GymList from './GymList';
-import { SOURCE_LABELS } from './gymSourceLabels';
+import WorkoutSuggestionsModal from './WorkoutSuggestionsModal';
+import { SOURCE_LABELS, isVerifiedSource } from './gymSourceLabels';
+import VerifiedBadge from './VerifiedBadge';
 import './GymMap.css';
 
-/* ─────────────────────────────────────────
-   FIX LEAFLET DEFAULT ICON PATHS
-───────────────────────────────────────── */
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
-  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
-  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
-});
+const DEFAULT_CENTER = { lat: 6.9271, lng: 79.8612 };
+const DEFAULT_ZOOM = 11;
+const USER_ZOOM = 12;
 
-/* ─────────────────────────────────────────
-   CUSTOM USER-LOCATION MARKER
-───────────────────────────────────────── */
-const userIcon = L.divIcon({
-  className: 'gym-map-user-icon',
-  html: `
-    <div class="gym-map-user-pulse">
-      <div class="gym-map-user-dot"></div>
-    </div>
-  `,
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-  popupAnchor: [0, -22],
-});
+/* Marker elements reuse the existing pin styles. */
+function userMarkerElement() {
+  const el = document.createElement('div');
+  el.className = 'gym-map-user-icon';
+  el.innerHTML = '<div class="gym-map-user-pulse"><div class="gym-map-user-dot"></div></div>';
+  return el;
+}
 
-/* ─────────────────────────────────────────
-   CUSTOM GYM / PLACE MARKER
-───────────────────────────────────────── */
-const gymIcon = L.divIcon({
-  className: 'gym-map-place-icon',
-  html: `
+function gymMarkerElement() {
+  const el = document.createElement('div');
+  el.className = 'gym-map-place-icon';
+  el.innerHTML = `
     <div class="gym-marker-pin">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 4v16M18 4v16M4 9h4M16 9h4M4 15h4M16 15h4M8 4h8M8 20h8"/>
       </svg>
-    </div>
-  `,
-  iconSize: [34, 34],
-  iconAnchor: [17, 34],
-  popupAnchor: [0, -34],
-});
+    </div>`;
+  return el;
+}
 
-/* ─────────────────────────────────────────
-   MAP CONTROLLER (Resize + Center watcher)
-───────────────────────────────────────── */
-function MapController({ coords, onCenterChange }) {
-  const map = useMap();
-  const hasCentered = useRef(false);
-  const debounceTimer = useRef(null);
-
-  const reportCenter = useCallback(() => {
-    if (!onCenterChange) return;
-    const center = map.getCenter();
-    onCenterChange({ lat: center.lat, lng: center.lng });
-  }, [map, onCenterChange]);
-
-  useEffect(() => {
-    map.invalidateSize();
-    const t1 = setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
-
-    const handleResize = () => map.invalidateSize();
-    window.addEventListener('resize', handleResize);
-
-    const handleMoveEnd = () => {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(() => {
-        reportCenter();
-      }, 300);
-    };
-
-    map.on('moveend', handleMoveEnd);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(debounceTimer.current);
-      window.removeEventListener('resize', handleResize);
-      map.off('moveend', handleMoveEnd);
-    };
-  }, [map, reportCenter]);
-
-  useEffect(() => {
-    if (coords && !hasCentered.current) {
-      hasCentered.current = true;
-      map.flyTo([coords.lat, coords.lng], 11, { duration: 1.6 });
-    }
-  }, [coords, map]);
-
-  return null;
+/** The fields the map, list and verification code read from a place feature. */
+function placeFields(place, idx = 0) {
+  const props = place.properties || {};
+  const [lng, lat] = place.geometry?.coordinates || [];
+  return {
+    lat,
+    lng,
+    placeId: props.place_id || `${lat}-${lng}-${idx}`,
+    name: props.name || props.address_line1 || 'Gym & Fitness Center',
+    address: props.formatted || props.address_line2 || '',
+    distance: props.distance ? (props.distance / 1000).toFixed(1) : null,
+    website: props.website || props.datasource?.raw?.website,
+  };
 }
 
 /* ─────────────────────────────────────────
@@ -104,6 +53,13 @@ function MapController({ coords, onCenterChange }) {
    when a marker's popup is opened)
 ───────────────────────────────────────── */
 function GymDetailsSection({ status }) {
+  if (status?.authRequired) {
+    return (
+      <div className="gym-place-popup-details gym-place-popup-details--empty">
+        <Link to="/login">Sign in</Link> to see equipment and classes.
+      </div>
+    );
+  }
   if (!status || status.loading) {
     return <div className="gym-place-popup-details gym-place-popup-details--loading">Loading equipment & classes…</div>;
   }
@@ -146,10 +102,19 @@ export default function GymMap() {
   const [locationError, setLocationError] = useState(false);
   const [locating, setLocating] = useState(true);
   const [gymDetails, setGymDetails] = useState({});
+  const [workoutModalTarget, setWorkoutModalTarget] = useState(null);
+  const workoutCacheRef = useRef(new Map());
 
   const requestIdRef = useRef(0);
 
   const loadGymDetails = useCallback((placeId, place) => {
+    // Equipment/classes come from the AI service behind the API, which needs a login. Logged-out
+    // visitors still get the map and the list, and are asked to sign in instead of seeing an error.
+    if (!isSignedIn()) {
+      setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, authRequired: true } }));
+      return;
+    }
+
     setGymDetails((prev) => {
       if (prev[placeId] && (prev[placeId].loading || prev[placeId].data)) return prev;
       return { ...prev, [placeId]: { loading: true } };
@@ -157,74 +122,176 @@ export default function GymMap() {
 
     fetchGymDetails(place)
       .then((data) => setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, data } })))
-      .catch(() => setGymDetails((prev) => ({ ...prev, [placeId]: { loading: false, error: true } })));
+      .catch((err) => setGymDetails((prev) => ({
+        ...prev,
+        [placeId]: err instanceof SignInRequiredError
+          ? { loading: false, authRequired: true }
+          : { loading: false, error: true },
+      })));
   }, []);
 
-  const apiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY || '').trim();
-  const isKeyValid = Boolean(apiKey && apiKey !== 'your_geoapify_api_key_here');
+  const [mapsState, setMapsState] = useState({ status: 'loading' });
+  const [placesError, setPlacesError] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
 
-  const DEFAULT_CENTER = [6.9271, 79.8612];
-  const DEFAULT_ZOOM = 11;
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const infoWindowRef = useRef(null);
+  const infoContentRef = useRef(null);
+  const userMarkerRef = useRef(null);
+  const markersRef = useRef(new Map());
+  const abortRef = useRef(null);
+  const hasCenteredRef = useRef(false);
 
-  const tileUrl = isKeyValid
-    ? `https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${apiKey}`
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  if (!infoContentRef.current && typeof document !== 'undefined') {
+    infoContentRef.current = document.createElement('div');
+  }
 
-  const tileAttribution = isKeyValid
-    ? 'Powered by <a href="https://www.geoapify.com/" target="_blank">Geoapify</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
-    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-  const fetchPlaces = useCallback(async (params) => {
-    if (!isKeyValid) return;
+  const fetchPlaces = useCallback(async (center) => {
     const requestId = ++requestIdRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoadingPlaces(true);
+    setPlacesError('');
 
     try {
-      const lat = params?.lat || DEFAULT_CENTER[0];
-      const lng = params?.lng || DEFAULT_CENTER[1];
-      const categories = 'sport.fitness';
-      const url = `https://api.geoapify.com/v2/places?categories=${categories}&filter=circle:${lng},${lat},50000&bias=proximity:${lng},${lat}&limit=80&apiKey=${apiKey}`;
-
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Places API error');
-
-      const data = await res.json();
+      const found = await searchNearbyGyms(center, controller.signal);
       if (requestId !== requestIdRef.current) return;
-      if (data && data.features) {
-        setPlaces(data.features);
-      }
+      setPlaces(found);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('Failed to fetch places:', err);
+      if (requestId === requestIdRef.current) setPlacesError(err.message || 'Could not search for gyms.');
     } finally {
-      if (requestId === requestIdRef.current) {
-        setLoadingPlaces(false);
-      }
+      if (requestId === requestIdRef.current) setLoadingPlaces(false);
     }
-  }, [apiKey, isKeyValid]);
+  }, []);
 
+  // Load the Google Maps script once.
+  useEffect(() => {
+    let cancelled = false;
+    loadGoogleMaps()
+      .then(() => { if (!cancelled) setMapsState({ status: 'ready' }); })
+      .catch((err) => {
+        console.error('Google Maps failed to load:', err);
+        if (!cancelled) setMapsState({ status: 'error', message: err.message });
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Create the map; every pan or zoom (after it settles) searches the area under the map centre.
+  useEffect(() => {
+    if (mapsState.status !== 'ready' || !containerRef.current || mapRef.current) return undefined;
+    const { maps } = window.google;
+    const map = new maps.Map(containerRef.current, {
+      center: DEFAULT_CENTER,
+      zoom: DEFAULT_ZOOM,
+      minZoom: 3,
+      mapId: 'DEMO_MAP_ID',
+      colorScheme: maps.ColorScheme.DARK,
+      disableDefaultUI: true,
+      zoomControl: true,
+      gestureHandling: 'greedy',
+      clickableIcons: false,
+    });
+    mapRef.current = map;
+
+    const infoWindow = new maps.InfoWindow({ maxWidth: 360 });
+    infoWindow.addListener('closeclick', () => setSelectedId(null));
+    infoWindowRef.current = infoWindow;
+
+    let timer;
+    const listener = map.addListener('idle', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const c = map.getCenter();
+        fetchPlaces({ lat: c.lat(), lng: c.lng() });
+      }, 300);
+    });
+
+    return () => {
+      clearTimeout(timer);
+      listener.remove();
+      abortRef.current?.abort();
+    };
+  }, [mapsState.status, fetchPlaces]);
+
+  // Browser location: centre the map there (the map's idle event then searches that area).
   useEffect(() => {
     if (!navigator.geolocation) {
       setLocationError(true);
       setLocating(false);
-      fetchPlaces({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserCoords(coords);
+        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setLocating(false);
-        fetchPlaces({ lat: coords.lat, lng: coords.lng });
       },
       () => {
         setLocationError(true);
         setLocating(false);
-        fetchPlaces({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
       },
       { timeout: 8000, enableHighAccuracy: true }
     );
-  }, [fetchPlaces]);
+  }, []);
+
+  // "You are here" marker, and fly there once.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (mapsState.status !== 'ready' || !map || !userCoords) return;
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+    if (userMarkerRef.current) userMarkerRef.current.map = null;
+    userMarkerRef.current = new AdvancedMarkerElement({
+      map, position: userCoords, content: userMarkerElement(), title: 'You are here', zIndex: 1000,
+    });
+    if (!hasCenteredRef.current) {
+      hasCenteredRef.current = true;
+      map.panTo(userCoords);
+      map.setZoom(USER_ZOOM);
+    }
+  }, [mapsState.status, userCoords]);
+
+  // One marker per gym; clicking opens the card.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (mapsState.status !== 'ready' || !map) return;
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+    markersRef.current.forEach((m) => { m.map = null; });
+    markersRef.current = new Map();
+    places.forEach((place, idx) => {
+      const f = placeFields(place, idx);
+      if (typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
+      const marker = new AdvancedMarkerElement({
+        map, position: { lat: f.lat, lng: f.lng }, content: gymMarkerElement(), title: f.name, gmpClickable: true,
+      });
+      marker.addEventListener('gmp-click', () => setSelectedId(f.placeId));
+      markersRef.current.set(f.placeId, marker);
+    });
+  }, [mapsState.status, places]);
+
+  const selectedPlace = places
+    .map((p, i) => ({ p, f: placeFields(p, i) }))
+    .find(({ f }) => f.placeId === selectedId);
+
+  // Open the info window on the selected marker and fetch that gym's details.
+  useEffect(() => {
+    const infoWindow = infoWindowRef.current;
+    if (!infoWindow) return;
+    const marker = selectedId ? markersRef.current.get(selectedId) : null;
+    if (!marker || !selectedPlace) {
+      infoWindow.close();
+      return;
+    }
+    const { f } = selectedPlace;
+    infoWindow.setContent(infoContentRef.current);
+    infoWindow.open({ map: mapRef.current, anchor: marker });
+    loadGymDetails(f.placeId, {
+      placeId: f.placeId, name: f.name, lat: f.lat, lng: f.lng, address: f.address, website: f.website,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, places]);
 
   return (
     <div className="gym-map-section">
@@ -280,94 +347,72 @@ export default function GymMap() {
 
           {/* Map */}
           <div className="gym-map-container">
-            <MapContainer
-              center={DEFAULT_CENTER}
-              zoom={DEFAULT_ZOOM}
-              minZoom={3}
-              maxZoom={19}
-              scrollWheelZoom={true}
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={false}
-              attributionControl={true}
-            >
-              <TileLayer
-                url={tileUrl}
-                attribution={tileAttribution}
-                maxZoom={20}
-                crossOrigin="anonymous"
-              />
+            <div ref={containerRef} className="gym-map-canvas" />
 
-              <MapController coords={userCoords} onCenterChange={fetchPlaces} />
-              <ZoomControl position="bottomleft" />
+            {mapsState.status === 'loading' && (
+              <div className="gym-map-overlay-msg">Loading map&hellip;</div>
+            )}
+            {mapsState.status === 'error' && (
+              <div className="gym-map-overlay-msg gym-map-overlay-msg--error">
+                <strong>The map couldn&apos;t be loaded.</strong>
+                <span>{mapsState.message}</span>
+              </div>
+            )}
+            {placesError && mapsState.status === 'ready' && (
+              <div className="gym-map-overlay-msg gym-map-overlay-msg--toast">
+                Couldn&apos;t search for gyms: {placesError}
+              </div>
+            )}
 
-              {/* User location marker */}
-              {userCoords && (
-                <Marker position={[userCoords.lat, userCoords.lng]} icon={userIcon} zIndexOffset={1000}>
-                  <Popup className="gym-map-popup">
-                    <div className="gym-map-popup-content">
-                      <span className="gym-map-popup-icon">&#128205;</span>
-                      <span className="gym-map-popup-label">You are here</span>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-
-              {/* Gym markers */}
-              {places.map((place, idx) => {
-                const props = place.properties || {};
-                const coords = place.geometry?.coordinates;
-                if (!coords || coords.length < 2) return null;
-                const [lng, lat] = coords;
-
-                const placeName = props.name || props.address_line1 || 'Gym & Fitness Center';
-                const placeAddress = props.formatted || props.address_line2 || '';
-                const distance = props.distance ? (props.distance / 1000).toFixed(1) : null;
-                const placeId = props.place_id || `${lat}-${lng}-${idx}`;
-                const website = props.website || props.datasource?.raw?.website;
-
+            {/* Gym card shown inside Google's info window */}
+            {selectedPlace && infoContentRef.current && createPortal(
+              (() => {
+                const { f } = selectedPlace;
+                const status = gymDetails[f.placeId];
                 return (
-                  <Marker
-                    key={placeId}
-                    position={[lat, lng]}
-                    icon={gymIcon}
-                    eventHandlers={{
-                      popupopen: () => loadGymDetails(placeId, {
-                        placeId, name: placeName, lat, lng, address: placeAddress, website,
-                      }),
-                    }}
-                  >
-                    <Popup className="gym-map-place-popup">
-                      <div className="gym-place-popup-card">
-                        <div className="gym-place-popup-header">
-                          <div className="gym-place-popup-badge">Gym / Fitness</div>
-                          {distance && <span className="gym-place-popup-dist">{distance} km away</span>}
-                        </div>
-                        <div className="gym-place-popup-title">{placeName}</div>
-                        {placeAddress && (
-                          <div className="gym-place-popup-address">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-                            </svg>
-                            {placeAddress}
-                          </div>
-                        )}
-                        <GymDetailsSection status={gymDetails[placeId]} />
-                        <div className="gym-place-popup-actions">
-                          <a
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="gym-place-popup-btn"
-                          >
-                            Directions &rarr;
-                          </a>
-                        </div>
+                  <div className="gym-place-popup-card">
+                    <div className="gym-place-popup-header">
+                      <div className="gym-place-popup-badge">Gym / Fitness</div>
+                      {isVerifiedSource(status?.data?.source) && <VerifiedBadge />}
+                      {f.distance && <span className="gym-place-popup-dist">{f.distance} km away</span>}
+                    </div>
+                    <div className="gym-place-popup-title">{f.name}</div>
+                    {f.address && (
+                      <div className="gym-place-popup-address">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        {f.address}
                       </div>
-                    </Popup>
-                  </Marker>
+                    )}
+                    <GymDetailsSection status={status} />
+                    <div className="gym-place-popup-actions">
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="gym-place-popup-btn"
+                      >
+                        Directions &rarr;
+                      </a>
+                      <button
+                        type="button"
+                        className="gym-place-popup-btn gym-place-popup-btn--workouts"
+                        onClick={() => setWorkoutModalTarget({
+                          placeId: f.placeId,
+                          name: f.name,
+                          equipment: status?.data?.equipment || [],
+                          classes: status?.data?.classes || [],
+                        })}
+                      >
+                        Find Possible Workouts
+                      </button>
+                    </div>
+                  </div>
                 );
-              })}
-            </MapContainer>
+              })(),
+              infoContentRef.current
+            )}
 
             {/* Stats overlay at bottom of map */}
             <div className="gym-map-stats-bar">
@@ -381,7 +426,7 @@ export default function GymMap() {
                   </>
                 )}
                 <div className="gym-map-stat-chip">
-                  <strong>50 km</strong> radius
+                  <strong>{SEARCH_RADIUS_M / 1000} km</strong> radius
                 </div>
                 {userCoords && (
                   <>
@@ -422,6 +467,15 @@ export default function GymMap() {
         loadingPlaces={loadingPlaces}
         gymDetails={gymDetails}
         onLoadDetails={loadGymDetails}
+      />
+
+      <WorkoutSuggestionsModal
+        isOpen={!!workoutModalTarget}
+        onClose={() => setWorkoutModalTarget(null)}
+        gymName={workoutModalTarget?.name}
+        place={workoutModalTarget}
+        cachedResult={workoutModalTarget ? workoutCacheRef.current.get(workoutModalTarget.placeId) : null}
+        onResult={(placeId, data) => workoutCacheRef.current.set(placeId, data)}
       />
     </div>
   );

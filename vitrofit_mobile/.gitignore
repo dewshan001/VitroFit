@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Build output in any subfolder (e.g. android/build)
+**/build/
+
+# Kotlin compiler session files
+.kotlin/

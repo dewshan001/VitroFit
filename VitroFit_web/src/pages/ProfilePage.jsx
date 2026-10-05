@@ -90,6 +90,11 @@ export default function ProfilePage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  /* ── Delete Account state (hooks must all run before the early return below, on every render) ── */
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting]             = useState(false);
+  const [deleteError, setDeleteError]       = useState('');
+
   /* Redirect if not logged in */
   useEffect(() => {
     if (!isLoggedIn) navigate('/login');
@@ -166,11 +171,6 @@ export default function ProfilePage() {
       setPwLoading(false);
     }
   };
-
-  /* ── Delete Account state ── */
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleting, setDeleting]             = useState(false);
-  const [deleteError, setDeleteError]       = useState('');
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
