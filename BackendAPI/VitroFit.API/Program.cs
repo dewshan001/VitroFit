@@ -158,6 +158,35 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
+// Single-container hosting exposes only this API's port, so the chatbot sidecar (port 8000) is reached
+// through here. Streams the SSE response through unbuffered.
+app.MapPost("/api/chat", async (HttpContext ctx, IHttpClientFactory httpFactory) =>
+{
+    using var upstreamRequest = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:8000/api/chat")
+    {
+        Content = new StreamContent(ctx.Request.Body)
+    };
+    upstreamRequest.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+    using var client = httpFactory.CreateClient();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+    using var upstream = await client.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
+
+    ctx.Response.StatusCode = (int)upstream.StatusCode;
+    ctx.Response.ContentType = upstream.Content.Headers.ContentType?.ToString() ?? "text/event-stream";
+    ctx.Response.Headers.CacheControl = "no-cache";
+    ctx.Response.Headers["X-Accel-Buffering"] = "no";
+
+    await using var body = await upstream.Content.ReadAsStreamAsync(ctx.RequestAborted);
+    var buffer = new byte[4096];
+    int read;
+    while ((read = await body.ReadAsync(buffer, ctx.RequestAborted)) > 0)
+    {
+        await ctx.Response.Body.WriteAsync(buffer.AsMemory(0, read), ctx.RequestAborted);
+        await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+    }
+});
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
