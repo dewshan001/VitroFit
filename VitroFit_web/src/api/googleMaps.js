@@ -10,8 +10,16 @@ let keyRequest = null;
 /** Resolves with the Maps key from the backend (fetched once); rejects with a readable message. */
 export function getMapsKey() {
   if (!keyRequest) {
-    keyRequest = fetch(`${API_BASE_URL}/gyms/maps-config`)
+    let token = '';
+    try {
+      token = JSON.parse(sessionStorage.getItem('vitrofitAuth') || 'null')?.accessToken || '';
+    } catch { /* treated as signed out */ }
+
+    keyRequest = (token
+      ? fetch(`${API_BASE_URL}/gyms/maps-config`, { headers: { Authorization: `Bearer ${token}` } })
+      : Promise.reject(new Error('Sign in to find gyms.')))
       .then(async (response) => {
+        if (response.status === 401) throw new Error('Your session has expired. Please sign in again to find gyms.');
         const data = await response.json().catch(() => ({}));
         const key = typeof data?.apiKey === 'string' ? data.apiKey.trim() : '';
         if (!response.ok || !key) {

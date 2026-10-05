@@ -206,6 +206,7 @@ public sealed class GymAgentControllerTests : IAsyncLifetime
     [InlineData("Admin", "reject")]
     public async Task Approvers_decision_carries_identity_from_the_token(string role, string action)
     {
+        _agent.Workflows["wf-1"] = Wf("wf-1", "42");   // the owner (42) started this run
         var res = await _http.SendAsync(Req(HttpMethod.Post, $"/api/gym-agent/workflows/wf-1/{action}", "42", role, new { reason = "fine" }));
         Assert.Equal(HttpStatusCode.Accepted, res.StatusCode);
 
@@ -220,6 +221,7 @@ public sealed class GymAgentControllerTests : IAsyncLifetime
     [Fact]
     public async Task Caller_cannot_spoof_identity_through_the_body()
     {
+        _agent.Workflows["wf-1"] = Wf("wf-1", "42");
         var body = new { reason = "ok", actorId = "1", actorRole = "Admin" };
         await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows/wf-1/approve", "42", "Gym_Owner", body));
         var (_, decision) = Assert.Single(_agent.Decisions);
@@ -321,23 +323,64 @@ public sealed class GymAgentControllerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Approvers_can_view_any_workflow_and_events()
+    public async Task Admins_can_view_any_workflow_and_events()
     {
         _agent.Workflows["theirs"] = Wf("theirs", "8");
-        Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/theirs", "1", "Gym_Owner"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/theirs", "1", "Admin"))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/theirs/events", "1", "Admin"))).StatusCode);
     }
 
     [Fact]
-    public async Task List_is_scoped_to_the_caller_unless_an_approver_asks_for_all()
+    public async Task Gym_owners_only_see_workflows_for_their_own_gym()
+    {
+        _agent.Workflows["mine"] = Wf("mine", "5");
+        _agent.Workflows["theirs"] = Wf("theirs", "8");
+
+        Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/mine", "5", "Gym_Owner"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/mine/events", "5", "Gym_Owner"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/theirs", "5", "Gym_Owner"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/theirs/events", "5", "Gym_Owner"))).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("approve")]
+    [InlineData("reject")]
+    [InlineData("revise")]
+    public async Task Gym_owners_cannot_decide_another_gyms_workflow(string action)
+    {
+        _agent.Workflows["theirs"] = Wf("theirs", "8");
+
+        var res = await _http.SendAsync(Req(HttpMethod.Post, $"/api/gym-agent/workflows/theirs/{action}", "5", "Gym_Owner", new { reason = "x" }));
+
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        Assert.Empty(_agent.Decisions);
+    }
+
+    [Fact]
+    public async Task Admins_can_decide_any_workflow()
+    {
+        _agent.Workflows["theirs"] = Wf("theirs", "8");
+
+        var res = await _http.SendAsync(Req(HttpMethod.Post, "/api/gym-agent/workflows/theirs/approve", "1", "Admin", new { reason = "ok" }));
+
+        Assert.Equal(HttpStatusCode.Accepted, res.StatusCode);
+        Assert.Single(_agent.Decisions);
+    }
+
+    [Fact]
+    public async Task List_is_scoped_to_the_caller_unless_an_admin_asks_for_all()
     {
         await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows?all=true", "7", "User"));
         await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows?all=true", "1", "Admin"));
-        await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/pending", "1", "Gym_Owner"));
+        await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/pending", "1", "Admin"));
+        await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows?all=true", "5", "Gym_Owner"));
+        await _http.SendAsync(Req(HttpMethod.Get, "/api/gym-agent/workflows/pending", "5", "Gym_Owner"));
 
         Assert.Equal((null, "7"), _agent.Lists[0]);          // user forced to self even with all=true
-        Assert.Equal((null, null), _agent.Lists[1]);          // approver sees everything
+        Assert.Equal((null, null), _agent.Lists[1]);          // admin sees everything
         Assert.Equal(("AwaitingApproval", null), _agent.Lists[2]);
+        Assert.Equal((null, "5"), _agent.Lists[3]);          // owner forced to their own runs even with all=true
+        Assert.Equal(("AwaitingApproval", "5"), _agent.Lists[4]);
     }
 
     // ── upstream failure mapping ────────────────────────────────────────

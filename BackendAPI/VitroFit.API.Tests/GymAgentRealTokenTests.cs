@@ -167,6 +167,9 @@ public sealed class GymAgentRealTokenTests : IAsyncLifetime
     [InlineData(UserRole.Gym_Owner)]
     public async Task Admin_and_gym_owner_tokens_can_approve_with_their_real_role_and_id(UserRole role)
     {
+        // The caller (user 7) started this run, so an owner is allowed to decide it.
+        _agent.Workflows["wf-1"] = new GymWorkflowDto { Id = "wf-1", PlaceId = "p1", RequestedBy = "7", Status = "AwaitingApproval", ApprovalStatus = "pending" };
+
         var res = await _http.SendAsync(
             Req(HttpMethod.Post, "/api/gym-agent/workflows/wf-1/approve", role, userId: 7, body: new { reason = "ok" }));
 

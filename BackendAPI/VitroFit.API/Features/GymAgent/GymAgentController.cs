@@ -8,8 +8,9 @@ namespace VitroFit.API.Features.GymAgent
     /// <summary>
     /// Public API for the gym multi-agent workflow (planner, gym analysis, workout recommendation,
     /// validator). Authentication and roles are enforced here; the Python service is internal.
-    /// Any signed-in user may start a workflow and follow their own runs. Only Gym_Owner and Admin
-    /// may see the approval queue and approve, reject or request revision of a run.
+    /// Any signed-in user may follow their own runs. Admins see and decide every run. A Gym_Owner is
+    /// scoped to the runs they started themselves (their own gym), so an approved owner can never see or
+    /// decide another owner's run.
     /// </summary>
     [ApiController]
     [Route("api/gym-agent/workflows")]
@@ -40,6 +41,7 @@ namespace VitroFit.API.Features.GymAgent
             ?? User.FindFirstValue("role")
             ?? string.Empty;
         private bool IsApprover => ApproverRoleList.Contains(UserRole);
+        private bool IsAdmin => UserRole == "Admin";
 
         /// <summary>
         /// Start a workflow for one gym (Admin or Gym_Owner). Each run uses the LLM, so it is limited by role and
@@ -56,19 +58,19 @@ namespace VitroFit.API.Features.GymAgent
             return AcceptedAtAction(nameof(Get), new { id = started.Id }, started);
         }
 
-        /// <summary>Workflows started by the caller. Approvers may pass ?all=true to see every run.</summary>
+        /// <summary>Workflows started by the caller. Admins may pass ?all=true to see every run.</summary>
         [HttpGet]
         public async Task<IActionResult> List([FromQuery] string? status, [FromQuery] bool all = false, CancellationToken ct = default)
         {
-            var requestedBy = all && IsApprover ? null : UserId;
+            var requestedBy = all && IsAdmin ? null : UserId;
             return Ok(await _agent.ListAsync(status, requestedBy, ct));
         }
 
-        /// <summary>Runs waiting for a decision (approval queue).</summary>
+        /// <summary>Runs waiting for a decision: every run for admins, only the caller's own for owners.</summary>
         [HttpGet("pending")]
         [Authorize(Roles = ApproverRoles)]
         public async Task<IActionResult> Pending(CancellationToken ct)
-            => Ok(await _agent.ListAsync("AwaitingApproval", null, ct));
+            => Ok(await _agent.ListAsync("AwaitingApproval", IsAdmin ? null : UserId, ct));
 
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(string id, CancellationToken ct)
@@ -111,11 +113,14 @@ namespace VitroFit.API.Features.GymAgent
                 return ValidationProblem(ModelState);
             }
 
+            // An owner may only decide runs they started; anything else looks like it does not exist.
+            if (!IsAdmin && !CanView(await _agent.GetAsync(id, ct))) return NotFound();
+
             await _agent.DecideAsync(id, new GymDecision(decision, reason, UserId, UserRole), ct);
             return Accepted(new { id, decision });
         }
 
         private bool CanView(GymWorkflowDto workflow)
-            => IsApprover || workflow.RequestedBy == UserId;
+            => IsAdmin || workflow.RequestedBy == UserId;
     }
 }

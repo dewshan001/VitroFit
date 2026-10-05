@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getUsersByRole, createUser, deleteUser, getWorkouts, createWorkout, updateWorkout, deleteWorkout } from '../api/admin';
 import DietApprovalsTab from '../components/DietApprovals/DietApprovalsTab';
+import GymApplicationsTab from '../components/GymApplications/GymApplicationsTab';
 import './AdminDashboardPage.css';
 
 const ROLES = {
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'users', label: 'Members', role: ROLES.USER },
   { id: 'trainers', label: 'Trainers', role: ROLES.TRAINER },
   { id: 'gym-owners', label: 'Gym Owners', role: ROLES.GYM_OWNER },
+  { id: 'gym-applications', label: 'Gym Applications', role: null },
   { id: 'workouts', label: 'Workouts', role: null },
   { id: 'diet-approvals', label: 'Diet Approvals', role: null }
 ];
@@ -66,8 +68,8 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    if (activeTab.id === 'diet-approvals') {
-      return; // DietApprovalsTab loads its own data
+    if (activeTab.id === 'diet-approvals' || activeTab.id === 'gym-applications') {
+      return; // these tabs load their own data
     }
 
     if (activeTab.id === 'workouts') {
@@ -226,7 +228,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="admin-content">
-        {activeTab.id === 'diet-approvals' ? <DietApprovalsTab /> : (<>
+        {activeTab.id === 'diet-approvals' ? <DietApprovalsTab /> : activeTab.id === 'gym-applications' ? <GymApplicationsTab /> : (<>
         <div className="admin-controls">
           {activeTab.id === 'workouts' ? (
             <button className="btn-primary" onClick={openCreateWorkoutForm}>

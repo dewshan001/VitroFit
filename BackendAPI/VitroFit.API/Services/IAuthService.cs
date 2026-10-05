@@ -10,6 +10,13 @@ namespace VitroFit.API.Services
         /// </summary>
         Task<(string message, string email)> RegisterAsync(RegisterRequest request);
 
+        /// <summary>
+        /// Creates a gym owner account together with a pending gym application (details, photos, licence).
+        /// The owner cannot sign in until an admin approves the application. A rejected owner can call this
+        /// again with the same email and password to re-apply.
+        /// </summary>
+        Task<RegisterGymOwnerResult> RegisterGymOwnerAsync(RegisterGymOwnerRequest request);
+
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request);
         Task ChangePasswordAsync(int userId, ChangePasswordRequest request);
@@ -28,10 +35,10 @@ namespace VitroFit.API.Services
         Task ResetPasswordAsync(ResetPasswordRequest request);
 
         /// <summary>
-        /// Validates the email-verification OTP, marks the account as verified,
-        /// and returns a full AuthResponse (access + refresh tokens).
+        /// Validates the email-verification OTP and marks the account as verified. Returns a full
+        /// AuthResponse (access + refresh tokens), except for gym owners whose application is not yet approved.
         /// </summary>
-        Task<AuthResponse> VerifyEmailAsync(VerifyEmailRequest request);
+        Task<VerifyEmailResult> VerifyEmailAsync(VerifyEmailRequest request);
 
         /// <summary>
         /// Resends a fresh email-verification OTP to an unverified account.

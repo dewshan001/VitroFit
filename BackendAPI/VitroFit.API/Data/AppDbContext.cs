@@ -20,6 +20,8 @@ namespace VitroFit.API.Data
 
         public DbSet<Workout> Workouts => Set<Workout>();
 
+        public DbSet<GymApplication> GymApplications => Set<GymApplication>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -77,6 +79,20 @@ namespace VitroFit.API.Data
                       .WithMany(w => w.TimetableSlots)
                       .HasForeignKey(s => s.WorkoutId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<GymApplication>(entity =>
+            {
+                entity.HasIndex(e => e.UserId).IsUnique();
+                entity.HasIndex(e => e.Status);
+                entity.Property(e => e.Status)
+                      .HasConversion<string>()
+                      .HasMaxLength(20)
+                      .HasDefaultValue(Entities.GymApplicationStatus.Pending);
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Workout>(entity =>

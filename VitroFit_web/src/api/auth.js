@@ -12,8 +12,12 @@ async function apiPost(path, body) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = data?.error || data?.message || 'Server error. Please try again.';
-    throw new Error(error);
+    const message = data?.error || data?.message || 'Server error. Please try again.';
+    const error = new Error(message);
+    // Lets the login page tell "awaiting gym approval" (GYM_PENDING / GYM_REJECTED) apart from other failures.
+    if (data?.code) error.code = data.code;
+    if (data?.note) error.note = data.note;
+    throw error;
   }
 
   return data;

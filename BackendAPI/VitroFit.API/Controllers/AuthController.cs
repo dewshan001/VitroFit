@@ -3,8 +3,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VitroFit.API.Data;
 using VitroFit.API.Dtos.Auth;
+using VitroFit.API.Features.GymOwners;
 using VitroFit.API.Services;
 
 namespace VitroFit.API.Controllers
@@ -38,6 +40,32 @@ namespace VitroFit.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Gym owner sign-up: account + gym details + photos (+ optional licence) in one multipart request.
+        /// The owner cannot sign in until an admin approves the application.
+        /// </summary>
+        [HttpPost("register-gym-owner")]
+        [Consumes("multipart/form-data")]
+        [EnableRateLimiting(GymOwnerRateLimiting.PolicyName)]
+        [RequestSizeLimit(GymOwnerRateLimiting.MaxRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = GymOwnerRateLimiting.MaxRequestBytes, ValueCountLimit = 200)]
+        public async Task<IActionResult> RegisterGymOwner([FromForm] RegisterGymOwnerRequest request)
+        {
+            try
+            {
+                var result = await _authService.RegisterGymOwnerAsync(request);
+                return Ok(new { message = result.Message, email = result.Email, emailVerificationRequired = result.EmailVerificationRequired });
+            }
+            catch (GymApplicationValidationException ex)
+            {
+                return BadRequest(new { error = ex.Message, errors = ex.Errors });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -45,6 +73,10 @@ namespace VitroFit.API.Controllers
             {
                 var response = await _authService.LoginAsync(request);
                 return Ok(response);
+            }
+            catch (GymOwnerNotApprovedException ex)
+            {
+                return NotApproved(ex);
             }
             catch (InvalidOperationException ex)
             {
@@ -59,6 +91,10 @@ namespace VitroFit.API.Controllers
             {
                 var response = await _authService.RefreshTokenAsync(request);
                 return Ok(response);
+            }
+            catch (GymOwnerNotApprovedException ex)
+            {
+                return NotApproved(ex);
             }
             catch (InvalidOperationException ex)
             {
@@ -164,6 +200,9 @@ namespace VitroFit.API.Controllers
             }
         }
 
+        private ObjectResult NotApproved(GymOwnerNotApprovedException ex) =>
+            StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message, code = ex.Code, note = ex.Note });
+
         private int? GetUserId()
         {
             var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -224,8 +263,11 @@ namespace VitroFit.API.Controllers
         {
             try
             {
-                var response = await _authService.VerifyEmailAsync(request);
-                return Ok(response);
+                var result = await _authService.VerifyEmailAsync(request);
+
+                // Normal accounts get the same AuthResponse as before; gym owners awaiting approval get a status.
+                if (result.Auth != null) return Ok(result.Auth);
+                return Ok(new { pendingApproval = true, status = result.PendingStatus, message = result.Message });
             }
             catch (InvalidOperationException ex)
             {

@@ -12,6 +12,7 @@ using VitroFit.API.Data;
 using VitroFit.API.Entities;
 using VitroFit.API.Features.DietAgent;
 using VitroFit.API.Features.GymAgent;
+using VitroFit.API.Features.GymOwners;
 using VitroFit.API.Services;
 using VitroFit.API.Settings;
 using VitroFit.API.Features.AdaptiveFitness;
@@ -76,6 +77,9 @@ builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
 });
 builder.Services.AddGymAgentRateLimiting(
     builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:AiRequestsPerMinute") ?? new GymAgentSettings().AiRequestsPerMinute);
+
+builder.Services.AddGymOwnerRateLimiting(
+    builder.Configuration.GetValue<int?>("GymOwners:RegistrationsPerHour") ?? 10);
 
 builder.Services.AddNearbyGymsRateLimiting(
     builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:NearbyRequestsPerMinute") ?? 30);

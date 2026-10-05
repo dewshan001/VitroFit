@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [loading, setLoading]     = useState(false);
   const [focused, setFocused]     = useState({});
   const [verifyMode, setVerifyMode] = useState(false); // true when login blocked for unverified email
+  const [gymStatus, setGymStatus] = useState(null);     // { code: 'GYM_PENDING' | 'GYM_REJECTED', note } for gym owners not yet approved
   const [otp, setOtp]             = useState('');
   const cardRef                   = useRef(null);
   const navigate                  = useNavigate();
@@ -61,6 +62,7 @@ export default function LoginPage() {
     if (Object.keys(e).length) return;
 
     setServerError('');
+    setGymStatus(null);
     setLoading(true);
 
     try {
@@ -74,8 +76,12 @@ export default function LoginPage() {
       window.dispatchEvent(new Event('vitrofit-auth-change'));
       navigate('/');
     } catch (error) {
-      // If the account exists but email is unverified, switch to the inline verify flow
-      if (error.message && error.message.toLowerCase().includes('verify your email')) {
+      if (error.code === 'GYM_PENDING' || error.code === 'GYM_REJECTED') {
+        // Gym owner whose application is still being reviewed (or was declined)
+        setGymStatus({ code: error.code, note: error.note || '' });
+        setServerError('');
+      } else if (error.message && error.message.toLowerCase().includes('verify your email')) {
+        // If the account exists but email is unverified, switch to the inline verify flow
         setVerifyMode(true);
         setServerError('');
       } else {
@@ -97,6 +103,13 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const response = await verifyEmail({ email: form.email, otp });
+      if (!response.accessToken) {
+        // A gym owner whose application is still under review: email is verified, but no session yet.
+        setVerifyMode(false);
+        setOtp('');
+        setGymStatus({ code: 'GYM_PENDING', note: '' });
+        return;
+      }
       const authState = {
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
@@ -129,6 +142,7 @@ export default function LoginPage() {
     setForm(f => ({ ...f, [field]: val }));
     if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
     if (serverError) setServerError('');
+    if (gymStatus) setGymStatus(null);
   };
 
   return (
@@ -249,6 +263,29 @@ export default function LoginPage() {
                   </button>
 
                   {serverError && <div className="auth-server-error">{serverError}</div>}
+
+                  {gymStatus && (
+                    <div className={`auth-gym-status ${gymStatus.code === 'GYM_REJECTED' ? 'auth-gym-status--rejected' : ''}`} role="status">
+                      {gymStatus.code === 'GYM_PENDING' ? (
+                        <>
+                          <strong>Your gym application is awaiting approval</strong>
+                          <p>An admin is reviewing your details. We will email you as soon as there is a decision, and you can sign in then.</p>
+                        </>
+                      ) : (
+                        <>
+                          <strong>Your gym application was not approved</strong>
+                          {gymStatus.note && <p className="auth-gym-status-note">&ldquo;{gymStatus.note}&rdquo;</p>}
+                          <p>You can fix the details and apply again.</p>
+                          <Link
+                            className="auth-link"
+                            to={`/register-gym?reapply=1&email=${encodeURIComponent(form.email)}`}
+                          >
+                            Re-apply →
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   <div className="auth-divider"><span>or continue with</span></div>
 

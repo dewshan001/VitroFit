@@ -142,3 +142,25 @@ export function updateWorkout(id, workout) {
 export function deleteWorkout(id) {
   return apiAuthDelete(`/workouts/${id}`);
 }
+
+// -------------------------------------------------------------
+// Gym owner applications
+// -------------------------------------------------------------
+
+/** Returns { items, counts: { pending, approved, rejected } }. status: 'Pending' | 'Approved' | 'Rejected' | omitted. */
+export function getGymApplications(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return apiAuthGet(`/admin/gym-applications${query}`);
+}
+
+export function getGymApplication(id) {
+  return apiAuthGet(`/admin/gym-applications/${id}`);
+}
+
+export function approveGymApplication(id, note) {
+  return apiAuthPost(`/admin/gym-applications/${id}/approve`, { note: note || null });
+}
+
+export function rejectGymApplication(id, note) {
+  return apiAuthPost(`/admin/gym-applications/${id}/reject`, { note });
+}

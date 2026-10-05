@@ -226,6 +226,7 @@
   text-transform: uppercase;
 }
 .fg-cta-sub { color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.75rem; max-width: 400px; }
+.fg-cta-actions { display: flex; flex-direction: column; gap: 1rem; align-items: flex-start; }
 
 /* ── ANIMATIONS ── */
 .fg-fade-up {
@@ -255,4 +256,53 @@
   .fg-search-group { min-width: auto; }
   .fg-search-btn { width: 100%; justify-content: center; }
   .fg-cta-content { flex-direction: column; }
+}
+
+/* ── SIGN-IN GATE (signed-out visitors) ── */
+.fg-gate {
+  display: flex;
+  justify-content: center;
+  padding: 80px 1.5rem;
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgba(200,240,0,0.08), transparent 70%),
+    var(--bg-primary);
+}
+.fg-gate-card {
+  width: 100%;
+  max-width: 560px;
+  padding: 3rem 2.5rem;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.fg-gate-icon {
+  width: 68px; height: 68px;
+  margin: 0 auto 1.4rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(200,240,0,0.1);
+  border: 1px solid var(--border-accent);
+  color: var(--accent);
+  box-shadow: 0 0 40px rgba(200,240,0,0.12);
+}
+.fg-gate-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 0.8rem;
+}
+.fg-gate-title span { color: var(--accent); }
+.fg-gate-text { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; max-width: 440px; margin: 0 auto 1.8rem; }
+.fg-gate-actions { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+.fg-gate-owner { margin-top: 1.8rem; padding-top: 1.2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
+.fg-gate-owner a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.fg-gate-owner a:hover { text-decoration: underline; }
+@media (max-width: 520px) {
+  .fg-gate { padding: 48px 1rem; }
+  .fg-gate-card { padding: 2.2rem 1.4rem; }
+  .fg-gate-actions .btn-primary, .fg-gate-actions .btn-secondary { width: 100%; justify-content: center; }
 }

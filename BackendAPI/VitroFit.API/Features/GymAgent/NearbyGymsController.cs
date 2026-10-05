@@ -58,11 +58,11 @@ namespace VitroFit.API.Features.GymAgent
             => Ok(await _agent.GetNearbyGymsAsync(request, ct));
 
         /// <summary>
-        /// The Google Maps browser key from GymAgentService's .env, for the web map script. Anonymous because the
-        /// map is usable signed out; the key is public in the page either way, so restrict it in Google Cloud.
+        /// The Google Maps browser key from GymAgentService's .env, for the web map script. Signed-in users only:
+        /// finding gyms requires an account, so signed-out visitors never receive the key. Once it is in a page it is
+        /// visible to that user, so still restrict it in Google Cloud.
         /// </summary>
         [HttpGet("maps-config")]
-        [AllowAnonymous]
         [ProducesResponseType(typeof(JsonElement), StatusCodes.Status200OK)]
         public async Task<IActionResult> MapsConfig(CancellationToken ct)
             => Ok(await _agent.GetMapsConfigAsync(ct));
