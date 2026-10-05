@@ -5,14 +5,17 @@ authenticated user's id instead of a client-supplied user_id. Neither sibling
 Python service (chatbot_service, GymAgentService) does this today - both are
 open/unauthenticated - but this service writes user-linked rows, so it needs it.
 
-JwtSettings are read directly from VitroFit.API's own appsettings.json (rather
-than duplicated into this service's .env) so the two services can never end up
-with mismatched secrets.
+The signing secret comes from the shared BackendAPI/.env (JwtSettings__Secret, the
+same variable VitroFit.API reads), so the two services can never end up with
+mismatched secrets. Issuer/audience come from VitroFit.API's appsettings.json.
 """
 import json
 import os
 import jwt
+from dotenv import load_dotenv
 from fastapi import Header, HTTPException
+
+load_dotenv()
 
 _APPSETTINGS_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "VitroFit.API", "appsettings.json"
@@ -24,9 +27,9 @@ with open(_APPSETTINGS_PATH, "r", encoding="utf-8") as f:
 # Env vars, when set, override the values read from VitroFit.API's
 # appsettings.json (e.g. for tests, which sign their own tokens and must
 # never touch the real shared secret).
-JWT_SIGNING_KEY = os.getenv("JWT_SECRET") or _jwt_settings["Secret"]
-JWT_ISSUER = os.getenv("JWT_ISSUER") or _jwt_settings["Issuer"]
-JWT_AUDIENCE = os.getenv("JWT_AUDIENCE") or _jwt_settings["Audience"]
+JWT_SIGNING_KEY = os.getenv("JWT_SECRET") or os.getenv("JwtSettings__Secret") or _jwt_settings["Secret"]
+JWT_ISSUER = os.getenv("JWT_ISSUER") or os.getenv("JwtSettings__Issuer") or _jwt_settings["Issuer"]
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE") or os.getenv("JwtSettings__Audience") or _jwt_settings["Audience"]
 
 
 def get_current_user_id(authorization: str = Header(default=None)) -> int:

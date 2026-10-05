@@ -2,9 +2,13 @@
 import json
 import httpx
 from pydantic import ValidationError
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from .schemas import GenerateRequest, Plan
 from .rules import recommended_workout_count
+
+# One shared env file for the whole backend (BackendAPI/.env), independent of the working directory.
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class PlannerError(RuntimeError):
@@ -12,7 +16,7 @@ class PlannerError(RuntimeError):
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
     fitness_service_key: str = ""
     fitness_api_url: str = "http://127.0.0.1:5284"
     openrouter_api_key: str = ""

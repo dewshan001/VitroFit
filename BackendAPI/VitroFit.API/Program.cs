@@ -16,6 +16,10 @@ using VitroFit.API.Services;
 using VitroFit.API.Settings;
 using VitroFit.API.Features.AdaptiveFitness;
 
+// One shared env file for the whole backend (BackendAPI/.env). Loaded first so ASP.NET's environment
+// variable provider sees it (e.g. JwtSettings__Secret -> JwtSettings:Secret) and the Python sidecars inherit it.
+SharedEnvFile.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Clear default claim mapping so standard JWT claim names like 'sub' are retained
@@ -319,6 +323,26 @@ static class PythonServiceSidecar
         catch
         {
             return false;
+        }
+    }
+}
+
+/// <summary>Finds BackendAPI/.env by walking up from the working directory / app folder and loads it.</summary>
+static class SharedEnvFile
+{
+    public static void Load()
+    {
+        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+        {
+            for (var dir = new DirectoryInfo(start); dir != null; dir = dir.Parent)
+            {
+                var file = Path.Combine(dir.FullName, ".env");
+                if (File.Exists(file))
+                {
+                    DotNetEnv.Env.NoClobber().Load(file); // real environment variables still win
+                    return;
+                }
+            }
         }
     }
 }

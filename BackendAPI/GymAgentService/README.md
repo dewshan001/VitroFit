@@ -110,7 +110,7 @@ Run tests from this directory (`pytest.ini` sets `pythonpath=.`, so imports are 
 
 ## Setup and startup order
 
-1. PostgreSQL running; `cp .env.example .env` and set `DATABASE_URL`, an LLM key (`NVIDIA_API_KEY` or `OPENROUTER_API_KEY`), and `GYM_AGENT_KEY` (â‰¥ 32 random chars).
+1. PostgreSQL running; set (in the shared `BackendAPI/.env`, copied from `BackendAPI/.env.example`) `DATABASE_URL`, an LLM key (`NVIDIA_API_KEY` or `OPENROUTER_API_KEY`), and `GYM_AGENT_KEY` (â‰¥ 32 random chars).
 2. `python -m venv venv && venv/Scripts/pip install -r requirements.txt`
 3. Start the API with the same key: `dotnet user-secrets set "GymAgent:ServiceKey" "<same value>"` (the API also starts this service as a sidecar via `python server.py` and passes the key through the environment). Manual start: `python server.py` (uses a selector event loop, required by the Postgres checkpointer on Windows).
 

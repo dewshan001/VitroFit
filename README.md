@@ -79,9 +79,19 @@ VitroFit/
 
 ## 1. Backend API
 
+### 1.0 Backend configuration: one `.env` file
+
+All backend settings and secrets (the .NET API and every Python service) live in a **single file**: `BackendAPI/.env`. Copy `BackendAPI/.env.example` to `BackendAPI/.env` and fill in the values. It is git-ignored.
+
+- The .NET API loads it at startup (DotNetEnv). Use `Section__Key` names for `appsettings.json` values, e.g. `JwtSettings__Secret`, `ConnectionStrings__DefaultConnection`, `Cloudinary__ApiSecret`, `EmailSettings__Password`, `FitnessAgent__ServiceKey`, `GymAgent__ServiceKey`.
+- The Python services find the same file automatically; there are no per-service `.env` files.
+- `appsettings.json` keeps only non-secret settings; the secret fields are left empty there.
+- Keep `GYM_AGENT_KEY` equal to `GymAgent__ServiceKey`, and `FITNESS_SERVICE_KEY` equal to `FitnessAgent__ServiceKey`.
+- DietPlanService model overrides use `DIET_NVIDIA_MODEL_PRIMARY` / `DIET_NVIDIA_MODEL_FALLBACK`.
+
 ### 1.1 Configure `appsettings.json`
 
-Backend config lives in `BackendAPI/VitroFit.API/appsettings.json`. Set the following before starting:
+Non-secret backend config lives in `BackendAPI/VitroFit.API/appsettings.json`; secrets come from `BackendAPI/.env` (see 1.0). Set the following before starting:
 
 **Database connection string** — under `ConnectionStrings → DefaultConnection`, match your local PostgreSQL instance. Default:
 
@@ -193,7 +203,7 @@ Three FastAPI services live under `BackendAPI/` and are called directly from the
 cd BackendAPI/GymAgentService
 python -m venv venv
 venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
-copy .env.example .env                          # cp on macOS/Linux, then fill in values
+# settings come from the shared BackendAPI/.env (see 1.0)
 ```
 
 Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the backend), `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `PORT` (`8001`), `CACHE_STALE_DAYS`.
@@ -204,7 +214,7 @@ Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the backend
 cd BackendAPI/chatbot_service
 python -m venv venv
 venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
-copy .env.example .env                          # cp on macOS/Linux, then fill in values
+# settings come from the shared BackendAPI/.env (see 1.0)
 ```
 
 Required `.env` values: `GOOGLE_API_KEY` (get one at [Google AI Studio](https://aistudio.google.com/apikey)), and optionally `GEMINI_MODEL_PRIMARY` / `GEMINI_MODEL_FALLBACK` to override the default Gemma models.
@@ -217,7 +227,7 @@ Required `.env` values: `GOOGLE_API_KEY` (get one at [Google AI Studio](https://
 cd BackendAPI/DietPlanService
 python -m venv venv
 venv/Scripts/pip install -r requirements.txt   # venv/bin/pip on macOS/Linux
-copy .env.example .env                          # cp on macOS/Linux, then fill in values
+# settings come from the shared BackendAPI/.env (see 1.0)
 ```
 
 Required `.env` values: `DATABASE_URL` (same Postgres instance/DB as the backend), `NVIDIA_API_KEY` (get one at [build.nvidia.com](https://build.nvidia.com/)), and optionally `NVIDIA_MODEL_PRIMARY` / `NVIDIA_MODEL_FALLBACK`. JWT verification needs no `.env` entry — this service reads the signing key/issuer/audience directly from `VitroFit.API`'s `appsettings.json` → `JwtSettings` at startup, so that folder must exist alongside `DietPlanService` with a valid `appsettings.json`.
@@ -259,12 +269,12 @@ After the four beginner schedules, the agent works in progressive blocks of **3 
 From the repository root:
 
 ```powershell
-Copy-Item BackendAPI/FitnessAgentService/.env.example BackendAPI/FitnessAgentService/.env
+Copy-Item BackendAPI/.env.example BackendAPI/.env   # skip if it already exists
 py -3.12 -m venv BackendAPI/FitnessAgentService/.venv
 BackendAPI/FitnessAgentService/.venv/Scripts/python.exe -m pip install -r BackendAPI/FitnessAgentService/requirements.txt
 ```
 
-Edit `BackendAPI/FitnessAgentService/.env`:
+Edit `BackendAPI/.env`:
 
 | Variable | Value |
 | --- | --- |
@@ -425,10 +435,7 @@ A small multi-agent workflow (Nutrition Analyst → Meal Generator → Safety Va
 ## Configuration Reference
 
 - **Web** (`VitroFit_web/.env`, copy from `.env.example`): `VITE_API_BASE_URL` (the .NET backend), `VITE_GYM_AGENT_API_URL`, `VITE_CHATBOT_API_URL`, `VITE_DIET_AGENT_API_URL` (Python services — default to `http://localhost:8001/api`, `http://localhost:8000/api/chat`, `http://localhost:8003/api/diet` if unset).
-- **Backend** (`appsettings.json`): database connection, JWT, SMTP, Cloudinary settings.
-- **GymAgentService** (`.env`): `DATABASE_URL`, `OPENROUTER_API_KEY`.
-- **chatbot_service** (`.env`): `GOOGLE_API_KEY`.
-- **DietPlanService** (`.env`): `DATABASE_URL`, `NVIDIA_API_KEY`. JWT settings are read from `VitroFit.API`'s `appsettings.json`, not its own `.env`.
+- **Backend** (`BackendAPI/.env`, one file for everything; non-secret settings in `appsettings.json`): database connection, JWT, SMTP, Cloudinary, LLM keys, agent keys.
 
 For basic local development you only need the database connection string and a JWT secret; SMTP, Cloudinary, and the Python services' API keys are only needed for their specific features (email OTPs, profile photo uploads, Find Gyms / Chatbot / Diet Plans).
 

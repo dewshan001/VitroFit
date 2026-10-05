@@ -7,6 +7,12 @@ public sealed class FitnessDesignFactory : IDesignTimeDbContextFactory<FitnessDb
 {
     public FitnessDbContext CreateDbContext(string[] args)
     {
+        // design-time (dotnet ef) never runs Program.cs, so load the shared BackendAPI/.env here too
+        for (var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir != null; dir = dir.Parent)
+        {
+            var envFile = Path.Combine(dir.FullName, ".env");
+            if (File.Exists(envFile)) { DotNetEnv.Env.NoClobber().Load(envFile); break; }
+        }
         var config = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
         var options = new DbContextOptionsBuilder<FitnessDbContext>().UseNpgsql(

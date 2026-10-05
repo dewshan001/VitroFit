@@ -13,8 +13,8 @@ from src.utils.logger import log_event
 load_dotenv()
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
-PRIMARY_MODEL = os.getenv("NVIDIA_MODEL_PRIMARY", "meta/llama-3.2-11b-vision-instruct")
-FALLBACK_MODEL = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/llama-3.2-11b-vision-instruct")
+PRIMARY_MODEL = os.getenv("DIET_NVIDIA_MODEL_PRIMARY", "meta/llama-3.2-11b-vision-instruct")
+FALLBACK_MODEL = os.getenv("DIET_NVIDIA_MODEL_FALLBACK", "meta/llama-3.2-11b-vision-instruct")
 
 if not NVIDIA_API_KEY:
     log_event("NVIDIA_API_KEY is missing - set it in your .env file", level=logging.WARNING)

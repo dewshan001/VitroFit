@@ -1,10 +1,14 @@
 """Share durable LangGraph checkpoints in the existing PostgreSQL database."""
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# One shared env file for the whole backend (BackendAPI/.env), independent of the working directory.
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class CheckpointSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
     fitness_database_url: str = ""
 
 

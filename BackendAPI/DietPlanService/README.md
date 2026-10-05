@@ -107,7 +107,7 @@ Run tests from this directory (`pytest.ini` sets `pythonpath=.`, so imports are 
 
 ## Setup
 
-1. PostgreSQL running; `cp .env.example .env` and set `DATABASE_URL` and `NVIDIA_API_KEY`.
+1. PostgreSQL running; set `DATABASE_URL` and `NVIDIA_API_KEY` in the shared `BackendAPI/.env` (copy `BackendAPI/.env.example`).
 2. `python -m venv venv && venv/Scripts/pip install -r requirements.txt`
 3. JWT settings are read from `../VitroFit.API/appsettings.json`, so the two services cannot end up with different secrets. Start it with the API (sidecar) or `uvicorn main:app --port 8003`.
 
