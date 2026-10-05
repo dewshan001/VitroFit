@@ -6,8 +6,6 @@ import Footer from './components/Footer/Footer';
 import Chatbot from './components/Chatbot/Chatbot';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
-import ClassesPage from './pages/ClassesPage';
-import ClassDetailPage from './pages/ClassDetailPage';
 import TimetablePage from './pages/TimetablePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -32,8 +30,6 @@ export default function App() {
         <Route path="/adaptive-fitness" element={<AdaptiveFitnessPage />} />
         <Route path="/"               element={<HomePage />} />
         <Route path="/about"          element={<AboutPage />} />
-        <Route path="/classes"        element={<ClassesPage />} />
-        <Route path="/classes/detail" element={<ClassDetailPage />} />
         <Route path="/timetable"      element={<TimetablePage />} />
         <Route path="/find-gyms"      element={<FindGymsPage />} />
         <Route path="/diet-plans"     element={<DietPlansPage />} />
