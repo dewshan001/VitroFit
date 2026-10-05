@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/agent_error.dart';
 import '../../api/time_agent_api.dart';
 import '../../models/timetable_slot.dart';
@@ -47,10 +50,21 @@ class _TimeScreenState extends State<TimeScreen> {
   String? _notice;
   TimetableGeneration? _lastGeneration;
 
+  static const _dismissedKey = 'vitrofitDismissedTimetableRequest';
+  static const _pollInterval = Duration(seconds: 30);
+  TimetableProposal? _proposal;
+  int? _dismissedProposalId;
+  bool _cancelling = false;
+  Timer? _poll;
+
   @override
   void initState() {
     super.initState();
     _loadPlan();
+    _loadDismissed().then((_) => _loadProposal());
+    _poll = Timer.periodic(_pollInterval, (_) {
+      if (mounted && widget.active) _loadProposal();
+    });
     // Deferred: loadTimetable notifies listeners synchronously, which must
     // not happen while this widget tree is still being built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -70,6 +84,7 @@ class _TimeScreenState extends State<TimeScreen> {
 
   @override
   void dispose() {
+    _poll?.cancel();
     _preferences.dispose();
     super.dispose();
   }
@@ -92,25 +107,68 @@ class _TimeScreenState extends State<TimeScreen> {
   }
 
   Future<void> _refresh() async {
-    await Future.wait([_loadPlan(), context.read<AppState>().loadTimetable()]);
+    await Future.wait([
+      _loadPlan(),
+      _loadProposal(),
+      context.read<AppState>().loadTimetable(),
+    ]);
+  }
+
+  Future<void> _loadDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _dismissedProposalId = prefs.getInt(_dismissedKey);
+    } catch (_) {
+      // Dismissal is a cosmetic convenience; ignore storage failures.
+    }
+  }
+
+  Future<void> _dismissProposal(int id) async {
+    setState(() => _dismissedProposalId = id);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_dismissedKey, id);
+    } catch (_) {}
+  }
+
+  Future<void> _loadProposal() async {
+    try {
+      final previous = _proposal;
+      final next = await _api.getProposal();
+      if (!mounted) return;
+      setState(() => _proposal = next);
+      // A reviewer approved it: the timetable was replaced server-side.
+      if (previous != null &&
+          previous.isPending &&
+          next != null &&
+          next.id == previous.id &&
+          next.isApproved) {
+        context.read<AppState>().loadTimetable();
+      }
+    } on AgentException {
+      // Polling failures are silent; the next tick retries.
+    }
+  }
+
+  Future<void> _cancelProposal(TimetableProposal proposal) async {
+    setState(() => _cancelling = true);
+    try {
+      await _api.cancelProposal(proposal.id);
+      if (!mounted) return;
+      setState(() => _notice = 'Request cancelled.');
+    } on AgentException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
+    await _loadProposal();
   }
 
   Future<void> _generate() async {
     final plan = _plan;
     if (plan == null || _generating) return;
     final appState = context.read<AppState>();
-
-    if (appState.timetableSlots.isNotEmpty) {
-      final ok = await confirmDialog(
-        context,
-        title: 'REPLACE TIMETABLE?',
-        message:
-            'Generating a new timetable replaces all of your current sessions, including any you edited by hand. Continue?',
-        confirmLabel: 'REPLACE',
-        danger: true,
-      );
-      if (!ok || !mounted) return;
-    }
 
     setState(() {
       _generating = true;
@@ -122,14 +180,18 @@ class _TimeScreenState extends State<TimeScreen> {
         plan.workflowId,
         preferences: _preferences.text.trim(),
       );
-      await appState.loadTimetable();
+      if (!result.isPendingVerification) await appState.loadTimetable();
       if (!mounted) return;
       setState(() {
         _lastGeneration = result;
-        _notice = result.status == 'ReviewRequired'
-            ? 'The agent flagged this schedule for review. Please check it and speak with an instructor if anything looks wrong.'
-            : 'Timetable generated with ${result.slotCount} sessions.';
+        _notice = result.isPendingVerification
+            ? (result.message ??
+                  'Your timetable was generated and sent for verification. It will replace your current one once approved.')
+            : (result.status == 'ReviewRequired'
+                  ? 'The agent flagged this schedule for review. Please check it and speak with an instructor if anything looks wrong.'
+                  : 'Timetable generated with ${result.slotCount} sessions.');
       });
+      await _loadProposal();
     } on AgentException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -171,7 +233,14 @@ class _TimeScreenState extends State<TimeScreen> {
           ),
           const SizedBox(height: 18),
           _buildGeneratorCard(slots.isNotEmpty),
+          if (_proposal != null &&
+              (_proposal!.isPending ||
+                  _proposal!.id != _dismissedProposalId)) ...[
+            const SizedBox(height: 14),
+            _buildProposalCard(_proposal!),
+          ],
           if (_lastGeneration != null &&
+              !(_proposal?.isPending ?? false) &&
               _lastGeneration!.longTermImpact.isNotEmpty) ...[
             const SizedBox(height: 14),
             AgentCard(
@@ -256,9 +325,14 @@ class _TimeScreenState extends State<TimeScreen> {
             SizedBox(
               width: double.infinity,
               child: SlantedButton(
-                text: hasTimetable ? 'REGENERATE TIMETABLE' : 'GENERATE SMART TIMETABLE',
+                text: (_proposal?.isPending ?? false)
+                    ? 'AWAITING VERIFICATION'
+                    : (hasTimetable
+                          ? 'REGENERATE TIMETABLE'
+                          : 'GENERATE SMART TIMETABLE'),
                 icon: Icons.auto_awesome,
                 isLoading: _generating,
+                isDisabled: _proposal?.isPending ?? false,
                 onPressed: _generate,
               ),
             ),
@@ -284,6 +358,121 @@ class _TimeScreenState extends State<TimeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildProposalCard(TimetableProposal p) {
+    final Color color;
+    final IconData icon;
+    final String title;
+    final String body;
+    if (p.isPending) {
+      color = AppColors.accent;
+      icon = Icons.hourglass_top;
+      title = 'PENDING VERIFICATION';
+      body =
+          'A gym owner or admin will review this timetable. Your current timetable stays unchanged until it is approved.';
+    } else if (p.isApproved) {
+      color = AppColors.success;
+      icon = Icons.verified_outlined;
+      title = 'TIMETABLE APPROVED';
+      body =
+          'Verified${p.reviewerName != null ? ' by ${p.reviewerName}' : ''}'
+          '${p.reviewedAt != null ? ' on ${_fmtDate(p.reviewedAt!)}' : ''}. Your timetable has been updated.';
+    } else {
+      color = AppColors.error;
+      icon = Icons.cancel_outlined;
+      title = 'TIMETABLE NOT APPROVED';
+      body = 'Your previous timetable is unchanged.';
+    }
+    final note = (p.reviewNote ?? '').trim();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.oswald(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: color,
+                  ),
+                ),
+              ),
+              if (!p.isPending)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Dismiss',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => _dismissProposal(p.id),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              height: 1.4,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Reviewer note: $note',
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+          if (p.isPending && p.slots.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ProposalGrid(slots: p.slots),
+          ],
+          if (p.isPending && p.longTermImpact.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const SectionTitle('Long-term impact'),
+            const SizedBox(height: 4),
+            Text(
+              p.longTermImpact,
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                height: 1.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          if (p.isPending) ...[
+            const SizedBox(height: 10),
+            AgentTextButton(
+              label: _cancelling ? 'Cancelling…' : 'Cancel request',
+              icon: Icons.close,
+              danger: true,
+              onPressed: _cancelling ? null : () => _cancelProposal(p),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _fmtDate(DateTime d) {
+    final l = d.toLocal();
+    return '${l.day.toString().padLeft(2, '0')}/${l.month.toString().padLeft(2, '0')}/${l.year}';
   }
 
   Widget _buildTimetable(AppState appState, List<TimetableSlot> slots) {
@@ -373,6 +562,65 @@ class _TimeScreenState extends State<TimeScreen> {
             onDelete: () => _confirmDelete(slot),
           ).animate().fadeIn(duration: 250.ms),
     ];
+  }
+}
+
+/// Compact Mon-Sun overview of a proposed timetable.
+class _ProposalGrid extends StatelessWidget {
+  final List<ProposalSlot> slots;
+  const _ProposalGrid({required this.slots});
+
+  static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var d = 1; d <= 7; d++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 38,
+                  child: Text(
+                    _days[d - 1].toUpperCase(),
+                    style: GoogleFonts.oswald(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+                Expanded(child: _dayCell(slots.where((s) => s.day == d))),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _dayCell(Iterable<ProposalSlot> day) {
+    if (day.isEmpty) {
+      return Text(
+        'Rest',
+        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final s in day)
+          Text(
+            '${s.startTime} · ${s.focus}',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+      ],
+    );
   }
 }
 

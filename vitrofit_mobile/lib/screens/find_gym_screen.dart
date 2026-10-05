@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -471,6 +472,8 @@ class _FindGymScreenState extends State<FindGymScreen>
               ),
               const SizedBox(height: 12),
               _buildList(visible, filtered.length),
+              const SizedBox(height: 24),
+              const _OwnGymBanner(),
             ],
           ),
         ),
@@ -715,6 +718,54 @@ class _FindGymScreenState extends State<FindGymScreen>
 
 /// A location/gym-name filter for the already-loaded gym list, styled to
 /// match the rest of the screen's liquid-glass surfaces.
+/// "Own a gym?" call-to-action leading to the gym owner registration wizard.
+class _OwnGymBanner extends StatelessWidget {
+  const _OwnGymBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderAccent),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "OWN A GYM?",
+            style: GoogleFonts.oswald(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              color: AppColors.accent,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "List your gym on VitroFit. Submit your details, photos and equipment "
+            "and our team will verify and approve your gym.",
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SlantedButton(
+            text: "REGISTER YOUR GYM",
+            icon: Icons.add_business_outlined,
+            paddingVertical: 10,
+            onPressed: () => context.push('/register-gym'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GymSearchBar extends StatefulWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;

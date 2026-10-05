@@ -5,6 +5,7 @@ import '../screens/about_screen.dart';
 import '../screens/auth/auth_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/verify_email_screen.dart';
+import '../screens/gym_owner/register_gym_screen.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/settings/change_password_screen.dart';
 import '../screens/settings/info_screen.dart';
@@ -42,6 +43,9 @@ GoRouter buildRouter(AppState appState) {
       if (appState.authStatus == AuthStatus.initial) {
         return loc == '/' ? null : '/';
       }
+      // Gym owner registration is reachable from the Gym tab (signed in) and
+      // the auth screen (signed out).
+      if (loc == '/register-gym') return null;
       if (appState.authStatus == AuthStatus.unauthenticated) {
         return onAuthFlow ? null : '/auth';
       }
@@ -66,6 +70,19 @@ GoRouter buildRouter(AppState appState) {
           state,
           VerifyEmailScreen(email: (state.extra as String?) ?? ''),
         ),
+      ),
+      GoRoute(
+        path: '/register-gym',
+        pageBuilder: (context, state) {
+          final extra = state.extra is Map ? state.extra as Map : const {};
+          return _fadeThroughPage(
+            state,
+            RegisterGymScreen(
+              reapply: extra['reapply'] == true,
+              initialEmail: (extra['email'] as String?) ?? '',
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/forgot-password',

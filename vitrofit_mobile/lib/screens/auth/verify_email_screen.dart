@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../api/api_exception.dart';
@@ -24,6 +25,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   bool _resending = false;
   String? _error;
   String? _info;
+  String? _pending; // gym owner: verified, awaiting admin approval
 
   @override
   void dispose() {
@@ -39,11 +41,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       _info = null;
     });
     try {
-      await context.read<AppState>().verifyEmail(
+      final pending = await context.read<AppState>().verifyEmail(
         email: widget.email,
         otp: _otpController.text.trim(),
       );
-      // Router redirect handles navigation to /main once authStatus flips.
+      if (pending != null && mounted) setState(() => _pending = pending);
+      // Otherwise the router redirect handles navigation to /main once
+      // authStatus flips.
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
@@ -73,6 +77,62 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_pending != null) {
+      return Scaffold(
+        backgroundColor: AppColors.bgPrimary,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.hourglass_top,
+                  color: AppColors.accent,
+                  size: 44,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "APPLICATION RECEIVED",
+                  style: GoogleFonts.oswald(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _pending!,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "You'll get an email once VitroFit has reviewed your gym. "
+                  "You can sign in after it's approved.",
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: SlantedButton(
+                    text: "BACK TO SIGN IN",
+                    icon: Icons.login,
+                    onPressed: () => context.go('/auth'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       appBar: AppBar(backgroundColor: AppColors.bgPrimary, elevation: 0),

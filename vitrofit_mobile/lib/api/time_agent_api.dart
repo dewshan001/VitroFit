@@ -3,17 +3,23 @@ import '../models/fitness.dart';
 import 'agent_error.dart';
 import 'api_client.dart';
 
-/// Result of `POST /fitness/workflows/{id}/timetable`.
+/// Result of `POST /fitness/workflows/{id}/timetable`. The generated slots are
+/// NOT applied yet: the API stores them as a proposal (`PendingVerification`)
+/// that a gym owner / admin must approve.
 class TimetableGeneration {
-  final String status; // Ready | ReviewRequired
+  final String status; // PendingVerification (older API: Ready | ReviewRequired)
   final String longTermImpact;
   final int slotCount;
+  final String? message;
 
   const TimetableGeneration({
     required this.status,
     required this.longTermImpact,
     required this.slotCount,
+    this.message,
   });
+
+  bool get isPendingVerification => status == 'PendingVerification';
 
   factory TimetableGeneration.fromJson(Map<String, dynamic> json) {
     final timetable = json['timetable'];
@@ -21,7 +27,83 @@ class TimetableGeneration {
     return TimetableGeneration(
       status: (json['status'] as String?) ?? '',
       longTermImpact: (json['longTermImpact'] as String?) ?? '',
-      slotCount: slots is List ? slots.length : 0,
+      slotCount: json['slotCount'] is int
+          ? json['slotCount'] as int
+          : (slots is List ? slots.length : 0),
+      message: json['message'] as String?,
+    );
+  }
+}
+
+/// One generated session inside a [TimetableProposal]. `day` is 1-7 (Mon-Sun).
+class ProposalSlot {
+  final int day;
+  final String startTime; // HH:mm
+  final String endTime;
+  final String focus;
+  final int durationMinutes;
+  final String description;
+
+  const ProposalSlot({
+    required this.day,
+    required this.startTime,
+    required this.endTime,
+    required this.focus,
+    required this.durationMinutes,
+    required this.description,
+  });
+
+  factory ProposalSlot.fromJson(Map<String, dynamic> json) => ProposalSlot(
+    day: (json['day'] as num?)?.toInt() ?? 1,
+    startTime: (json['startTime'] as String?) ?? '',
+    endTime: (json['endTime'] as String?) ?? '',
+    focus: (json['focus'] as String?) ?? '',
+    durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 0,
+    description: (json['description'] as String?) ?? '',
+  );
+}
+
+/// The user's latest timetable verification request (`GET /timetable/proposal`).
+class TimetableProposal {
+  final int id;
+  final String status; // Pending | Approved | Rejected
+  final List<ProposalSlot> slots;
+  final String longTermImpact;
+  final String? reviewNote;
+  final String? reviewerName;
+  final DateTime? reviewedAt;
+
+  const TimetableProposal({
+    required this.id,
+    required this.status,
+    required this.slots,
+    required this.longTermImpact,
+    this.reviewNote,
+    this.reviewerName,
+    this.reviewedAt,
+  });
+
+  bool get isPending => status == 'Pending';
+  bool get isApproved => status == 'Approved';
+  bool get isRejected => status == 'Rejected';
+
+  factory TimetableProposal.fromJson(Map<String, dynamic> json) {
+    final rawSlots = json['slots'];
+    return TimetableProposal(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      status: (json['status'] as String?) ?? '',
+      slots: rawSlots is List
+          ? rawSlots
+                .whereType<Map<String, dynamic>>()
+                .map(ProposalSlot.fromJson)
+                .toList()
+          : const [],
+      longTermImpact: (json['longTermImpact'] as String?) ?? '',
+      reviewNote: json['reviewNote'] as String?,
+      reviewerName: json['reviewerName'] as String?,
+      reviewedAt: json['reviewedAt'] is String
+          ? DateTime.tryParse(json['reviewedAt'] as String)
+          : null,
     );
   }
 }
@@ -74,8 +156,31 @@ class TimeAgentApi {
     }
   }
 
-  /// Generates the timetable for [workflowId]. On success the server replaces
-  /// all of the user's existing timetable slots (manual edits included).
+  /// The latest verification request, or null if the user never made one.
+  Future<TimetableProposal?> getProposal() async {
+    try {
+      final response = await _dio.get('/timetable/proposal');
+      final data = response.data;
+      final proposal = data is Map ? data['proposal'] : null;
+      if (proposal is Map<String, dynamic>) {
+        return TimetableProposal.fromJson(proposal);
+      }
+      return null;
+    } on DioException catch (e) {
+      throw AgentException.fromDio(e, service: 'timetable service');
+    }
+  }
+
+  Future<void> cancelProposal(int id) async {
+    try {
+      await _dio.post('/timetable/proposal/$id/cancel');
+    } on DioException catch (e) {
+      throw AgentException.fromDio(e, service: 'timetable service');
+    }
+  }
+
+  /// Generates a timetable proposal for [workflowId]. It replaces the user's
+  /// slots only after a reviewer approves it.
   Future<TimetableGeneration> generate(
     String workflowId, {
     String preferences = '',

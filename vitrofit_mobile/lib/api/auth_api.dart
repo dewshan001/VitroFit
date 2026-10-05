@@ -31,7 +31,9 @@ class AuthApi {
     }
   }
 
-  Future<AuthResult> verifyEmail({
+  /// Returns the signed-in session, or (for a gym owner whose application is
+  /// still awaiting admin approval) an outcome with no tokens.
+  Future<VerifyEmailOutcome> verifyEmail({
     required String email,
     required String otp,
   }) async {
@@ -41,7 +43,14 @@ class AuthApi {
         data: {'email': email, 'otp': otp},
         options: Options(extra: {'skipAuth': true}),
       );
-      return AuthResult.fromJson(response.data as Map<String, dynamic>);
+      final data = response.data as Map<String, dynamic>;
+      if (data['accessToken'] is! String) {
+        return VerifyEmailOutcome.pending(
+          (data['message'] as String?) ??
+              'Your email is verified. Your gym application is awaiting approval.',
+        );
+      }
+      return VerifyEmailOutcome.signedIn(AuthResult.fromJson(data));
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
