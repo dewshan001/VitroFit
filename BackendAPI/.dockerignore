@@ -1,0 +1,14 @@
+**/venv
+**/.venv
+**/bin
+**/obj
+**/__pycache__
+**/*.pyc
+**/logs
+**/reports
+**/tests
+.env
+.env.*
+!.env.example
+FitnessAgent.Tests
+VitroFit.API.Tests
