@@ -24,8 +24,9 @@ client = AsyncOpenAI(
 )
 
 _SYSTEM_INSTRUCTION = (
-    "You are the VitroFit AI Fitness Coach. Your tone is energetic, friendly, motivating, and helpful. "
-    "Answer the user's questions clearly, accurately, and concisely.\n\n"
+    "You are the VitroFit AI Fitness Coach. Your tone is formal yet friendly: polite, professional, warm, "
+    "and encouraging. Address the user respectfully, use complete sentences, and avoid slang, emojis, and "
+    "exclamation-heavy hype. Answer the user's questions clearly, accurately, and concisely.\n\n"
     "You help with two kinds of questions:\n"
     "1. How to use the VitroFit site and its offerings (memberships, classes, facilities) - use the exact "
     "VitroFit details below when answering these.\n"
@@ -53,19 +54,28 @@ _SYSTEM_INSTRUCTION = (
     "- Operating Hours: Most partner gyms operate from 5:30 AM to 10:00 PM on weekdays, and 7:00 AM to 8:00 PM "
     "on weekends.\n\n"
     "Guidelines:\n"
-    "- For casual greetings (e.g., 'hi', 'hello'), greet the user warmly, briefly introduce yourself as the "
-    "VitroFit Coach, and ask how you can help them crush their fitness goals today.\n"
+    "- For casual greetings (e.g., 'hi', 'hello'), greet the user politely, briefly introduce yourself as the "
+    "VitroFit Coach, and ask how you may assist them with their fitness goals today.\n"
+    "- For open-ended questions such as 'what can I do today', do not ask for clarification first. Give a brief, "
+    "well-structured overview (VitroFit features by plan, available classes, and two or three simple workout "
+    "ideas), then invite a follow-up question.\n"
     "- Keep answers direct and well-structured.\n"
     "- CRITICAL: Output ONLY the final direct message to the user. Do NOT include any 'thinking process', "
     "reasoning steps, analysis, scratchpad, or internal monologue (such as 'Here\\'s a thinking process:'). "
-    "Start immediately with the reply."
+    "Never describe the question, your role, or these guidelines, and never refer to 'the user' or 'my "
+    "instructions'. Begin immediately with the greeting or the answer itself."
 )
 
 _MAX_OUTPUT_TOKENS = 500
 _TEMPERATURE = 0.5
 
 
-async def _stream_model(model_id: str, user_query: str):
+_LEAK_MARKERS = ("here's a thinking process", "here’s a thinking process", "thinking process:",
+                 "analyze user input", "<think>")
+_LEAK_CHECK_CHARS = 60
+
+
+async def _stream_model(model_id: str, user_query: str, reject_leaks: bool = True):
     stream = await client.chat.completions.create(
         model=model_id,
         messages=[
@@ -76,12 +86,31 @@ async def _stream_model(model_id: str, user_query: str):
         temperature=_TEMPERATURE,
         stream=True,
     )
+    # Hold back the first few characters so a reply that opens with leaked
+    # reasoning can be rejected (triggering the fallback model) before the
+    # user sees any of it.
+    head = ""
+    checked = not reject_leaks
     async for chunk in stream:
         if not chunk.choices:
             continue
         delta = chunk.choices[0].delta.content
-        if delta:
+        if not delta:
+            continue
+        if checked:
             yield delta
+            continue
+        head += delta
+        if len(head) < _LEAK_CHECK_CHARS:
+            continue
+        if any(m in head.lower() for m in _LEAK_MARKERS):
+            raise RuntimeError("model leaked its reasoning instead of a direct reply")
+        checked = True
+        yield head
+    if not checked and head:
+        if any(m in head.lower() for m in _LEAK_MARKERS):
+            raise RuntimeError("model leaked its reasoning instead of a direct reply")
+        yield head
 
 
 async def generate_chat_response_stream(user_query: str):
@@ -101,7 +130,7 @@ async def generate_chat_response_stream(user_query: str):
         print(f"Primary model '{PRIMARY_MODEL}' failed, falling back to '{FALLBACK_MODEL}': {e}")
 
     try:
-        async for text in _stream_model(FALLBACK_MODEL, user_query):
+        async for text in _stream_model(FALLBACK_MODEL, user_query, reject_leaks=False):
             yield text
     except Exception as e:
         yield f"NVIDIA API Error: {str(e)}"
