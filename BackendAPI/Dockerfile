@@ -16,19 +16,9 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /app/VitroFit.API ./VitroFit.API
 
-# The sidecar launcher looks for <service>/venv/bin/python, so each service gets its own venv.
-# TimeManagementAgentService has no requirements.txt of its own; it shares FitnessAgentService's.
-COPY chatbot_service/requirements.txt /tmp/req/chatbot.txt
-COPY DietPlanService/requirements.txt /tmp/req/diet.txt
-COPY FitnessAgentService/requirements.txt /tmp/req/fitness.txt
-COPY GymAgentService/requirements.txt /tmp/req/gym.txt
-RUN set -e; \
-    for pair in chatbot_service:chatbot DietPlanService:diet FitnessAgentService:fitness \
-                GymAgentService:gym TimeManagementAgentService:fitness; do \
-        svc="${pair%%:*}"; req="${pair##*:}"; \
-        python3 -m venv "/app/$svc/venv"; \
-        "/app/$svc/venv/bin/pip" install --no-cache-dir -r "/tmp/req/$req.txt"; \
-    done
+# The sidecar launcher uses ONE shared venv at <backend dir>/venv, built from the single requirements.txt.
+COPY requirements.txt /tmp/requirements.txt
+RUN python3 -m venv /app/venv     && /app/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY chatbot_service/ chatbot_service/
 COPY DietPlanService/ DietPlanService/
