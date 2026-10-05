@@ -64,7 +64,10 @@ namespace VitroFit.API.Services
                 // Connect using STARTTLS (upgrades the connection to TLS after initial handshake).
                 // SecureSocketOptions.StartTls is the correct option for port 587.
                 // If you switch to port 465, change this to SecureSocketOptions.SslOnConnect.
-                var secureOption = _emailSettings.UseSsl
+                // Implicit SSL only works on port 465; port 587 always speaks STARTTLS, so UseSsl=true on 587
+                // (a common misconfiguration that makes every email fail with an SSL handshake error) is ignored.
+                var implicitSsl = _emailSettings.UseSsl && _emailSettings.Port != 587;
+                var secureOption = implicitSsl
                     ? SecureSocketOptions.SslOnConnect      // port 465
                     : SecureSocketOptions.StartTls;          // port 587
 
