@@ -60,6 +60,18 @@ public sealed class FakeGymAgentClient : IGymAgentClient
         return Task.FromResult(DetailsResult);
     }
 
+    public Task<System.Text.Json.JsonElement> GetNearbyGymsAsync(NearbyGymsRequest request, CancellationToken ct)
+    {
+        if (Fail != null) throw Fail;
+        return Task.FromResult(System.Text.Json.JsonDocument.Parse("{\"places\":[]}").RootElement);
+    }
+
+    public Task<System.Text.Json.JsonElement> GetMapsConfigAsync(CancellationToken ct)
+    {
+        if (Fail != null) throw Fail;
+        return Task.FromResult(System.Text.Json.JsonDocument.Parse("{\"apiKey\":\"test-key\"}").RootElement);
+    }
+
     public Task<System.Text.Json.JsonElement> GetGymWorkoutsAsync(GymWorkoutsRequest request, CancellationToken ct)
     {
         if (Fail != null) throw Fail;

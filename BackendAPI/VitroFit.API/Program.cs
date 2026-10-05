@@ -73,6 +73,9 @@ builder.Services.AddHttpClient<IGymAgentClient, GymAgentClient>((sp, client) =>
 builder.Services.AddGymAgentRateLimiting(
     builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:AiRequestsPerMinute") ?? new GymAgentSettings().AiRequestsPerMinute);
 
+builder.Services.AddNearbyGymsRateLimiting(
+    builder.Configuration.GetValue<int?>($"{GymAgentSettings.SectionName}:NearbyRequestsPerMinute") ?? 30);
+
 // Diet plans: browsers call api/diet/* here; this API passes the request on to the Python diet service.
 builder.Services.Configure<DietAgentSettings>(builder.Configuration.GetSection(DietAgentSettings.SectionName));
 builder.Services.AddHttpClient<IDietAgentClient, DietAgentClient>((sp, client) =>
@@ -181,6 +184,7 @@ foreach (var (serviceName, relativeDir, port, customArgs, environment) in new (s
     // The shared key (if set) switches the diet service to internal-only: it then answers only this API.
     ("DietPlanService", "DietPlanService", 8003, null, dietAgentKey.Length > 0 ? new() { ["DIET_AGENT_KEY"] = dietAgentKey } : null),
     ("FitnessAgentService", "FitnessAgentService", 8002, "-m app.server", null),
+    ("TimeManagementAgentService", "TimeManagementAgentService", 8004, "-m app.server", null),
 })
 {
     var process = PythonServiceSidecar.StartIfAvailable(app.Logger, builder.Environment.ContentRootPath, serviceName, relativeDir, port, customArgs, environment);

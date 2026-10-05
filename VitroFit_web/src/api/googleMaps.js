@@ -1,9 +1,31 @@
 // Loads the Google Maps JavaScript API once and searches Places (New) for gyms.
-// The key comes from VITE_GOOGLE_MAPS_API_KEY. A browser key is public by nature, so restrict it in
-// Google Cloud (HTTP referrers + the Maps JavaScript API and Places API (New) only).
+// The key lives in GymAgentService's .env (GOOGLE_PLACES_API_KEY) and is served by GET /api/gyms/maps-config.
+// A browser key is public by nature, so restrict it in Google Cloud (HTTP referrers + the Maps JavaScript API
+// and Places API (New) only).
 
-export const MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
-export const hasMapsKey = Boolean(MAPS_KEY && MAPS_KEY !== 'your_google_maps_api_key_here');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5284/api';
+
+let keyRequest = null;
+
+/** Resolves with the Maps key from the backend (fetched once); rejects with a readable message. */
+export function getMapsKey() {
+  if (!keyRequest) {
+    keyRequest = fetch(`${API_BASE_URL}/gyms/maps-config`)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        const key = typeof data?.apiKey === 'string' ? data.apiKey.trim() : '';
+        if (!response.ok || !key) {
+          throw new Error('Google Maps key is not configured (set GOOGLE_PLACES_API_KEY in the gym agent .env).');
+        }
+        return key;
+      })
+      .catch((err) => {
+        keyRequest = null;
+        throw err instanceof TypeError ? new Error('Could not reach the server to get the Google Maps key.') : err;
+      });
+  }
+  return keyRequest;
+}
 
 export const SEARCH_RADIUS_M = 50000; // Nearby Search (New) allows at most 50 km
 export const MAX_RESULTS = 20; // ...and at most 20 places per request
@@ -12,10 +34,9 @@ let loading = null;
 
 /** Resolves with `window.google.maps` once the script and the marker library are ready. */
 export function loadGoogleMaps() {
-  if (!hasMapsKey) return Promise.reject(new Error('Google Maps key is not configured.'));
   if (loading) return loading;
 
-  loading = new Promise((resolve, reject) => {
+  loading = getMapsKey().then((mapsKey) => new Promise((resolve, reject) => {
     // Google calls this when the key is rejected (billing off, referrer blocked, API not enabled).
     window.gm_authFailure = () => {
       loading = null;
@@ -35,13 +56,16 @@ export function loadGoogleMaps() {
     const script = document.createElement('script');
     script.async = true;
     script.src =
-      `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}` +
+      `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey)}` +
       '&v=weekly&loading=async&callback=__vitroGoogleMapsReady';
     script.onerror = () => {
       loading = null;
       reject(new Error('Could not load Google Maps. Check your connection.'));
     };
     document.head.appendChild(script);
+  })).catch((err) => {
+    loading = null;
+    throw err;
   });
   return loading;
 }
@@ -87,6 +111,7 @@ const FIELD_MASK = [
 
 /** Gyms near a point, nearest first. Throws with Google's own message when the request is refused. */
 export async function searchNearbyGyms({ lat, lng }, signal) {
+  const MAPS_KEY = await getMapsKey();
   const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
     method: 'POST',
     signal,

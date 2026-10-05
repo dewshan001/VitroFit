@@ -211,7 +211,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                "No sessions yet. Add workouts to your timetable from the WORKOUTS tab.",
+                "No sessions yet. Generate your AI timetable from the TIME tab.",
                 style: GoogleFonts.inter(
                   fontSize: 12.5,
                   color: AppColors.textSecondary,

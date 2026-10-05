@@ -26,6 +26,8 @@ namespace VitroFit.API.Features.GymAgent
         Task DecideAsync(string id, GymDecision decision, CancellationToken ct);
         Task<JsonElement> GetGymDetailsAsync(GymDetailsRequest request, CancellationToken ct);
         Task<JsonElement> GetGymWorkoutsAsync(GymWorkoutsRequest request, CancellationToken ct);
+        Task<JsonElement> GetNearbyGymsAsync(NearbyGymsRequest request, CancellationToken ct);
+        Task<JsonElement> GetMapsConfigAsync(CancellationToken ct);
     }
 
     /// <summary>
@@ -123,6 +125,18 @@ namespace VitroFit.API.Features.GymAgent
         {
             using var message = Build(HttpMethod.Post, "/internal/gyms/workouts", JsonContent.Create(request, options: RequestJson));
             return await SendAsync<JsonElement>(message, ct, AiTimeout);
+        }
+
+        public async Task<JsonElement> GetNearbyGymsAsync(NearbyGymsRequest request, CancellationToken ct)
+        {
+            using var message = Build(HttpMethod.Post, "/internal/gyms/nearby", JsonContent.Create(request, options: RequestJson));
+            return await SendAsync<JsonElement>(message, ct);
+        }
+
+        public async Task<JsonElement> GetMapsConfigAsync(CancellationToken ct)
+        {
+            using var message = Build(HttpMethod.Get, "/internal/gyms/maps-config");
+            return await SendAsync<JsonElement>(message, ct);
         }
 
         private TimeSpan QuickTimeout => TimeSpan.FromSeconds(Math.Max(1, _settings.TimeoutSeconds));

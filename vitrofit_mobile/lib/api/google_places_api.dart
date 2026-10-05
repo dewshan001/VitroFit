@@ -2,13 +2,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import '../models/gym.dart';
-
-/// Browser/app Google key for Places (New), passed at build time:
-///   flutter run --dart-define=GOOGLE_MAPS_API_KEY=...
-/// It ships inside the app, so restrict it in Google Cloud (Android package +
-/// SHA-1, Places API (New) only). The native map key is separate and lives in
-/// android/local.properties (see README).
-const String _googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+import 'api_client.dart';
 
 /// Nearby Search (New) allows at most 50 km and 20 results per request.
 const double searchRadiusMeters = 50000;
@@ -33,54 +27,27 @@ double haversineMeters(double lat1, double lng1, double lat2, double lng2) {
   return 2 * 6371000 * math.asin(math.sqrt(h));
 }
 
+/// Nearby gym search goes through the VitroFit API (POST /gyms/nearby), which
+/// forwards to GymAgentService, where the Google Places key lives (.env), so no Places key ships in the app.
+/// Only the native map SDK key (android/local.properties) remains on the device.
 class GooglePlacesApi {
-  GooglePlacesApi({Dio? dio})
-    : _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              baseUrl: 'https://places.googleapis.com',
-              connectTimeout: const Duration(seconds: 12),
-              receiveTimeout: const Duration(seconds: 12),
-            ),
-          );
+  GooglePlacesApi({Dio? dio}) : _dio = dio ?? ApiClient.instance.dio;
 
   final Dio _dio;
-
-  static const _fieldMask =
-      'places.id,places.displayName,places.formattedAddress,places.location,'
-      'places.websiteUri,places.nationalPhoneNumber';
 
   /// Gyms near a point, nearest first.
   Future<List<Gym>> searchNearby({
     required double lat,
     required double lng,
   }) async {
-    if (_googleMapsApiKey.isEmpty) {
-      throw const GooglePlacesException(
-        'Google Maps key is not set. Run with --dart-define=GOOGLE_MAPS_API_KEY=...',
-      );
-    }
     try {
       final response = await _dio.post(
-        '/v1/places:searchNearby',
-        options: Options(
-          headers: {
-            'X-Goog-Api-Key': _googleMapsApiKey,
-            'X-Goog-FieldMask': _fieldMask,
-          },
-        ),
+        '/gyms/nearby',
         data: {
-          'includedTypes': ['gym'],
-          'languageCode': 'en',
-          'maxResultCount': maxResults,
-          'rankPreference': 'DISTANCE',
-          'locationRestriction': {
-            'circle': {
-              'center': {'latitude': lat, 'longitude': lng},
-              'radius': searchRadiusMeters,
-            },
-          },
+          'lat': lat,
+          'lng': lng,
+          'radiusMeters': searchRadiusMeters,
+          'maxResults': maxResults,
         },
       );
       final places = (response.data['places'] as List? ?? const []);
@@ -96,7 +63,7 @@ class GooglePlacesApi {
           .toList();
     } on DioException catch (e) {
       final message = (e.response?.data is Map)
-          ? (e.response!.data['error']?['message'] as String?)
+          ? (e.response!.data['detail'] as String?)
           : null;
       throw GooglePlacesException(message ?? 'Places search failed.');
     }

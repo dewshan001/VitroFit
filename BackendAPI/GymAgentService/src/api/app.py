@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
+import httpx
 from fastapi import APIRouter, FastAPI, Depends, HTTPException
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -164,6 +165,13 @@ class WorkoutSuggestionRequest(BaseModel):
         return [normalise_field(v) if isinstance(v, str) else v for v in values] if isinstance(values, list) else values
 
 
+class NearbyGymsRequest(BaseModel):
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    radius_meters: float = Field(default=50000, gt=0, le=50000)
+    max_results: int = Field(default=20, ge=1, le=20)
+
+
 def _aware(value: datetime) -> datetime:
     """Timestamps are stored in UTC; some databases (SQLite) return them without tzinfo."""
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
@@ -172,6 +180,53 @@ def _aware(value: datetime) -> datetime:
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "VitroFit Gym Agent"}
+
+
+PLACES_FIELD_MASK = (
+    "places.id,places.displayName,places.formattedAddress,places.location,"
+    "places.websiteUri,places.nationalPhoneNumber"
+)
+
+
+@gyms_router.get("/maps-config")
+def maps_config():
+    """The Google key the web map loads its script with. A browser Maps key is public by nature, so
+    restrict it in Google Cloud (HTTP referrers + Maps JavaScript API / Places API (New))."""
+    api_key = os.getenv("GOOGLE_PLACES_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GOOGLE_PLACES_API_KEY is not set.")
+    return {"apiKey": api_key}
+
+
+@gyms_router.post("/nearby")
+async def nearby_gyms(req: NearbyGymsRequest):
+    """Gyms near a point via Google Places (New). The key stays in this service's .env, never in a client."""
+    api_key = os.getenv("GOOGLE_PLACES_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GOOGLE_PLACES_API_KEY is not set.")
+    body = {
+        "includedTypes": ["gym"],
+        "languageCode": "en",
+        "maxResultCount": req.max_results,
+        "rankPreference": "DISTANCE",
+        "locationRestriction": {
+            "circle": {
+                "center": {"latitude": req.lat, "longitude": req.lng},
+                "radius": req.radius_meters,
+            }
+        },
+    }
+    headers = {"X-Goog-Api-Key": api_key, "X-Goog-FieldMask": PLACES_FIELD_MASK}
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            response = await client.post("https://places.googleapis.com/v1/places:searchNearby", json=body, headers=headers)
+    except httpx.HTTPError:
+        logger.exception("Google Places request failed")
+        raise HTTPException(status_code=502, detail="Places search is unavailable.")
+    if response.status_code != 200:
+        logger.warning("Google Places returned %s: %s", response.status_code, response.text[:300])
+        raise HTTPException(status_code=502, detail="Places search failed.")
+    return response.json()
 
 
 @gyms_router.post("/details")

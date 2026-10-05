@@ -14,7 +14,7 @@ public static class FitnessModule
             client.Timeout = TimeSpan.FromSeconds(120);
         });
         services.AddHttpClient<TimeManagementAgentClient>(client => {
-            client.BaseAddress = new Uri(configuration["TimeManagementAgent:BaseUrl"] ?? "http://127.0.0.1:8003");
+            client.BaseAddress = new Uri(configuration["TimeManagementAgent:BaseUrl"] ?? "http://127.0.0.1:8004");
             client.Timeout = TimeSpan.FromSeconds(120);
         });
         services.AddScoped<FitnessWorkflowService>();
