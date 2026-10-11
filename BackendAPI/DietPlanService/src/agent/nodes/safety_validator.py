@@ -16,3 +16,4 @@ class SafetyValidatorAgent:
     async def run(self, input: SafetyValidatorInput) -> SafetyValidatorOutput:
         result = validate_plan(input.meals, input.targets, input.prefs)
         return SafetyValidatorOutput(**result)
+ 
